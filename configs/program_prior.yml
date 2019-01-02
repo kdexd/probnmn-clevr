@@ -10,17 +10,17 @@ vocab_size: 44
 
 
 # training script arguments
-num_iterations: 10000
+num_iterations: 20000
 weight_decay: 0.001
 
 
 ### batch size scheduling - (bs *= gamma) at specified iterations
 initial_bs: 256
 bs_gamma: 2
-bs_steps: [100, 500, 1000, 2500, 5000]  # batch size reachs 8192 this way
+bs_steps: [500, 1000, 2500, 5000, 10000]  # batch size reachs 8192 this way
 
 
 ### learning rate scheduling - (lr *= gamma) if validation loss plateaus
 initial_lr: 0.01
 lr_gamma: 0.1
-lr_steps: [500, 1000, 2500, 5000, 7500]
+lr_steps: [500, 1000, 2500, 5000, 10000]

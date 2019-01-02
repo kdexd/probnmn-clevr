@@ -1,7 +1,16 @@
-from datetime import datetime
+"""
+A checkpoint manager periodically saves model and optimizer as .pth files during training.
+
+It also helps with experiment reproducibility in two ways. First, it saves the experiment
+config file in checkpoint directory, so the saved checkpoints can be associated with all
+their hyper-parameters. Second, it records the commit of codebase in the checkpoint directory
+and later raises a warning if the checkpoints are loaded with another version of codebase.
+This way, it gives a signal to view commit diffs for potential bugs, if something is fishy.
+"""
+import copy
 import os
 import shutil
-import subprocess
+from subprocess import PIPE, Popen
 from typing import Optional, Tuple, Type
 import warnings
 
@@ -9,83 +18,111 @@ import torch
 from torch import nn, optim
 
 
-def create_checkpoint_dir(save_dirpath: str, config_ymlpath: str) -> str:
+class CheckpointManager(object):
     """
-    Given a directory path, creates a sub-directory based on timestamp, and copies over
-    config of current experiemnt in that sub-directory, to associate checkpoints with their
-    respective config. Moreover, records current commit SHA in a text file.
-
-    Parameters
-    ----------
-    save_dirpath: str
-        Path to directory to save checkpoints into (a sub-directory). Check ``--save-dirpath``
-        argument in ``train.py``.
-    config_ymlpath: str
-        Path to yml config file. Check ``--config-yml`` argument in ``train.py``.
-
-    Returns
-    -------
-    str
-        Path to the sub-directory based on timestamp.
-    """
-
-    # create a fresh directory based on timestamp, inside save_dirpath
-    save_datetime = datetime.strftime(datetime.now(), "%d-%b-%Y-%H:%M:%S")
-    checkpoint_dirpath = os.path.join(save_dirpath, save_datetime)
-    os.makedirs(checkpoint_dirpath)
-
-    # copy over currently used config file inside this directory
-    shutil.copy(config_ymlpath, checkpoint_dirpath)
-
-    # save current git commit hash in this checkpoint directory
-    commit_sha_subprocess = subprocess.Popen(
-        ["git", "rev-parse", "--short", "HEAD"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    commit_sha, _ = commit_sha_subprocess.communicate()
-    with open(os.path.join(checkpoint_dirpath, "commit_sha.txt"), "w") as commit_sha_file:
-        commit_sha_file.write(commit_sha.decode("utf-8").strip().replace("\n", ""))
-    return checkpoint_dirpath
-
-
-def save_checkpoint(checkpoint_dirpath: str,
-                    iteration: int,
-                    model: Type[nn.Module],
-                    optimizer: Type[optim.Optimizer]) -> None:
-    """
-    Given a path to checkpoint saving directory (the one named by timestamp) and iteration number,
-    save state dicts of model and optimizer to a .pth file.
+    A checkpoint manager which accepts path to an empty / non-existent directory and references
+    to model and optimizer objects, and saves checkpoints every ``step_size`` epochs. Closely
+    follows the API of PyTorch optimizers and learning rate schedulers.
 
     Parameters
     ----------
     checkpoint_dirpath: str
-        Path to checkpoint saving directory (as created by ``create_checkpoint_dir``).
-    iteration: int
-        Iteration number after which checkpoint is being saved.
-    model: Type[nn.Module]
-    optimizer: Type[optim.Optimizer]
+        Path to an empty or non-existent directory to save checkpoints.
+    model: nn.Module
+        Model which needs to be checkpointed.
+    optimizer: optim.Optimizer
+        Corresponding optimizer which needs to be checkpointed.
+    metric_mode: str, optional (default="max")
+        One of min, max. In min mode, best checkpoint will be recorded when metric hits a lower
+        value; in max mode it will be recorded when metric hits a higher value.
+    step_size: int, optional (default=1)
+        Period of saving checkpoints (in terms of epochs).
+    last_epoch: int, optional (default=-1)
+        The index of last epoch. Usually -1 if training starts afresh, else depends on the epoch
+        from where training is resumed.
     """
 
-    if isinstance(model, nn.DataParallel):
-        model_state_dict = model.module.state_dict()
-    else:
-        model_state_dict = model.state_dict()
+    def __init__(self,
+                 checkpoint_dirpath: str,
+                 config_ymlpath: str,
+                 model: Type[nn.Module],
+                 optimizer: Type[optim.Optimizer],
+                 metric_mode: str = "max",
+                 step_size: int = 1,
+                 last_epoch: int = -1):
+        self.checkpoint_dirpath = checkpoint_dirpath
+        self.model = model
+        self.optimizer = optimizer
+        self.metric_mode = metric_mode
 
-    torch.save(
-        {
-            "model": model_state_dict,
-            "optimizer": optimizer.state_dict(),
-        },
-        os.path.join(checkpoint_dirpath, f"model_{iteration}.pth"),
-    )
+        # frequency of saving checkpoints (based on number of calls to ``step`` method)
+        self.step_size = step_size
+        self.last_epoch = last_epoch
+
+        # initialize members to hold best checkpoint and its performance
+        self.metric = None
+        self.best_checkpoint = copy.copy(self._get_model_state_dict())
+
+        # create checkpoint directory and copy the config in it
+        os.makedirs(checkpoint_dirpath, exist_ok=True)
+        shutil.copy(config_ymlpath, checkpoint_dirpath)
+
+        # save current git commit hash in this checkpoint directory
+        commit_sha_subprocess = Popen(
+            ["git", "rev-parse", "--short", "HEAD"], stdout=PIPE, stderr=PIPE
+        )
+        commit_sha, _ = commit_sha_subprocess.communicate()
+        with open(os.path.join(checkpoint_dirpath, "commit_sha.txt"), "w") as commit_sha_file:
+            commit_sha_file.write(commit_sha.decode("utf-8").strip().replace("\n", ""))
+
+    def step(self, metric: Type[torch.Tensor]):
+        """
+        Save checkpoint if step size conditions meet, and update best checkpoint based on
+        metric and metric mode.
+
+        Parameters
+        ----------
+        metric: torch.Tensor
+            Zero-dimensional tensor (scalar) holding the metric.
+        """
+
+        self.last_epoch += 1
+        if self.last_epoch % self.step_size == 0:
+            save_state_dict = {
+                "model": self._get_model_state_dict(),
+                "optimizer": self.optimizer.state_dict()
+            }
+            torch.save(
+                save_state_dict,
+                os.path.join(self.checkpoint_dirpath, f"model_{self.last_epoch}.pth"),
+            )
+
+        # update best checkpoint based on metric and metric mode
+        if not self.metric:
+            self.metric = metric
+
+        if (self.metric_mode == "min" and metric < self.metric) or \
+                (self.metric_mode == "max" and metric > self.metric):
+            self.metric = metric
+            self.best_checkpoint = copy.copy(self._get_model_state_dict())
+
+    def save_best(self):
+        """Save best performing checkpoint observed so far."""
+        torch.save(
+            self.best_checkpoint,
+            os.path.join(self.checkpoint_dirpath, f"model_best_{self.metric.item()}.pth")
+        )
+
+    def _get_model_state_dict(self):
+        if isinstance(self.model, nn.DataParallel):
+            return self.model.module.state_dict()
+        else:
+            return self.model.state_dict()
 
 
-def load_checkpoint(checkpoint_dirpath: str,
-                    iteration: int,
-                    model: Type[nn.Module],
-                    optimizer: Optional[optim.Optimizer] = None
-                    ) -> Tuple[nn.Module, optim.Optimizer]:
+def load_checkpoint(checkpoint_dirpath: str, epoch: int) -> Tuple[nn.Module, optim.Optimizer]:
     """
-    Given a path to directory containing saved checkpoints and iteration number, load corresponding
+    Given a path to directory containing saved checkpoints and epoch number, load corresponding
     checkpoint. This method checks if current commit SHA of code matches the commit SHA recorded
     when this checkpoint was saved - raises a warning if they don't match.
 
@@ -93,20 +130,18 @@ def load_checkpoint(checkpoint_dirpath: str,
     ----------
     checkpoint_dirpath: str
         Path to directory containing saved checkpoints (as created by ``create_checkpoint_dir``).
-    iteration: int
-        Iteration number for which checkpoint is to be loaded.
-    model: Type[nn.Module]
-    optimizer: Type[optim.Optimizer]
+    epoch: int
+        Epoch number for which checkpoint is to be loaded.
 
     Returns
     -------
     Tuple[nn.Module, optim.Optimizer]
-        Model and optimizer with loaded parameters from checkpoint.
+        Model and optimizer stated dicts from checkpoint.
     """
 
     # verify commit sha, raise warning if it doesn't match
-    current_commit_sha_subprocess = subprocess.Popen(
-        ["git", "rev-parse", "--short", "HEAD"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    current_commit_sha_subprocess = Popen(
+        ["git", "rev-parse", "--short", "HEAD"], stdout=PIPE, stderr=PIPE
     )
     current_commit_sha, _ = current_commit_sha_subprocess.communicate()
     current_commit_sha = current_commit_sha.decode("utf-8").strip().replace("\n", "")
@@ -121,17 +156,9 @@ def load_checkpoint(checkpoint_dirpath: str,
             " are different. This might affect reproducibility and results."
         )
 
-    # derive checkpoint name / path from the iteration number
-    checkpoint_pthpath = os.path.join(checkpoint_dirpath, f"model_{iteration}.pth")
+    # derive checkpoint name / path from the epoch number
+    checkpoint_pthpath = os.path.join(checkpoint_dirpath, f"model_{epoch}.pth")
 
     # load encoder, decoder, optimizer state_dicts
     components = torch.load(checkpoint_pthpath)
-
-    if isinstance(model, nn.DataParallel):
-        model.module.load_state_dict(components["model"])
-    else:
-        model.load_state_dict(components["model"])
-
-    if optimizer is not None:
-        optimizer.load_state_dict(components["optimizer"])
-    return model, optimizer
+    return components["model"], components["optimizer"]
