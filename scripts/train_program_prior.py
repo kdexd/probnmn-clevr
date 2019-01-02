@@ -149,8 +149,7 @@ if __name__ == "__main__":
         config_ymlpath=args.config_yml,
         model=model,
         optimizer=optimizer,
-        metric_mode="min",
-        step_size=args.checkpoint_every
+        metric_mode="min"
     )
 
     running_loss = 0.0

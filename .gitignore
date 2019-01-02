@@ -25,9 +25,8 @@ wheels/
 *.egg
 MANIFEST
 
-# Datasets, pretrained models and preprocessed files
+# Datasets and preprocessed files
 data/
-models/
 !tbd/data/
 
 # Checkpoints directory
