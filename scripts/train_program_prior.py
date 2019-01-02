@@ -4,6 +4,7 @@ from datetime import datetime
 import itertools
 import json
 import os
+import random
 
 import torch
 from torch import nn, optim
@@ -12,7 +13,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
 
-from tbd.data import ClevrProgramsDataset
+from tbd.data import ClevrProgramsDataset, Vocabulary
 from tbd.nn import DynamicCrossEntropyLoss
 from tbd.models import ProgramPrior
 from tbd.utils.checkpointing import CheckpointManager
@@ -33,6 +34,11 @@ parser.add_argument(
     "--validation-h5",
     default="data/validation/programs.h5",
     help="Path to HDF file containing tokenized CLEVR v1.0 validation split programs.",
+)
+parser.add_argument(
+    "--vocab-json",
+    default="data/vocab.json",
+    help="Path to json file containing vocabulary mapping for programs, questions and answers.",
 )
 
 
@@ -141,6 +147,10 @@ if __name__ == "__main__":
         # don't wrap to DataParallel for CPU-mode
         model = nn.DataParallel(model, args.gpu_ids)
 
+    # also initialize vocabulary, useful for displaying examples
+    vocabulary = Vocabulary()
+    vocabulary.mapping = json.load(open(args.vocab_json))["program_token_to_idx"]
+
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
@@ -155,18 +165,15 @@ if __name__ == "__main__":
     running_loss = 0.0
     train_begin = datetime.now()
 
-    # make train dataloader iteration cyclical
+    # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
     train_dataloader = itertools.cycle(train_dataloader)
 
     for iteration in range(1, config["num_iterations"]):
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
-        batch_loss = do_iteration(batch, model, criterion, optimizer)        
+        batch_loss = do_iteration(batch, model, criterion, optimizer)
 
-        # ------------------------------------------------------------------------------------
-        #   ON ITERATION END  (running loss, print training progress, cross val)
-        # ------------------------------------------------------------------------------------
         if running_loss > 0.0:
             running_loss = 0.95 * running_loss + 0.05 * batch_loss.item()
         else:
@@ -174,7 +181,7 @@ if __name__ == "__main__":
 
         # print current time, iteration, running loss, learning rate
         if iteration % 100 == 0:
-            print("[{}][Iter: {:6d}][Loss: {:6f}][Lr: {:6f}][Bs: {:4d}]".format(
+            print("[{}][Iter: {:6d}][Loss: {:5f}][Lr: {:7f}][Bs: {:4d}]".format(
                 datetime.now() - train_begin, iteration, running_loss,
                 optimizer.param_groups[0]["lr"], batch_size
             ))
@@ -187,24 +194,39 @@ if __name__ == "__main__":
                 DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
             )
 
+        # ========================================================================================
+        #   VALIDATE AND PRINT FEW EXAMPLES
+        # ========================================================================================
         if iteration % args.checkpoint_every == 0:
-            # cross-validate and report perplexity
             print(f"Cross-validation after iteration {iteration}:")
             model.eval()
             batch_val_losses = []
             for i, batch in enumerate(tqdm(val_dataloader)):
                 for key in batch:
                     batch[key] = batch[key].to(device)
-
                 with torch.no_grad():
                     batch_loss = do_iteration(batch, model, criterion, optimizer)
                     batch_val_losses.append(batch_loss)
-
             model.train()
+
             average_val_loss = torch.mean(torch.stack(batch_val_losses, 0))
             perplexity = 2 ** average_val_loss
             print("Model perplexity: ", perplexity.item())
             checkpoint_manager.step(perplexity)
+
+            # print three random programs and their outputs
+            print("Some predicted examples by the language model (greedy decoding):")
+            print_dataloader = DataLoader(val_dataset, batch_size=3, shuffle=True)
+            batch = next(iter(print_dataloader))
+            with torch.no_grad():
+                output_logits = model(batch["program_tokens"], batch["program_lengths"])
+                _, output_tokens = torch.max(output_logits, dim=-1)
+
+            input_programs = batch["program_tokens"].cpu().numpy()
+            output_programs = output_tokens.cpu().numpy()
+            for inp, out in zip(input_programs, output_programs):
+                print("INPUT PROGRAM: ", " ".join(vocabulary.to_words(inp)[1:6]), "...")
+                print("OUTPUT PROGRAM:", " ".join(vocabulary.to_words(out)[0:5]), "...", "\n")
 
     # ============================================================================================
     #   AFTER TRAINING ENDS
