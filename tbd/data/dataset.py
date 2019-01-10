@@ -17,6 +17,9 @@ class ProgramPriorDataset(Dataset):
     def __init__(self, tokens_hdfpath: str):
         self._reader = ClevrTokensReader(tokens_hdfpath)
 
+    def __len__(self):
+        return len(self._reader)
+
     def __getitem__(self, index):
         # only return programs, nothing else needed for training program prior
         # also, return a dict for the sake of uniformity in return type of several classes
@@ -34,6 +37,9 @@ class QuestionCodingDataset(Dataset):
 
     def __init__(self, tokens_hdfpath: str):
         self._reader = ClevrTokensReader(tokens_hdfpath)
+
+    def __len__(self):
+        return len(self._reader)
 
     def __getitem__(self, index):
         item = self._reader[index]

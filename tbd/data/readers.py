@@ -34,7 +34,7 @@ class ClevrTokensReader(object):
             self._split = clevr_tokens.attrs["split"]
 
     def __len__(self):
-        return self.image_indices.size(0)
+        return len(self.image_indices)
 
     def __getitem__(self, index):
         program = self.programs[index]

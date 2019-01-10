@@ -14,8 +14,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
 
-from tbd.data import ClevrProgramsDataset
+from tbd.data import ProgramPriorDataset
 from tbd.models import ProgramPrior
+from tbd.opts import add_common_opts
 from tbd.utils.checkpointing import CheckpointManager
 
 
@@ -25,43 +26,8 @@ parser.add_argument(
     default="configs/program_prior.yml",
     help="Path to a config file listing model and solver parameters.",
 )
-parser.add_argument(
-    "--training-h5",
-    default="data/training/programs.h5",
-    help="Path to HDF file containing tokenized CLEVR v1.0 training split programs.",
-)
-parser.add_argument(
-    "--validation-h5",
-    default="data/validation/programs.h5",
-    help="Path to HDF file containing tokenized CLEVR v1.0 validation split programs.",
-)
-parser.add_argument(
-    "--vocab-dirpath",
-    default="data/clevr_vocab",
-    help="Path to directory containing vocabulary for programs, questions and answers.",
-)
-
-
-parser.add_argument_group("Arguments independent of experiment reproducibility")
-parser.add_argument(
-    "--gpu-ids", nargs="+", type=int, help="List of ids of GPUs to use (-1 for CPU)."
-)
-
-parser.add_argument_group("Checkpointing related arguments")
-parser.add_argument(
-    "--save-dirpath",
-    default="checkpoints/program_prior",
-    help="Path of directory to save checkpoints, this path is recommended to be empty or "
-         "non-existent. Having previously saved checkpoints in this directory might "
-         "overwrite them.",
-)
-parser.add_argument(
-    "--checkpoint-every",
-    default=500,
-    type=int,
-    help="Save a checkpoint after every this many iterations.",
-)
-
+# data file paths, gpu ids, checkpoint args etc.
+add_common_opts(parser)
 
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
 torch.manual_seed(0)
@@ -75,7 +41,7 @@ def do_iteration(batch, model, optimizer=None):
     if model.training:
         optimizer.zero_grad()
     # keys: {"predicted_tokens", "loss"}
-    output_dict = model(batch["program_tokens"])
+    output_dict = model(batch["program"])
     batch_loss = torch.mean(output_dict["loss"])
 
     if model.training:
@@ -85,9 +51,9 @@ def do_iteration(batch, model, optimizer=None):
 
 
 if __name__ == "__main__":
-    # ================================================================================================
+    # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
-    # ================================================================================================
+    # ============================================================================================
     args = parser.parse_args()
     config = yaml.load(open(args.config_yml))
     device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
@@ -102,8 +68,8 @@ if __name__ == "__main__":
     # ============================================================================================
 
     vocabulary = Vocabulary.from_files(args.vocab_dirpath)
-    train_dataset = ClevrProgramsDataset(args.training_h5)
-    val_dataset = ClevrProgramsDataset(args.validation_h5)
+    train_dataset = ProgramPriorDataset(args.tokens_train_h5)
+    val_dataset = ProgramPriorDataset(args.tokens_val_h5)
 
     # train dataloader can be re-initialized later while doing batch size scheduling
     batch_size = config["initial_bs"]
@@ -193,22 +159,29 @@ if __name__ == "__main__":
 
             average_val_loss = torch.mean(torch.stack(batch_val_losses, 0))
             perplexity = 2 ** average_val_loss
-            print("Model perplexity: ", perplexity.item())
+            print("Model perplexity: ", perplexity.item(), "\n")
             checkpoint_manager.step(perplexity)
 
-            # print three random programs and their outputs
-            # print("Some predicted examples by the language model (greedy decoding):")
-            # print_dataloader = DataLoader(val_dataset, batch_size=3, shuffle=True)
-            # batch = next(iter(print_dataloader))
-            # with torch.no_grad():
-            #     output_dict = model(batch["program_tokens"], batch["program_lengths"])
-            #     _, output_tokens = torch.max(output_logits, dim=-1)
+            # print three five programs and their outputs (of next time-step)
+            print("Some predicted examples by the language model (greedy decoding):")
+            print("- " * 30)  # separator for neatness
+            print_dataloader = DataLoader(val_dataset, batch_size=5)
+            batch = next(iter(print_dataloader))
+            with torch.no_grad():
+                output_dict = model(batch["program"])
+                output_tokens = output_dict["predicted_tokens"]
 
-            # input_programs = batch["program_tokens"].cpu().numpy()
-            # output_programs = output_tokens.cpu().numpy()
-            # for inp, out in zip(input_programs, output_programs):
-            #     print("INPUT PROGRAM: ", " ".join(vocabulary.to_words(inp)[1:6]), "...")
-            #     print("OUTPUT PROGRAM:", " ".join(vocabulary.to_words(out)[0:5]), "...", "\n")
+            input_programs = batch["program"].cpu().numpy()
+            output_programs = output_tokens.cpu().numpy()
+            for inp, out in zip(input_programs, output_programs):
+                # print only first five time-steps, these sequences can be really long
+                print("INPUT PROGRAM: ",
+                      " ".join(vocabulary.get_token_from_index(i, "programs") for i in inp[1:6]),
+                      "...")
+                print("OUTPUT PROGRAM: ",
+                      " ".join(vocabulary.get_token_from_index(o, "programs") for o in out[0:5]),
+                      "...")
+                print("- " * 30)  # separator for neatness
 
     # ============================================================================================
     #   AFTER TRAINING ENDS
