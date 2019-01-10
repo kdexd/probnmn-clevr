@@ -1,112 +1,187 @@
-from torch import nn
+from typing import Dict, Type
 
-from tbd.nn import DynamicRNN
+from allennlp.data import Vocabulary
+from allennlp.modules.seq2seq_encoders import PytorchSeq2SeqWrapper
+from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
+from allennlp.modules.token_embedders import Embedding
+from allennlp.nn.util import sequence_cross_entropy_with_logits
+import torch
+from torch import nn
 
 
 class ProgramPriorVanillaLSTM(nn.Module):
     """
-    A simpler class with Vanilla LSTM without any residual connections. This one is included
-    to make sure that adding all the bells and whistles is not redundant.
-
-    Refer docstrings and inline comments in ``ProgramPriorResidualLSTM``.
+    A simple language model with one-layer Vanilla LSTM, and no dropout. It
+    learns a prior over all the valid program sequences in CLEVR v1.0 training
+    split. This one is here to compare any added bells and whistles with this
+    simple model, and make sure that it's not an overkill.
+    
+    Parameters
+    ----------
+    vocabulary: Vocabulary
+        Vocabulary with namespaces for CLEVR programs, questions and answers.
+        We'll only use the `programs` namespace though.
+    embedding_size: int
+    hidden_size: int
+    num_layers: int
+    dropout: float
     """
 
     def __init__(self,
-                 vocab_size: int = 44,
+                 vocabulary: Vocabulary,
                  embedding_size: int = 128,
-                 rnn_hidden_size: int = 256,
-                 rnn_dropout: float = 0.25):
+                 hidden_size: int = 64,
+                 num_layers: int = 1,
+                 dropout: float = 0.0):
         super().__init__()
-        self.embedder = nn.Embedding(vocab_size, embedding_size)
-        self.decoder_lstm = nn.LSTM(
-            embedding_size, rnn_hidden_size, num_layers=2,
-            drouput=rnn_dropout, batch_first=True
-        )
-        self.decoder_linear = nn.Linear(rnn_hidden_size, vocab_size)
-        self.decoder_lstm = DynamicRNN(self.decoder_lstm)
+        self._vocabulary = vocabulary
 
-    def forward(self, program_tokens, program_lengths):
-        program_embeds = self.embedder(program_tokens)
-        decoder_output = self.decoder_lstm(program_embeds, program_lengths)
-        decoder_logits = self.decoder_linear(decoder_output)
-        return decoder_logits
+        # short-hand variables
+        __PAD = self._vocabulary.get_token_index("__PAD__", namespace="programs")
+        __vocab_size = self._vocabulary.get_vocab_size(namespace="programs")
+        __embedder_inner = Embedding(__vocab_size, embedding_size, padding_index=__PAD)
+
+        self._embedder = BasicTextFieldEmbedder({"programs": __embedder_inner})
+        self._seq_encoder = PytorchSeq2SeqWrapper(
+            nn.LSTM(
+                embedding_size, hidden_size, num_layers=num_layers,
+                dropout=dropout, batch_first=True
+            )
+        )
+        # project and tie input and output embeddings
+        self._projection_layer = nn.Linear(hidden_size, embedding_size, bias=False)
+        self._output_layer = nn.Linear(embedding_size, __vocab_size, bias=False)
+        self._output_layer.weight = __embedder_inner.weight
+
+    def forward(self, program_tokens: torch.LongTensor):
+        """
+        Given tokenized program sequences padded upto maximum length, predict
+        sequence at next time-step and calculate cross entropy loss of this
+        predicted sequence.
+
+        Parameters
+        ----------
+        program_tokens: torch.LongTensor
+            Tokenized program sequences padded with zeroes upto maximum length.
+            Shape: (batch_size, max_sequence_length)
+
+        Returns
+        -------
+        Dict[str, Type[torch.Tensor]]
+            A dict with two keys - `predicted_tokens` and `loss`.
+
+            - `predicted_tokens` represents program sequences predicted for
+              next time-step, shape: (batch_size, max_sequence_length - 1).
+
+            - `loss` represents per sequence cross entropy loss, shape:
+              (batch_size, )
+        """
+
+        # assume zero padding by default
+        program_tokens_mask = (program_tokens != 0).long()
+        # shape: (batch_size, max_sequence_length, embedding_size)
+        embedded_programs = self._embedder({"programs": program_tokens})
+        # shape: (batch_size, max_sequence_length, hidden_size)
+        encoded_programs = self._seq_encoder(embedded_programs, program_tokens_mask)
+        # shape: (batch_size, max_sequence_length, embedding_size)
+        output_projection = self._projection_layer(encoded_programs)
+        # shape: (batch_size, max_sequence_length, vocab_size)
+        output_logits = self._output_layer(output_projection)
+
+        _, next_timestep = torch.max(output_logits, dim=-1)
+        # multiply with mask just to be sure
+        next_timestep = next_timestep[:, :-1] * program_tokens_mask[:, 1:]
+
+        output_dict = {
+            "predicted_tokens": next_timestep,
+            "loss": sequence_cross_entropy_with_logits(
+                output_logits[:, :-1].contiguous(),
+                program_tokens[:, 1:].contiguous(),
+                weights=program_tokens_mask[:, 1:],
+            )
+        }
+        return output_dict
 
 
 class ProgramPriorResidualLSTM(nn.Module):
     """
-    A language model which learns a prior over all the valid program sequences in CLEVR v1.0
-    training split. It is a two-layered LSTM with a residual connection between the first
-    and second layers.
+    Language model with a two-layer LSTM with a residual connection from first
+    layer to second layer.
     """
 
     def __init__(self,
-                 vocab_size: int = 44,
+                 vocabulary: Vocabulary,
                  embedding_size: int = 128,
-                 rnn_hidden_size: int = 256,
-                 rnn_dropout: float = 0.25):
+                 hidden_size: int = 64,
+                 dropout: float = 0.0):
         super().__init__()
-        self.embedder = nn.Embedding(vocab_size, embedding_size)
+        self._vocabulary = vocabulary
 
-        # declare two layers of single LSTM separately to support residual connection
-        # dropout doesn't work directly on 1-layer LSTMs, can't be specified in LSTM constructor
-        self.decoder_lstm_first = nn.LSTM(
-            embedding_size, rnn_hidden_size, batch_first=True
+        # short-hand variables
+        __PAD = self._vocabulary.get_token_index("__PAD__", namespace="programs")
+        __vocab_size = self._vocabulary.get_vocab_size(namespace="programs")
+        __embedder_inner = Embedding(__vocab_size, embedding_size, padding_index=__PAD)
+
+        self._embedder = BasicTextFieldEmbedder({"programs": __embedder_inner})
+        self._seq_encoder_1 = nn.LSTM(
+            embedding_size, hidden_size, batch_first=True
         )
-        # apply dropout before passing input to second layer (i.e. after residual connection)
-        self.dropout = nn.Dropout(rnn_dropout)
-        self.decoder_lstm_second = nn.LSTM(
-            embedding_size, rnn_hidden_size, batch_first=True
+        self._projection_layer_1 = nn.Linear(hidden_size, embedding_size, bias=False)
+
+        self._dropout = nn.Dropout(dropout)
+
+        self._seq_encoder_2 = nn.LSTM(
+            embedding_size, hidden_size, batch_first=True
         )
+        self._projection_layer_2 = nn.Linear(hidden_size, embedding_size, bias=False)
 
-        # linear layer after first LSTM layer to project back to embedding dimension
-        # necessary for residual connection, this adds to token embeddings
-        self.decoder_linear_first = nn.Linear(rnn_hidden_size, embedding_size)
+        self._output_layer = nn.Linear(embedding_size, __vocab_size, bias=False)
+        self._output_layer.weight = __embedder_inner.weight
 
-        # linear layer after second LSTM layer to get logits for possible tokens
-        self.decoder_linear_second = nn.Linear(rnn_hidden_size, vocab_size)
+        self._seq_encoder_1 = PytorchSeq2SeqWrapper(self._seq_encoder_1)
+        self._seq_encoder_2 = PytorchSeq2SeqWrapper(self._seq_encoder_2)
 
-        # wrap lstm with DynamicRNN module to handle programs of variable length
-        self.decoder_lstm_first = DynamicRNN(self.decoder_lstm_first)
-        self.decoder_lstm_second = DynamicRNN(self.decoder_lstm_second)
+    def forward(self, program_tokens: torch.LongTensor):
+        # assume zero padding by default
+        program_tokens_mask = (program_tokens != 0).long()
+        # shape: (batch_size, max_sequence_length, embedding_size)
+        embedded_programs = self._embedder({"programs": program_tokens})
+        # shape: (batch_size, max_sequence_length, hidden_size)
+        encoded_programs_1 = self._seq_encoder_1(embedded_programs, program_tokens_mask)
+        # shape: (batch_size, max_sequence_length, embedding_size)
+        projection_1 = self._projection_layer_1(encoded_programs_1)
+        dropout_projection_1 = self._dropout(projection_1)
 
-    def forward(self, program_tokens, program_lengths):
-        """
-        Given a batch of tokenized programs (padded), predict the logits of next time-step.
+        # shape: (batch_size, max_sequence_length, hidden_size)
+        encoded_programs_2 = self._seq_encoder_2(dropout_projection_1, program_tokens_mask)
+        # shape: (batch_size, max_sequence_length, embedding_size)
+        projection_2 = self._projection_layer_2(encoded_programs_1)
 
-        Parameters
-        ----------
-        program_tokens: torch.FloatTensor
-            Batch of program tokens (padded), shape: (batch, max_program_length).
-        program_lengths: torch.LongTensor
-            Corresponding lengths of (unpadded) programs, shape: (batch, ).
+        # shape: (batch_size, max_sequence_length, embedding_size)
+        residual = projection_1 + projection_2
+        # shape: (batch_size, max_sequence_length, vocab_size)
+        output_logits = self._output_layer(residual)
 
-        Returns
-        -------
-        torch.FloatTensor
-            Logits from decoder, shape: (batch, max_program_length, vocab_size).
-        """
+        _, next_timestep = torch.max(output_logits, dim=-1)
+        # multiply with mask just to be sure
+        next_timestep = next_timestep[:, :-1] * program_tokens_mask[:, 1:]
 
-        # shape: (batch, max_program_length, embedding_dim)
-        program_embeds = self.embedder(program_tokens)
+        # depending on whether model is training or under inference mode
+        # set the way to compute sequence cross entropy
+        if self.training:
+            cross_entropy_average_mode = "token"
+        else:
+            cross_entropy_average_mode = "batch"
 
-        # shape: (batch, max_program_length, rnn_hidden_dim)
-        decoder_output_first = self.decoder_lstm_first(program_embeds, program_lengths)
-
-        # shape: (batch, max_program_length, embedding_size)
-        linear_output_first = self.decoder_linear_first(decoder_output_first)
-        residual_output = program_embeds + linear_output_first
-        residual_output = self.dropout(residual_output)
-
-        # shape: (batch, max_program_length, rnn_hidden_dim)
-        decoder_output_second = self.decoder_lstm_second(residual_output, program_lengths)
-
-        # predicts the sequence at next time-step
-        # shape: (batch, max_program_length, vocab_size)
-        decoder_logits = self.decoder_linear_second(decoder_output_second)
-
-        # cross entropy loss will be between:
-        # program_tokens[:, 1:] and decoder_logits[:, :-1]
-        return decoder_logits
+        output_dict = {
+            "predicted_tokens": next_timestep,
+            "loss": sequence_cross_entropy_with_logits(
+                output_logits[:, :-1].contiguous(),
+                program_tokens[:, 1:].contiguous(),
+                weights=program_tokens_mask[:, 1:],
+            )
+        }
+        return output_dict
 
 
 # default program prior model used in all experiments

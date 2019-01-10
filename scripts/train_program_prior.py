@@ -6,6 +6,7 @@ import json
 import os
 import random
 
+from allennlp.data import Vocabulary
 import torch
 from torch import nn, optim
 from torch.optim import lr_scheduler
@@ -13,8 +14,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
 
-from tbd.data import ClevrProgramsDataset, Vocabulary
-from tbd.nn import DynamicCrossEntropyLoss
+from tbd.data import ClevrProgramsDataset
 from tbd.models import ProgramPrior
 from tbd.utils.checkpointing import CheckpointManager
 
@@ -36,9 +36,9 @@ parser.add_argument(
     help="Path to HDF file containing tokenized CLEVR v1.0 validation split programs.",
 )
 parser.add_argument(
-    "--vocab-json",
-    default="data/vocab.json",
-    help="Path to json file containing vocabulary mapping for programs, questions and answers.",
+    "--vocab-dirpath",
+    default="data/clevr_vocab",
+    help="Path to directory containing vocabulary for programs, questions and answers.",
 )
 
 
@@ -46,10 +46,6 @@ parser.add_argument_group("Arguments independent of experiment reproducibility")
 parser.add_argument(
     "--gpu-ids", nargs="+", type=int, help="List of ids of GPUs to use (-1 for CPU)."
 )
-parser.add_argument(
-    "--overfit", action="store_true", help="Overfit model on 5 examples, meant for debugging."
-)
-
 
 parser.add_argument_group("Checkpointing related arguments")
 parser.add_argument(
@@ -74,24 +70,14 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 
-def do_iteration(batch, model, criterion, optimizer=None):
+def do_iteration(batch, model, optimizer=None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
+    if model.training:
+        optimizer.zero_grad()
+    # keys: {"predicted_tokens", "loss"}
+    output_dict = model(batch["program_tokens"])
+    batch_loss = torch.mean(output_dict["loss"])
 
-    optimizer.zero_grad()
-    # shape: (batch, max_program_length, vocab_size)
-    output_logits = model(batch["program_tokens"], batch["program_lengths"])
-
-    # prepare sequences for calculating cross-entropy loss
-    # remove last token from logits, first token from target
-
-    # shape: (batch, max_program_length - 1, vocab_size)
-    output_logits = output_logits[:, :-1, :]
-    # shape: (batch, max_program_length - 1)
-    target_tokens = batch["program_tokens"][:, 1:]
-    # shape: (batch, )
-    target_lengths = batch["program_lengths"] - 1
-
-    batch_loss = criterion(output_logits, target_tokens, target_lengths)
     if model.training:
         batch_loss.backward()
         optimizer.step()
@@ -112,11 +98,12 @@ if __name__ == "__main__":
         print("{:<20}: {}".format(arg, getattr(args, arg)))
 
     # ============================================================================================
-    #   SETUP DATASET, DATALOADER, MODEL, CRITERION, OPTIMIZER
+    #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL, OPTIMIZER
     # ============================================================================================
 
-    train_dataset = ClevrProgramsDataset(args.training_h5, args.overfit)
-    val_dataset = ClevrProgramsDataset(args.validation_h5, args.overfit)
+    vocabulary = Vocabulary.from_files(args.vocab_dirpath)
+    train_dataset = ClevrProgramsDataset(args.training_h5)
+    val_dataset = ClevrProgramsDataset(args.validation_h5)
 
     # train dataloader can be re-initialized later while doing batch size scheduling
     batch_size = config["initial_bs"]
@@ -124,13 +111,11 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
 
     model = ProgramPrior(
-        vocab_size=config["vocab_size"],
+        vocabulary,
         embedding_size=config["embedding_size"],
-        rnn_hidden_size=config["rnn_hidden_size"],
-        rnn_dropout=config["rnn_dropout"],
+        hidden_size=config["rnn_hidden_size"],
+        dropout=config["rnn_dropout"],
     )
-
-    criterion = DynamicCrossEntropyLoss(reduction="mean")
     optimizer = optim.Adam(
         model.parameters(),
         lr=config["initial_lr"],
@@ -147,9 +132,6 @@ if __name__ == "__main__":
         # don't wrap to DataParallel for CPU-mode
         model = nn.DataParallel(model, args.gpu_ids)
 
-    # also initialize vocabulary, useful for displaying examples
-    vocabulary = Vocabulary()
-    vocabulary.mapping = json.load(open(args.vocab_json))["program_token_to_idx"]
 
     # ============================================================================================
     #   TRAINING LOOP
@@ -172,7 +154,7 @@ if __name__ == "__main__":
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
-        batch_loss = do_iteration(batch, model, criterion, optimizer)
+        batch_loss = do_iteration(batch, model, optimizer)
 
         if running_loss > 0.0:
             running_loss = 0.95 * running_loss + 0.05 * batch_loss.item()
@@ -205,7 +187,7 @@ if __name__ == "__main__":
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
-                    batch_loss = do_iteration(batch, model, criterion, optimizer)
+                    batch_loss = do_iteration(batch, model)
                     batch_val_losses.append(batch_loss)
             model.train()
 
@@ -215,18 +197,18 @@ if __name__ == "__main__":
             checkpoint_manager.step(perplexity)
 
             # print three random programs and their outputs
-            print("Some predicted examples by the language model (greedy decoding):")
-            print_dataloader = DataLoader(val_dataset, batch_size=3, shuffle=True)
-            batch = next(iter(print_dataloader))
-            with torch.no_grad():
-                output_logits = model(batch["program_tokens"], batch["program_lengths"])
-                _, output_tokens = torch.max(output_logits, dim=-1)
+            # print("Some predicted examples by the language model (greedy decoding):")
+            # print_dataloader = DataLoader(val_dataset, batch_size=3, shuffle=True)
+            # batch = next(iter(print_dataloader))
+            # with torch.no_grad():
+            #     output_dict = model(batch["program_tokens"], batch["program_lengths"])
+            #     _, output_tokens = torch.max(output_logits, dim=-1)
 
-            input_programs = batch["program_tokens"].cpu().numpy()
-            output_programs = output_tokens.cpu().numpy()
-            for inp, out in zip(input_programs, output_programs):
-                print("INPUT PROGRAM: ", " ".join(vocabulary.to_words(inp)[1:6]), "...")
-                print("OUTPUT PROGRAM:", " ".join(vocabulary.to_words(out)[0:5]), "...", "\n")
+            # input_programs = batch["program_tokens"].cpu().numpy()
+            # output_programs = output_tokens.cpu().numpy()
+            # for inp, out in zip(input_programs, output_programs):
+            #     print("INPUT PROGRAM: ", " ".join(vocabulary.to_words(inp)[1:6]), "...")
+            #     print("OUTPUT PROGRAM:", " ".join(vocabulary.to_words(out)[0:5]), "...", "\n")
 
     # ============================================================================================
     #   AFTER TRAINING ENDS

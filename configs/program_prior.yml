@@ -1,24 +1,17 @@
 # language model arguments
 ### default: 2-layer lstm with residual connection in between first & second layers
 embedding_size: 128
-rnn_hidden_size: 256
-rnn_dropout: 0.25
-
-# vocab size includes all valid program tokens including <NULL>, <START>, <END>, <UNK>
-# there's nothing much to be configured here, it's a dataset statistic
-vocab_size: 44
-
+rnn_hidden_size: 64
+rnn_dropout: 0.0
 
 # training script arguments
 num_iterations: 20000
-weight_decay: 0.001
-
+weight_decay: 0.000
 
 ### batch size scheduling - (bs *= gamma) at specified iterations
 initial_bs: 256
 bs_gamma: 2
 bs_steps: [500, 1000, 2500, 5000, 10000]  # batch size reachs 8192 this way
-
 
 ### learning rate scheduling - (lr *= gamma) if validation loss plateaus
 initial_lr: 0.01
