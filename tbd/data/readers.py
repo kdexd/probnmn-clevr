@@ -10,7 +10,6 @@ Each reader must implement three methods:
       data of.
 """
 import h5py
-import torch
 
 
 class ClevrTokensReader(object):
@@ -20,18 +19,18 @@ class ClevrTokensReader(object):
 
     Parameters
     ----------
-    clevr_hdfpath: str
+    tokens_hdfpath: str
         Path to an HDF file containing tokenized programs, questions, answers and corresponding
         image indices.
     """
 
-    def __init__(self, clevr_hdfpath: str):
+    def __init__(self, tokens_hdfpath: str):
         # questions, image indices, programs, and answers are small enough to load into memory
-        with h5py.File(clevr_hdfpath, "r") as clevr_tokens:
-            self.programs = torch.LongTensor(clevr_tokens["programs"][:])
-            self.questions = torch.LongTensor(clevr_tokens["questions"][:])
-            self.answers = torch.LongTensor(clevr_tokens["answers"][:])
-            self.image_indices = torch.LongTensor(clevr_tokens["image_indices"][:])
+        with h5py.File(tokens_hdfpath, "r") as clevr_tokens:
+            self.programs = clevr_tokens["programs"][:]
+            self.questions = clevr_tokens["questions"][:]
+            self.answers = clevr_tokens["answers"][:]
+            self.image_indices = clevr_tokens["image_indices"][:]
             self._split = clevr_tokens.attrs["split"]
 
     def __len__(self):
@@ -43,9 +42,17 @@ class ClevrTokensReader(object):
         answer = self.answers[index]
         image_index = self.image_indices[index]
 
-        return {
-            "program": program, "question": question, "answer": answer, "image_index": image_index
-        }
+        if isinstance(index, slice):
+            # return list of single instances if a slice
+            return [{"program": p, "question": q, "answer": a, "image_index": ii}
+                    for (p, q, a, ii) in zip(program, question, answer, image_index)]
+        else:
+            return {
+                "program": program,
+                "question": question,
+                "answer": answer,
+                "image_index": image_index
+            }
 
     @property
     def split(self):

@@ -1,42 +1,47 @@
-import h5py
 import torch
 from torch.utils.data import Dataset
 
+from tbd.data.readers import ClevrTokensReader
 
-class ClevrProgramsDataset(Dataset):
-    # TODO: extend to full CLEVR dataset.
 
-    """Provides programs as tokenized sequences to train the ``ProgramPrior``.
+class ProgramPriorDataset(Dataset):
+    """
+    Provides programs as tokenized sequences to train the ``ProgramPrior``.
 
     Parameters
     ----------
-    programs_hdfpath : str
-        Path to HDF file containing program tokens and lengths.
+    tokens_hdfpath : str
+        Path to an HDF file to initialize the underlying reader.
     """
 
-    def __init__(self, programs_hdfpath: str):
-        with h5py.File(programs_hdfpath, "r") as programs_hdf:
-            # shape: (dataset_size, max_program_length)
-            self.program_tokens = programs_hdf["program_tokens"][:]
-            # shape: (dataset_size, )
-            self.program_lengths = programs_hdf["program_lengths"][:]
+    def __init__(self, tokens_hdfpath: str):
+        self._reader = ClevrTokensReader(tokens_hdfpath)
 
-            self._split = programs_hdf.attrs["split"]
-            self._style = programs_hdf.attrs["style"]
+    def __getitem__(self, index):
+        # only return programs, nothing else needed for training program prior
+        # also, return a dict for the sake of uniformity in return type of several classes
+        return {
+            "program": torch.tensor(self._reader[index]["program"]).long()
+        }
 
     @property
     def split(self):
-        return self._split
+        return self._reader.split
 
-    @property
-    def style(self):
-        return self._style
 
-    def __len__(self):
-        return len(self.program_lengths)
+class QuestionCodingDataset(Dataset):
+    # TODO (kd): add limited supervision support after KL term in QuestionCoding works well
+
+    def __init__(self, tokens_hdfpath: str):
+        self._reader = ClevrTokensReader(tokens_hdfpath)
 
     def __getitem__(self, index):
+        item = self._reader[index]
         return {
-            "program_tokens": torch.tensor(self.program_tokens[index, :]),
-            "program_lengths": torch.tensor(self.program_lengths[index]).long()
+            "program": torch.tensor(item["program"]).long(),
+            "question": torch.tensor(item["question"]).long()
         }
+
+    @property
+    def split(self):
+        return self._reader.split
