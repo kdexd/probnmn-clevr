@@ -40,20 +40,22 @@ def do_iteration(batch, model, optimizer=None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
     if model.training:
         optimizer.zero_grad()
-    # keys: {"predicted_tokens", "loss"}
+    # keys: {"predictions", "loss"}
     output_dict = model(batch["question"], batch["program"])
     batch_loss = torch.mean(output_dict["loss"])
 
     if model.training:
         batch_loss.backward()
         optimizer.step()
+    else:
+        print(output_dict["predictions"][:5])
     return batch_loss
 
 
 if __name__ == "__main__":
-    # ================================================================================================
+    # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
-    # ================================================================================================
+    # ============================================================================================
     args = parser.parse_args()
     config = yaml.load(open(args.config_yml))
     device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
@@ -74,42 +76,32 @@ if __name__ == "__main__":
     # train dataloader can be re-initialized later while doing batch size scheduling
     batch_size = config["initial_bs"]
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    # set batch size of val dataloader to be maximum possible
-    largest_possible_batch_size = batch_size * (2 ** (len(config["bs_steps"])))
-    val_dataloader = DataLoader(val_dataset, batch_size=largest_possible_batch_size)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
 
+    # works with 100% supervision for now
     model = ProgramGenerator(
-        vocabulary,
-        embedding_size=config["embedding_size"],
-        hidden_size=config["rnn_hidden_size"],
-        dropout=config["rnn_dropout"],
-    )
+        vocabulary, config["embedding_size"], config["rnn_hidden_size"], config["rnn_dropout"]
+    ).to(device)
+
     optimizer = optim.Adam(
-        model.parameters(),
-        lr=config["initial_lr"],
-        weight_decay=config["weight_decay"]
+        model.parameters(), lr=config["initial_lr"], weight_decay=config["weight_decay"]
     )
     scheduler = lr_scheduler.MultiStepLR(
-        optimizer,
-        milestones=config["lr_steps"],
-        gamma=config["lr_gamma"],
+        optimizer, milestones=config["lr_steps"], gamma=config["lr_gamma"],
     )
 
-    model = model.to(device)
     if -1 not in args.gpu_ids:
         # don't wrap to DataParallel for CPU-mode
         model = nn.DataParallel(model, args.gpu_ids)
-
 
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
     checkpoint_manager = CheckpointManager(
         checkpoint_dirpath=args.save_dirpath,
-        config_ymlpath=args.config_yml,
+        config=config,
         model=model,
         optimizer=optimizer,
-        metric_mode="min"
     )
 
     running_loss = 0.0
@@ -163,7 +155,6 @@ if __name__ == "__main__":
             perplexity = 2 ** average_val_loss
             print("Model perplexity: ", perplexity.item())
             checkpoint_manager.step(perplexity)
-
 
     # ============================================================================================
     #   AFTER TRAINING ENDS
