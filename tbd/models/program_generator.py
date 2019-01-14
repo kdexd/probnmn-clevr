@@ -2,6 +2,7 @@ from typing import Dict, Optional, Tuple
 
 from allennlp.data import Vocabulary
 from allennlp.models.encoder_decoders import SimpleSeq2Seq
+from allennlp.modules.attention import DotProductAttention
 from allennlp.modules.seq2seq_encoders import PytorchSeq2SeqWrapper
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
@@ -32,34 +33,19 @@ class ProgramGenerator(SimpleSeq2Seq):
         __encoder = PytorchSeq2SeqWrapper(
             nn.LSTM(embedding_size, hidden_size, num_layers=2, dropout=dropout, batch_first=True)
         )
+
+        # attention mechanism between decoder context and encoder hidden states at each time step
+        __attention = DotProductAttention()
+
         super().__init__(
             vocabulary,
             source_embedder=__question_embedder,
             encoder=__encoder,
             max_decoding_steps=max_decoding_steps,
-            attention=None,
+            attention=__attention,
             beam_size=beam_size,
             target_namespace="programs",
         )
-        # @@@@@@@@@@ GLARINGLY VISIBLE NOTE @@@@@@@@@@
-        # THIS LINE IS DIFFERENT FROM SUPER CLASS OF ALLENNLP
-
-        # If using attention, a weighted average over encoder outputs will be concatenated
-        # to the previous target embedding to form the input to the decoder at each
-        # time step.
-
-        # Otherwise, final encoder output will be concatenated to the previous target embedding
-        # to form decoder input at each time step
-        self._decoder_input_dim = self._decoder_output_dim + embedding_size
-        # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-        # We'll use an LSTM cell as the recurrent cell that produces a hidden state
-        # for the decoder at each time step.
-        self._decoder_cell = nn.LSTMCell(self._decoder_input_dim, self._decoder_output_dim)
-
-        # We project the hidden state from the decoder into the output vocabulary space
-        # in order to get log probabilities of each target token, at each time step.
-        self._output_projection_layer = nn.Linear(self._decoder_output_dim, __program_vocab_size)
 
     def forward(self,
                 question_tokens: torch.LongTensor,
@@ -103,68 +89,7 @@ class ProgramGenerator(SimpleSeq2Seq):
                 # shape: (batch_size, max_predicted_sequence_length)
                 best_predictions = top_k_predictions[:, 0, :]
                 self._bleu(best_predictions, program_tokens["tokens"])
-
         return output_dict
-
-    def _prepare_output_projections(self,
-                                    last_predictions: torch.Tensor,
-                                    state: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:  # pylint: disable=line-too-long
-        """Override AllenNLP's _prepare_output_projection to concatenate encoder
-        outputs to each decoding time step.
-
-        Extended Summary
-        ----------------
-        From AllenNLP's documentation:
-
-        Decode current state and last prediction to produce produce projections
-        into the target space, which can then be used to get probabilities of
-        each target token for the next step.
-        Inputs are the same as for `take_step()`.
-        """
-        # shape: (group_size, max_input_sequence_length, encoder_output_dim)
-        encoder_outputs = state["encoder_outputs"]
-
-        encoder_final_outputs = get_final_encoder_states(
-            state["encoder_outputs"],
-            state["source_mask"],
-            self._encoder.is_bidirectional()
-        )
-
-        # shape: (group_size, max_input_sequence_length)
-        source_mask = state["source_mask"]
-
-        # shape: (group_size, decoder_output_dim)
-        decoder_hidden = state["decoder_hidden"]
-
-        # shape: (group_size, decoder_output_dim)
-        decoder_context = state["decoder_context"]
-
-        # shape: (group_size, target_embedding_dim)
-        embedded_input = self._target_embedder(last_predictions)
-
-        if self._attention:
-            # shape: (group_size, encoder_output_dim)
-            attended_input = self._prepare_attended_input(decoder_hidden, encoder_outputs, source_mask)
-
-            # shape: (group_size, decoder_output_dim + target_embedding_dim)
-            decoder_input = torch.cat((attended_input, embedded_input), -1)
-        else:
-            # shape: (group_size, encoder_output_dm + target_embedding_dim)
-            decoder_input = torch.cat((encoder_final_outputs, embedded_input), -1)
-
-        # shape (decoder_hidden): (batch_size, decoder_output_dim)
-        # shape (decoder_context): (batch_size, decoder_output_dim)
-        decoder_hidden, decoder_context = self._decoder_cell(
-                decoder_input,
-                (decoder_hidden, decoder_context))
-
-        state["decoder_hidden"] = decoder_hidden
-        state["decoder_context"] = decoder_context
-
-        # shape: (group_size, num_classes)
-        output_projections = self._output_projection_layer(decoder_hidden)
-
-        return output_projections, state
 
     @staticmethod
     def _get_loss(logits: torch.LongTensor,

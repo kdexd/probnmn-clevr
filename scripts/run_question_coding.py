@@ -47,8 +47,6 @@ def do_iteration(batch, model, optimizer=None):
     if model.training:
         batch_loss.backward()
         optimizer.step()
-    else:
-        print(output_dict["predictions"][:5])
     return batch_loss
 
 
