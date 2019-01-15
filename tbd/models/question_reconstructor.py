@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from allennlp.data import Vocabulary
 from allennlp.models.encoder_decoders import SimpleSeq2Seq
@@ -9,24 +9,23 @@ from allennlp.modules.token_embedders import Embedding
 from allennlp.nn.util import sequence_cross_entropy_with_logits
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 
-class ProgramGenerator(SimpleSeq2Seq):
+class QuestionReconstructor(SimpleSeq2Seq):
     def __init__(self,
                  vocabulary: Vocabulary,
                  embedding_size: int = 128,
                  hidden_size: int = 64,
                  dropout: float = 0.0,
-                 beam_size: int = 5,
+                 beam_size: int = 1,
                  max_decoding_steps: int = 30):
-        # Short-hand notations (source: questions, target: programs)
-        __question_vocab_size = vocabulary.get_vocab_size(namespace="questions")
+        # Short-hand notations (source: programs, target: questions)
         __program_vocab_size = vocabulary.get_vocab_size(namespace="programs")
+        __question_vocab_size = vocabulary.get_vocab_size(namespace="questions")
 
         # Source (question) embedder converts tokenized source sequences to dense embeddings.
-        __question_embedder = Embedding(__question_vocab_size, embedding_size, padding_index=0)
-        __question_embedder = BasicTextFieldEmbedder({"tokens": __question_embedder})
+        __program_embedder = Embedding(__program_vocab_size, embedding_size, padding_index=0)
+        __program_embedder = BasicTextFieldEmbedder({"tokens": __program_embedder})
 
         # Encodes the sequence of source embeddings into a sequence of hidden states.
         __encoder = PytorchSeq2SeqWrapper(
@@ -38,17 +37,17 @@ class ProgramGenerator(SimpleSeq2Seq):
 
         super().__init__(
             vocabulary,
-            source_embedder=__question_embedder,
+            source_embedder=__program_embedder,
             encoder=__encoder,
             max_decoding_steps=max_decoding_steps,
             attention=__attention,
             beam_size=beam_size,
-            target_namespace="programs",
+            target_namespace="questions",
         )
 
     def forward(self,
-                question_tokens: torch.LongTensor,
-                program_tokens: Optional[torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
+                program_tokens: torch.LongTensor,
+                question_tokens: Optional[torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
         """
         Override AllenNLP's forward, changing decoder logic. We concatenate encoder output to
         every time step during decoding, in contrast to just first time step.
@@ -61,69 +60,37 @@ class ProgramGenerator(SimpleSeq2Seq):
 
         Parameters
         ----------
-        question_tokens: torch.LongTensor
-        program_tokens: torch.LongTensor, optional (default = None)
+        program_tokens: torch.LongTensor
+        question_tokens: torch.LongTensor, optional (default = None)
 
         Returns
         -------
         Dict[str, torch.Tensor]
         """
-        state = self._encode({"tokens": question_tokens})
+        state = self._encode({"tokens": program_tokens})
 
-        if program_tokens is not None:
-            program_tokens = {"tokens": program_tokens}
+        if question_tokens is not None:
+            question_tokens = {"tokens": question_tokens}
 
         state = self._init_decoder_state(state)
-
-        if program_tokens:
-            output_dict = self._forward_loop(state, program_tokens)
-        else:
-            output_dict = self._sample(state)                
+        # The `_forward_loop` decodes the input sequence and computes the loss during training
+        # and validation.
+        output_dict = self._forward_loop(state, question_tokens)
 
         if not self.training:
             # super class methods - left unchanged here
             state = self._init_decoder_state(state)
-            output_dict.update(self._forward_beam_search(state))
-            if program_tokens and self._bleu:
+            predictions = self._forward_beam_search(state)
+            output_dict.update(predictions)
+            if question_tokens and self._bleu:
                 # shape: (batch_size, beam_size, max_sequence_length)
                 top_k_predictions = output_dict["predictions"]
                 # shape: (batch_size, max_predicted_sequence_length)
                 best_predictions = top_k_predictions[:, 0, :]
-                self._bleu(best_predictions, program_tokens["tokens"])
+                self._bleu(best_predictions, question_tokens["tokens"])
 
         # trim output predictions to first "@end@"" and pad the rest of sequence
         output_dict = self.decode(output_dict)
-        return output_dict
-
-    def _sample(self, state: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        """During training, while sampling a sequence, sample from categorical distribution instead
-        of performing greedy decoding.
-        """
-
-        # shape: (batch_size, max_input_sequence_length)
-        source_mask = state["source_mask"]
-        batch_size = source_mask.size()[0]
-
-        # Initialize target predictions with the start index.
-        # shape: (batch_size,)
-        last_predictions = source_mask.new_full((batch_size,), fill_value=self._start_index)
-
-        step_predictions: List[torch.Tensor] = []
-        for timestep in range(self._max_decoding_steps):
-            # shape: (batch_size,)
-            input_choices = last_predictions
-            # shape: (batch_size, num_classes)
-            output_projections, state = self._prepare_output_projections(input_choices, state)
-            # shape: (batch_size, num_classes)
-            class_probabilities = F.softmax(output_projections, dim=-1)
-            # shape (predicted_classes): (batch_size, 1)
-            predicted_classes = torch.multinomial(class_probabilities, 1)
-            step_predictions.append(predicted_classes)
-            # shape (predicted_classes): (batch_size,)
-            last_predictions = predicted_classes.squeeze()
-
-        # shape: (batch_size, num_decoding_steps)
-        output_dict = {"predictions": torch.cat(step_predictions, 1)}
         return output_dict
 
     @staticmethod

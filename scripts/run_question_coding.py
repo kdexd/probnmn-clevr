@@ -15,7 +15,7 @@ from tqdm import tqdm
 import yaml
 
 from tbd.data import QuestionCodingDataset
-from tbd.models import ProgramGenerator
+from tbd.models import ProgramGenerator, QuestionReconstructor
 from tbd.opts import add_common_opts
 from tbd.utils.checkpointing import CheckpointManager
 
@@ -36,18 +36,32 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 
-def do_iteration(batch, model, optimizer=None):
+def do_iteration(batch, program_generator, question_reconstructor, optimizer=None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
-    if model.training:
+    if program_generator.training and question_reconstructor.training:
         optimizer.zero_grad()
     # keys: {"predictions", "loss"}
-    output_dict = model(batch["question"], batch["program"])
-    batch_loss = torch.mean(output_dict["loss"])
+    program_generator_output_dict = program_generator(batch["question"], batch["program"])
 
-    if model.training:
-        batch_loss.backward()
+    sampled_programs = program_generator(batch["question"])["predictions"]
+    if not program_generator.training:
+        # pick first beam when evaluating
+        # shape: (batch_size, max_decoding_steps)
+        sampled_programs = sampled_programs[:, 0, :]
+
+    question_reconstructor_output_dict = question_reconstructor(
+        sampled_programs, batch["question"]
+    )
+
+    program_generation_batch_loss = torch.mean(program_generator_output_dict["loss"])
+    question_reconstruction_batch_loss = torch.mean(question_reconstructor_output_dict["loss"])
+
+    if program_generator.training and question_reconstructor.training:
+        program_generation_batch_loss.backward()
+        question_reconstruction_batch_loss.backward()
         optimizer.step()
-    return batch_loss
+
+    return program_generation_batch_loss, question_reconstruction_batch_loss
 
 
 if __name__ == "__main__":
@@ -77,12 +91,17 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
 
     # works with 100% supervision for now
-    model = ProgramGenerator(
+    program_generator = ProgramGenerator(
+        vocabulary, config["embedding_size"], config["rnn_hidden_size"], config["rnn_dropout"]
+    ).to(device)
+
+    question_reconstructor = QuestionReconstructor(
         vocabulary, config["embedding_size"], config["rnn_hidden_size"], config["rnn_dropout"]
     ).to(device)
 
     optimizer = optim.Adam(
-        model.parameters(), lr=config["initial_lr"], weight_decay=config["weight_decay"]
+        itertools.chain(program_generator.parameters(), question_reconstructor.parameters()),
+        lr=config["initial_lr"], weight_decay=config["weight_decay"]
     )
     scheduler = lr_scheduler.MultiStepLR(
         optimizer, milestones=config["lr_steps"], gamma=config["lr_gamma"],
@@ -90,19 +109,29 @@ if __name__ == "__main__":
 
     if -1 not in args.gpu_ids:
         # don't wrap to DataParallel for CPU-mode
-        model = nn.DataParallel(model, args.gpu_ids)
+        program_generator = nn.DataParallel(program_generator, args.gpu_ids)
+        question_reconstructor = nn.DataParallel(question_reconstructor, args.gpu_ids)
 
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
-    checkpoint_manager = CheckpointManager(
+    program_generator_checkpoint_manager = CheckpointManager(
         checkpoint_dirpath=args.save_dirpath,
         config=config,
-        model=model,
+        model=program_generator,
         optimizer=optimizer,
+        filename_prefix="program_generator",
+    )
+    question_reconstructor_checkpoint_manager = CheckpointManager(
+        checkpoint_dirpath=args.save_dirpath,
+        config=config,
+        model=question_reconstructor,
+        optimizer=optimizer,
+        filename_prefix="question_reconstructor",
     )
 
-    running_loss = 0.0
+    pg_running_loss = 0.0
+    qr_running_loss = 0.0
     train_begin = datetime.now()
 
     # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
@@ -112,17 +141,19 @@ if __name__ == "__main__":
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
-        batch_loss = do_iteration(batch, model, optimizer)
+        pg_batch_loss, qr_batch_loss = do_iteration(batch, program_generator, question_reconstructor, optimizer)
 
-        if running_loss > 0.0:
-            running_loss = 0.95 * running_loss + 0.05 * batch_loss.item()
+        if pg_running_loss > 0.0:
+            pg_running_loss = 0.95 * pg_running_loss + 0.05 * pg_batch_loss.item()
+            qr_running_loss = 0.95 * qr_running_loss + 0.05 * qr_batch_loss.item()
         else:
-            running_loss = batch_loss.item()
+            pg_running_loss = pg_batch_loss.item()
+            qr_running_loss = qr_batch_loss.item()
 
         # print current time, iteration, running loss, learning rate
         if iteration % 100 == 0:
-            print("[{}][Iter: {:6d}][Loss: {:5f}][Lr: {:7f}][Bs: {:4d}]".format(
-                datetime.now() - train_begin, iteration, running_loss,
+            print("[{}][Iter: {:6d}][PG Loss: {:5f}][QR Loss: {:5f}][Lr: {:7f}][Bs: {:4d}]".format(
+                datetime.now() - train_begin, iteration, pg_running_loss, qr_running_loss,
                 optimizer.param_groups[0]["lr"], batch_size
             ))
 
@@ -139,23 +170,35 @@ if __name__ == "__main__":
         # ========================================================================================
         if iteration % args.checkpoint_every == 0:
             print(f"Cross-validation after iteration {iteration}:")
-            model.eval()
-            batch_val_losses = []
+            program_generator.eval()
+            question_reconstructor.eval()
+            pg_batch_val_losses = []
+            qr_batch_val_losses = []
             for i, batch in enumerate(tqdm(val_dataloader)):
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
-                    batch_loss = do_iteration(batch, model)
-                    batch_val_losses.append(batch_loss)
-            model.train()
+                    pg_batch_loss, qr_batch_loss = do_iteration(batch, program_generator, question_reconstructor)
+                    pg_batch_val_losses.append(pg_batch_loss)
+                    qr_batch_val_losses.append(qr_batch_loss)
+            print("PG BLEU:", program_generator.module.get_metrics())
+            print("QR BLEU:", question_reconstructor.module.get_metrics())
+            program_generator.train()
+            question_reconstructor.train()
 
-            average_val_loss = torch.mean(torch.stack(batch_val_losses, 0))
-            perplexity = 2 ** average_val_loss
-            print("Model perplexity: ", perplexity.item())
-            checkpoint_manager.step(perplexity)
+            pg_average_val_loss = torch.mean(torch.stack(pg_batch_val_losses, 0))
+            qr_average_val_loss = torch.mean(torch.stack(qr_batch_val_losses, 0))
+            pg_perplexity = 2 ** pg_average_val_loss
+            qr_perplexity = 2 ** qr_average_val_loss
+            print("PG Perplexity: ", pg_perplexity)
+            print("QR Perplexity: ", qr_perplexity)
+
+            # TODO (kd): use BLEU instead of perplexity of just program generator?
+            program_generator_checkpoint_manager.step(pg_perplexity)
+            question_reconstructor_checkpoint_manager.step(qr_perplexity)
 
     # ============================================================================================
-    #   AFTER TRAINING ENDS
+    #   AFTER TRAINING END
     # ============================================================================================
-    checkpoint_manager.save_best()
-    print(f"Saved best checkpoint with {checkpoint_manager.metric.item()} perplexity.")
+    program_generator_checkpoint_manager.save_best()
+    question_reconstructor_checkpoint_manager.save_best()
