@@ -6,7 +6,7 @@ from allennlp.modules.attention import DotProductAttention
 from allennlp.modules.seq2seq_encoders import PytorchSeq2SeqWrapper
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
-from allennlp.nn.util import sequence_cross_entropy_with_logits
+from allennlp.nn.util import add_sentence_boundary_token_ids, sequence_cross_entropy_with_logits
 from allennlp.training.metrics import Average
 import torch
 from torch import nn
@@ -47,13 +47,18 @@ class ProgramGenerator(SimpleSeq2Seq):
             target_namespace="programs",
         )
 
+        # @@PADDING@@ and @@UNKNOWN@@ have same indices in all namespaces
+        self._pad_index = vocabulary.get_token_index("@@PADDING@@", namespace="questions")
+        self._unk_index = vocabulary.get_token_index("@@UNKNOWN@@", namespace="questions")
+
         # Record two metrics - BLEU score and perplexity.
         # super().__init__() already declared "self._bleu", perplexity = 2 ** average_val_loss.
         self._average_loss = Average()
 
     def forward(self,
                 question_tokens: torch.LongTensor,
-                program_tokens: Optional[torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
+                program_tokens: Optional[torch.LongTensor] = None,
+                sample_programs: bool = False) -> Dict[str, torch.Tensor]:
         """
         Override AllenNLP's forward, changing decoder logic. We concatenate encoder output to
         every time step during decoding, in contrast to just first time step.
@@ -68,49 +73,75 @@ class ProgramGenerator(SimpleSeq2Seq):
         ----------
         question_tokens: torch.LongTensor
         program_tokens: torch.LongTensor, optional (default = None)
+        sample_programs: bool, optional (default = None)
+            Whether to perform categorical sampling to generate programs for question
+            reconstrcutor. If False, then it will be treated as inference, and beam search
+            will be performed. This would be ignored if program tokens are provided.
 
         Returns
         -------
         Dict[str, torch.Tensor]
         """
-        state = self._encode({"tokens": question_tokens})
 
+        # Add "@start@" and "@end@" tokens to program and question sequences.
+        question_tokens, _ = add_sentence_boundary_token_ids(
+            question_tokens, (question_tokens != self._pad_index), self._start_index, self._end_index
+        )
         if program_tokens is not None:
-            program_tokens = {"tokens": program_tokens}
+            program_tokens, _ = add_sentence_boundary_token_ids(
+                program_tokens, (program_tokens > 0), self._start_index, self._end_index
+            )
+        # Remove "@start@" from question anyway (t's being encoded).
+        question_tokens = question_tokens[:, 1:]
 
+        state = self._encode({"tokens": question_tokens})
         state = self._init_decoder_state(state)
 
-        if program_tokens:
-            output_dict = self._forward_loop(state, program_tokens)
+        if program_tokens is not None:
+            output_dict = self._forward_loop(state, {"tokens": program_tokens})
+
+            if not self.training:
+                # super class methods - left unchanged here
+                state = self._init_decoder_state(state)
+                output_dict.update(self._forward_beam_search(state))
+
+                # BLEU score considers only the most likely beam.
+                self._bleu(output_dict["predictions"][:, 0, :], program_tokens)
+                self._average_loss(torch.mean(output_dict["loss"]).item())
         else:
-            output_dict = self._sample(state)
+            if sample_programs:
+                # Sample programs for input to question reconstructor.
+                # keys: {"predictions"}
+                output_dict = self._sample(state)
+            else:
+                if not self.training:
+                    # Purely inference - do beam search as usual
+                    state = self._init_decoder_state(state)
+                    output_dict = self._forward_beam_search(state)
+                else:
+                    output_dict = {}
 
         if not self.training:
-            # super class methods - left unchanged here
-            state = self._init_decoder_state(state)
-            output_dict.update(self._forward_beam_search(state))
-
-            # Keep best predictions (most likely beam)
-            output_dict["predictions"] = output_dict["predictions"][:, 0, :]
-            output_dict["class_log_probabilities"] = output_dict["class_log_probabilities"][:, 0]
-
-            if program_tokens:
-                self._bleu(output_dict["predictions"], program_tokens["tokens"])
-                self._average_loss(torch.mean(output_dict["loss"]).item())
             # Convert program sequences to string tokens.
             output_dict = self.decode(output_dict)
 
-        # Trim output predictions to first "@end@"" and pad the rest of sequence.
-        predictions = output_dict["predictions"]
-        trimmed_predictions = torch.zeros_like(output_dict["predictions"])
-        for i, prediction in enumerate(predictions):
-            prediction_indices = list(prediction.detach().cpu().numpy())
-            if self._end_index in prediction_indices:
-                end_index = prediction_indices.index(self._end_index) + 1
-                trimmed_predictions[i][:end_index] = prediction[:end_index]
+            if not sample_programs:
+                # Keep best predictions (most likely beam) during inference
+                output_dict["predictions"] = output_dict["predictions"][:, 0, :]
+                output_dict["class_log_probabilities"] = output_dict["class_log_probabilities"][:, 0]
             else:
-                trimmed_predictions[i] = prediction
-        output_dict["predictions"] = trimmed_predictions
+                # Trim output predictions to first "@end@" and pad the rest of sequence.
+                predictions = output_dict["predictions"]
+                trimmed_predictions = torch.zeros_like(output_dict["predictions"])
+                for i, prediction in enumerate(predictions):
+                    prediction_indices = list(prediction.detach().cpu().numpy())
+                    if self._end_index in prediction_indices:
+                        end_index = prediction_indices.index(self._end_index)
+                        if end_index > 0:
+                            trimmed_predictions[i][:end_index] = prediction[:end_index]                    
+                    else:
+                        trimmed_predictions[i] = prediction
+                output_dict["predictions"] = trimmed_predictions
 
         return output_dict
 
@@ -135,9 +166,10 @@ class ProgramGenerator(SimpleSeq2Seq):
             output_projections, state = self._prepare_output_projections(input_choices, state)
             # shape: (batch_size, num_classes)
             class_probabilities = F.softmax(output_projections, dim=-1)
-            # Don't sample @@PADDING@@ and @start@ tokens
-            class_probabilities[:, 0] = 0
+            # Don't sample @@PADDING@@, @start@ and @@UNKNOWN@@ tokens
+            class_probabilities[:, self._pad_index] = 0
             class_probabilities[:, self._start_index] = 0
+            class_probabilities[:, self._unk_index] = 0
             # shape (predicted_classes): (batch_size, 1)
             predicted_classes = torch.multinomial(class_probabilities, 1)
             step_predictions.append(predicted_classes)
