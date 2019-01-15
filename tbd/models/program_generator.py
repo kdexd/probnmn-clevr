@@ -18,7 +18,7 @@ class ProgramGenerator(SimpleSeq2Seq):
                  embedding_size: int = 128,
                  hidden_size: int = 64,
                  dropout: float = 0.0,
-                 beam_size: int = 5,
+                 beam_size: int = 1,
                  max_decoding_steps: int = 30):
         # Short-hand notations (source: questions, target: programs)
         __question_vocab_size = vocabulary.get_vocab_size(namespace="questions")

@@ -7,6 +7,7 @@ import os
 import random
 
 from allennlp.data import Vocabulary
+from tensorboardX import SummaryWriter
 import torch
 from torch import nn, optim
 from torch.optim import lr_scheduler
@@ -103,7 +104,7 @@ if __name__ == "__main__":
         itertools.chain(program_generator.parameters(), question_reconstructor.parameters()),
         lr=config["initial_lr"], weight_decay=config["weight_decay"]
     )
-    scheduler = lr_scheduler.MultiStepLR(
+    lr_scheduler = lr_scheduler.MultiStepLR(
         optimizer, milestones=config["lr_steps"], gamma=config["lr_gamma"],
     )
 
@@ -129,36 +130,34 @@ if __name__ == "__main__":
         optimizer=optimizer,
         filename_prefix="question_reconstructor",
     )
-
-    pg_running_loss = 0.0
-    qr_running_loss = 0.0
-    train_begin = datetime.now()
+    summary_writer = SummaryWriter(log_dir=os.path.join(args.save_dirpath, "tensorboard_logs"))
 
     # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
     train_dataloader = itertools.cycle(train_dataloader)
 
-    for iteration in range(1, config["num_iterations"]):
+    print(f"Training for {config['num_iterations']}:")
+    for iteration in tqdm(range(1, config["num_iterations"] + 1)):
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
         pg_batch_loss, qr_batch_loss = do_iteration(batch, program_generator, question_reconstructor, optimizer)
 
-        if pg_running_loss > 0.0:
-            pg_running_loss = 0.95 * pg_running_loss + 0.05 * pg_batch_loss.item()
-            qr_running_loss = 0.95 * qr_running_loss + 0.05 * qr_batch_loss.item()
-        else:
-            pg_running_loss = pg_batch_loss.item()
-            qr_running_loss = qr_batch_loss.item()
-
-        # print current time, iteration, running loss, learning rate
-        if iteration % 100 == 0:
-            print("[{}][Iter: {:6d}][PG Loss: {:5f}][QR Loss: {:5f}][Lr: {:7f}][Bs: {:4d}]".format(
-                datetime.now() - train_begin, iteration, pg_running_loss, qr_running_loss,
-                optimizer.param_groups[0]["lr"], batch_size
-            ))
+        # log losses and hyperparameters
+        summary_writer.add_scalars(
+            "losses",
+            {
+                "program_generator": pg_batch_loss,
+                "question_reconstructor": qr_batch_loss
+            },
+            iteration
+        )
+        summary_writer.add_scalar("schedulers/batch_size", batch_size, iteration)
+        summary_writer.add_scalar(
+            "schedulers/learning_rate", optimizer.param_groups[0]["lr"], iteration
+        )
 
         # batch size and learning rate scheduling
-        scheduler.step()
+        lr_scheduler.step()
         if iteration in config["bs_steps"]:
             batch_size *= config["bs_gamma"]
             train_dataloader = itertools.cycle(
@@ -181,24 +180,40 @@ if __name__ == "__main__":
                     pg_batch_loss, qr_batch_loss = do_iteration(batch, program_generator, question_reconstructor)
                     pg_batch_val_losses.append(pg_batch_loss)
                     qr_batch_val_losses.append(qr_batch_loss)
-            print("PG BLEU:", program_generator.module.get_metrics())
-            print("QR BLEU:", question_reconstructor.module.get_metrics())
+
+            # log BLEU score of both program generator and question reconstructor
+            if isinstance(program_generator, nn.DataParallel):
+                __pg_bleu = program_generator.module.get_metrics()["BLEU"]
+                __qr_bleu = question_reconstructor.module.get_metrics()["BLEU"]
+            else:
+                __pg_bleu = program_generator.get_metrics(reset=True)["BLEU"]
+                __qr_bleu = question_reconstructor.get_metrics(reset=True)["BLEU"]
+
+            summary_writer.add_scalars(
+                "metrics/bleu",
+                {"program_generator": __pg_bleu, "question_reconstructor": __qr_bleu},
+                iteration
+            )
+
             program_generator.train()
             question_reconstructor.train()
 
             pg_average_val_loss = torch.mean(torch.stack(pg_batch_val_losses, 0))
             qr_average_val_loss = torch.mean(torch.stack(qr_batch_val_losses, 0))
-            pg_perplexity = 2 ** pg_average_val_loss
-            qr_perplexity = 2 ** qr_average_val_loss
-            print("PG Perplexity: ", pg_perplexity)
-            print("QR Perplexity: ", qr_perplexity)
+            __pg_ppl = 2 ** pg_average_val_loss
+            __qr_ppl = 2 ** qr_average_val_loss
 
-            # TODO (kd): use BLEU instead of perplexity of just program generator?
-            program_generator_checkpoint_manager.step(pg_perplexity)
-            question_reconstructor_checkpoint_manager.step(qr_perplexity)
+            summary_writer.add_scalars(
+                "metrics/perplexity",
+                {"program_generator": __pg_ppl, "question_reconstructor": __qr_ppl},
+                iteration
+            )
+            program_generator_checkpoint_manager.step(__pg_ppl)
+            question_reconstructor_checkpoint_manager.step(__qr_ppl)
 
     # ============================================================================================
     #   AFTER TRAINING END
     # ============================================================================================
     program_generator_checkpoint_manager.save_best()
     question_reconstructor_checkpoint_manager.save_best()
+    summary_writer.close()
