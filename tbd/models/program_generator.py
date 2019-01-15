@@ -7,6 +7,7 @@ from allennlp.modules.seq2seq_encoders import PytorchSeq2SeqWrapper
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
 from allennlp.nn.util import sequence_cross_entropy_with_logits
+from allennlp.training.metrics import Average
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -19,7 +20,7 @@ class ProgramGenerator(SimpleSeq2Seq):
                  hidden_size: int = 64,
                  dropout: float = 0.0,
                  beam_size: int = 1,
-                 max_decoding_steps: int = 30):
+                 max_decoding_steps: int = 26):
         # Short-hand notations (source: questions, target: programs)
         __question_vocab_size = vocabulary.get_vocab_size(namespace="questions")
         __program_vocab_size = vocabulary.get_vocab_size(namespace="programs")
@@ -45,6 +46,10 @@ class ProgramGenerator(SimpleSeq2Seq):
             beam_size=beam_size,
             target_namespace="programs",
         )
+
+        # Record two metrics - BLEU score and perplexity.
+        # super().__init__() already declared "self._bleu", perplexity = 2 ** average_val_loss.
+        self._average_loss = Average()
 
     def forward(self,
                 question_tokens: torch.LongTensor,
@@ -78,21 +83,35 @@ class ProgramGenerator(SimpleSeq2Seq):
         if program_tokens:
             output_dict = self._forward_loop(state, program_tokens)
         else:
-            output_dict = self._sample(state)                
+            output_dict = self._sample(state)
 
         if not self.training:
             # super class methods - left unchanged here
             state = self._init_decoder_state(state)
             output_dict.update(self._forward_beam_search(state))
-            if program_tokens and self._bleu:
-                # shape: (batch_size, beam_size, max_sequence_length)
-                top_k_predictions = output_dict["predictions"]
-                # shape: (batch_size, max_predicted_sequence_length)
-                best_predictions = top_k_predictions[:, 0, :]
-                self._bleu(best_predictions, program_tokens["tokens"])
 
-        # trim output predictions to first "@end@"" and pad the rest of sequence
-        output_dict = self.decode(output_dict)
+            # Keep best predictions (most likely beam)
+            output_dict["predictions"] = output_dict["predictions"][:, 0, :]
+            output_dict["class_log_probabilities"] = output_dict["class_log_probabilities"][:, 0]
+
+            if program_tokens:
+                self._bleu(output_dict["predictions"], program_tokens["tokens"])
+                self._average_loss(torch.mean(output_dict["loss"]).item())
+            # Convert program sequences to string tokens.
+            output_dict = self.decode(output_dict)
+
+        # Trim output predictions to first "@end@"" and pad the rest of sequence.
+        predictions = output_dict["predictions"]
+        trimmed_predictions = torch.zeros_like(output_dict["predictions"])
+        for i, prediction in enumerate(predictions):
+            prediction_indices = list(prediction.detach().cpu().numpy())
+            if self._end_index in prediction_indices:
+                end_index = prediction_indices.index(self._end_index) + 1
+                trimmed_predictions[i][:end_index] = prediction[:end_index]
+            else:
+                trimmed_predictions[i] = prediction
+        output_dict["predictions"] = trimmed_predictions
+
         return output_dict
 
     def _sample(self, state: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -116,6 +135,9 @@ class ProgramGenerator(SimpleSeq2Seq):
             output_projections, state = self._prepare_output_projections(input_choices, state)
             # shape: (batch_size, num_classes)
             class_probabilities = F.softmax(output_projections, dim=-1)
+            # Don't sample @@PADDING@@ and @start@ tokens
+            class_probabilities[:, 0] = 0
+            class_probabilities[:, self._start_index] = 0
             # shape (predicted_classes): (batch_size, 1)
             predicted_classes = torch.multinomial(class_probabilities, 1)
             step_predictions.append(predicted_classes)
@@ -168,3 +190,11 @@ class ProgramGenerator(SimpleSeq2Seq):
         return sequence_cross_entropy_with_logits(
             logits, relevant_targets, relevant_mask, average=None
         )
+
+    def get_metrics(self) -> Dict[str, float]:
+        """Override AllenNLP's get_metric and return perplexity, along with BLEU."""
+        all_metrics: Dict[str, float] = {}
+        if not self.training:
+            all_metrics.update(self._bleu.get_metric(reset=True))
+            all_metrics.update({"perplexity": 2 ** self._average_loss.get_metric(reset=True)})
+        return all_metrics

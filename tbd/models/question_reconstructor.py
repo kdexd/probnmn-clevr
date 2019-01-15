@@ -7,6 +7,7 @@ from allennlp.modules.seq2seq_encoders import PytorchSeq2SeqWrapper
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
 from allennlp.nn.util import sequence_cross_entropy_with_logits
+from allennlp.training.metrics import Average
 import torch
 from torch import nn
 
@@ -18,7 +19,7 @@ class QuestionReconstructor(SimpleSeq2Seq):
                  hidden_size: int = 64,
                  dropout: float = 0.0,
                  beam_size: int = 1,
-                 max_decoding_steps: int = 30):
+                 max_decoding_steps: int = 45):
         # Short-hand notations (source: programs, target: questions)
         __program_vocab_size = vocabulary.get_vocab_size(namespace="programs")
         __question_vocab_size = vocabulary.get_vocab_size(namespace="questions")
@@ -45,6 +46,10 @@ class QuestionReconstructor(SimpleSeq2Seq):
             target_namespace="questions",
         )
 
+        # Record two metrics - BLEU score and perplexity.
+        # super().__init__() already declared "self._bleu", perplexity = 2 ** average_val_loss.
+        self._average_loss = Average()
+
     def forward(self,
                 program_tokens: torch.LongTensor,
                 question_tokens: Optional[torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
@@ -68,29 +73,28 @@ class QuestionReconstructor(SimpleSeq2Seq):
         Dict[str, torch.Tensor]
         """
         state = self._encode({"tokens": program_tokens})
+        state = self._init_decoder_state(state)
 
         if question_tokens is not None:
             question_tokens = {"tokens": question_tokens}
 
-        state = self._init_decoder_state(state)
-        # The `_forward_loop` decodes the input sequence and computes the loss during training
-        # and validation.
+        # keys: {"predictions", "loss"}, question_tokens will never be None.
         output_dict = self._forward_loop(state, question_tokens)
-
         if not self.training:
-            # super class methods - left unchanged here
-            state = self._init_decoder_state(state)
-            predictions = self._forward_beam_search(state)
-            output_dict.update(predictions)
-            if question_tokens and self._bleu:
-                # shape: (batch_size, beam_size, max_sequence_length)
-                top_k_predictions = output_dict["predictions"]
-                # shape: (batch_size, max_predicted_sequence_length)
-                best_predictions = top_k_predictions[:, 0, :]
-                self._bleu(best_predictions, question_tokens["tokens"])
+            # keys: {"predictions", "class_log_probabilities"}
+            output_dict.update(self._forward_beam_search(state))
+            # Keep only best prediction (most likely beam).
+            output_dict["predictions"] = output_dict["predictions"][:, 0, :]
+            output_dict["class_log_probabilities"] = output_dict["class_log_probabilities"][:, 0]
 
-        # trim output predictions to first "@end@"" and pad the rest of sequence
-        output_dict = self.decode(output_dict)
+            # Convert predictions to string tokens.
+            output_dict = self.decode(output_dict)
+
+            # Record metrics while performing validation.
+            if question_tokens:
+                self._bleu(output_dict["predictions"], question_tokens["tokens"])
+                self._average_loss(torch.mean(output_dict["loss"]).item())
+
         return output_dict
 
     @staticmethod
@@ -135,3 +139,11 @@ class QuestionReconstructor(SimpleSeq2Seq):
         return sequence_cross_entropy_with_logits(
             logits, relevant_targets, relevant_mask, average=None
         )
+
+    def get_metrics(self) -> Dict[str, float]:
+        """Override AllenNLP's get_metric and return perplexity, along with BLEU."""
+        all_metrics: Dict[str, float] = {}
+        if not self.training:
+            all_metrics.update(self._bleu.get_metric(reset=True))
+            all_metrics.update({"perplexity": 2 ** self._average_loss.get_metric(reset=True)})
+        return all_metrics

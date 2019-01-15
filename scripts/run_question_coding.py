@@ -39,30 +39,24 @@ torch.backends.cudnn.deterministic = True
 
 def do_iteration(batch, program_generator, question_reconstructor, optimizer=None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
+
     if program_generator.training and question_reconstructor.training:
         optimizer.zero_grad()
     # keys: {"predictions", "loss"}
-    program_generator_output_dict = program_generator(batch["question"], batch["program"])
-
+    __pg_output_dict = program_generator(batch["question"], batch["program"])
+    # shape: (batch_size, max_question_length)
     sampled_programs = program_generator(batch["question"])["predictions"]
-    if not program_generator.training:
-        # pick first beam when evaluating
-        # shape: (batch_size, max_decoding_steps)
-        sampled_programs = sampled_programs[:, 0, :]
+    # keys: {"predictions", "loss"}
+    __qr_output_dict = question_reconstructor(sampled_programs, batch["question"])
 
-    question_reconstructor_output_dict = question_reconstructor(
-        sampled_programs, batch["question"]
-    )
-
-    program_generation_batch_loss = torch.mean(program_generator_output_dict["loss"])
-    question_reconstruction_batch_loss = torch.mean(question_reconstructor_output_dict["loss"])
+    __pg_batch_loss = torch.mean(__pg_output_dict["loss"])
+    __qr_batch_loss = torch.mean(__qr_output_dict["loss"])
 
     if program_generator.training and question_reconstructor.training:
-        program_generation_batch_loss.backward()
-        question_reconstruction_batch_loss.backward()
+        __pg_batch_loss.backward()
+        __qr_batch_loss.backward()
         optimizer.step()
-
-    return program_generation_batch_loss, question_reconstruction_batch_loss
+    return __pg_batch_loss, __qr_batch_loss
 
 
 if __name__ == "__main__":
@@ -135,26 +129,25 @@ if __name__ == "__main__":
     # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
     train_dataloader = itertools.cycle(train_dataloader)
 
-    print(f"Training for {config['num_iterations']}:")
+    print(f"Training for {config['num_iterations']} iterations:")
     for iteration in tqdm(range(1, config["num_iterations"] + 1)):
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
-        pg_batch_loss, qr_batch_loss = do_iteration(batch, program_generator, question_reconstructor, optimizer)
-
+        __pg_batch_loss, __qr_batch_loss = do_iteration(
+            batch, program_generator, question_reconstructor, optimizer
+        )
         # log losses and hyperparameters
         summary_writer.add_scalars(
             "losses",
             {
-                "program_generator": pg_batch_loss,
-                "question_reconstructor": qr_batch_loss
+                "program_generator": __pg_batch_loss,
+                "question_reconstructor": __qr_batch_loss
             },
             iteration
         )
         summary_writer.add_scalar("schedulers/batch_size", batch_size, iteration)
-        summary_writer.add_scalar(
-            "schedulers/learning_rate", optimizer.param_groups[0]["lr"], iteration
-        )
+        summary_writer.add_scalar("schedulers/lr", optimizer.param_groups[0]["lr"], iteration)
 
         # batch size and learning rate scheduling
         lr_scheduler.step()
@@ -171,45 +164,42 @@ if __name__ == "__main__":
             print(f"Cross-validation after iteration {iteration}:")
             program_generator.eval()
             question_reconstructor.eval()
-            pg_batch_val_losses = []
-            qr_batch_val_losses = []
             for i, batch in enumerate(tqdm(val_dataloader)):
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
-                    pg_batch_loss, qr_batch_loss = do_iteration(batch, program_generator, question_reconstructor)
-                    pg_batch_val_losses.append(pg_batch_loss)
-                    qr_batch_val_losses.append(qr_batch_loss)
-
-            # log BLEU score of both program generator and question reconstructor
+                    do_iteration(batch, program_generator, question_reconstructor)
+ 
+            # log BLEU score and perplexity of both program_generator and question_reconstructor
             if isinstance(program_generator, nn.DataParallel):
-                __pg_bleu = program_generator.module.get_metrics()["BLEU"]
-                __qr_bleu = question_reconstructor.module.get_metrics()["BLEU"]
+                __pg_metrics = program_generator.module.get_metrics()
+                __qr_metrics = question_reconstructor.module.get_metrics()
             else:
-                __pg_bleu = program_generator.get_metrics(reset=True)["BLEU"]
-                __qr_bleu = question_reconstructor.get_metrics(reset=True)["BLEU"]
+                __pg_metrics = program_generator.get_metrics()
+                __qr_metrics = question_reconstructor.get_metrics()
 
             summary_writer.add_scalars(
                 "metrics/bleu",
-                {"program_generator": __pg_bleu, "question_reconstructor": __qr_bleu},
+                {
+                    "program_generator": __pg_metrics["BLEU"],
+                    "question_reconstructor": __qr_metrics["BLEU"]
+                },
                 iteration
             )
-
+            summary_writer.add_scalars(
+                "metrics/perplexity",
+                {
+                    "program_generator": __pg_metrics["perplexity"],
+                    "question_reconstructor": __qr_metrics["perplexity"]
+                },
+                iteration
+            )
+            program_generator_checkpoint_manager.step(__pg_metrics["perplexity"])
+            question_reconstructor_checkpoint_manager.step(__qr_metrics["perplexity"])
+            print("\n")
             program_generator.train()
             question_reconstructor.train()
 
-            pg_average_val_loss = torch.mean(torch.stack(pg_batch_val_losses, 0))
-            qr_average_val_loss = torch.mean(torch.stack(qr_batch_val_losses, 0))
-            __pg_ppl = 2 ** pg_average_val_loss
-            __qr_ppl = 2 ** qr_average_val_loss
-
-            summary_writer.add_scalars(
-                "metrics/perplexity",
-                {"program_generator": __pg_ppl, "question_reconstructor": __qr_ppl},
-                iteration
-            )
-            program_generator_checkpoint_manager.step(__pg_ppl)
-            question_reconstructor_checkpoint_manager.step(__qr_ppl)
 
     # ============================================================================================
     #   AFTER TRAINING END
