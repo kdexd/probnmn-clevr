@@ -43,7 +43,7 @@ def do_iteration(batch, program_generator, question_reconstructor, optimizer=Non
         optimizer.zero_grad()
     # keys: {"predictions", "loss"}
     __pg_output_dict = program_generator(batch["question"], batch["program"])
-    # shape: (batch_size, max_question_length)
+    # shape: (batch_size, max_program_length)
     sampled_programs = program_generator(batch["question"], greedy_decode=True)["predictions"]
     # keys: {"predictions", "loss"}
     __qr_output_dict = question_reconstructor(sampled_programs, batch["question"])
@@ -172,7 +172,6 @@ if __name__ == "__main__":
                     __pg_output_dict, __qr_output_dict = do_iteration(
                         batch, program_generator, question_reconstructor
                     )
-                if  i == 10: break
 
             # Print 10 qualitative examples from last batch.
             print(f"Qualitative examples after iteration {iteration}...")
