@@ -44,7 +44,7 @@ def do_iteration(batch, program_generator, question_reconstructor, optimizer=Non
     # keys: {"predictions", "loss"}
     __pg_output_dict = program_generator(batch["question"], batch["program"])
     # shape: (batch_size, max_question_length)
-    sampled_programs = program_generator(batch["question"], sample_programs=True)["predictions"]
+    sampled_programs = program_generator(batch["question"], greedy_decode=True)["predictions"]
     # keys: {"predictions", "loss"}
     __qr_output_dict = question_reconstructor(sampled_programs, batch["question"])
 
@@ -172,25 +172,31 @@ if __name__ == "__main__":
                     __pg_output_dict, __qr_output_dict = do_iteration(
                         batch, program_generator, question_reconstructor
                     )
+                if  i == 10: break
 
             # Print 10 qualitative examples from last batch.
-            print(f"Qualitative exmaples after iteration {iteration}...")
+            print(f"Qualitative examples after iteration {iteration}...")
             print("- " * 30)
             for j in range(min(len(batch["question"]), 20)):
-                print(
-                    "PROGRAM: " + " ".join(
-                        [vocabulary.get_token_from_index(p_index.item(), "programs")
-                         for p_index in batch["program"][j] if p_index != 0]
-                    )
-                )
-                print("SAMPLED PROGRAM: " + " ".join(__pg_output_dict["predicted_tokens"][j]))
-                print(
-                    "QUESTION: " + " ".join(
-                        [vocabulary.get_token_from_index(q_index.item(), "questions")
-                         for q_index in batch["question"][j] if q_index != 0]
-                    )
-                )
-                print("RECONST QUESTION: " + " ".join(__qr_output_dict["predicted_tokens"][j]))
+                print("PROGRAM: " + " ".join(
+                    [vocabulary.get_token_from_index(p_index.item(), "programs")
+                     for p_index in batch["program"][j] if p_index != 0]
+                ))
+
+                print("SAMPLED PROGRAM: " + " ".join(
+                    [vocabulary.get_token_from_index(p_index.item(), "programs")
+                     for p_index in __pg_output_dict["predictions"][j] if p_index != 0]
+                ))
+
+                print("QUESTION: " + " ".join(
+                    [vocabulary.get_token_from_index(q_index.item(), "questions")
+                     for q_index in batch["question"][j] if q_index != 0]
+                ))
+
+                print("RECONST QUESTION: " + " ".join(
+                    [vocabulary.get_token_from_index(q_index.item(), "questions")
+                     for q_index in __qr_output_dict["predictions"][j] if q_index != 0]
+                ))
                 print("- " * 30)
 
             # Log BLEU score and perplexity of both program_generator and question_reconstructor.
