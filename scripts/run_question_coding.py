@@ -10,7 +10,6 @@ from allennlp.data import Vocabulary
 from tensorboardX import SummaryWriter
 import torch
 from torch import nn, optim
-from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
@@ -45,7 +44,7 @@ def do_iteration(batch, program_generator, question_reconstructor, optimizer=Non
     # keys: {"predictions", "loss"}
     __pg_output_dict = program_generator(batch["question"], batch["program"])
     # shape: (batch_size, max_question_length)
-    sampled_programs = program_generator(batch["question"])["predictions"]
+    sampled_programs = program_generator(batch["question"], sample_programs=True)["predictions"]
     # keys: {"predictions", "loss"}
     __qr_output_dict = question_reconstructor(sampled_programs, batch["question"])
 
@@ -56,7 +55,8 @@ def do_iteration(batch, program_generator, question_reconstructor, optimizer=Non
         __pg_batch_loss.backward()
         __qr_batch_loss.backward()
         optimizer.step()
-    return __pg_batch_loss, __qr_batch_loss
+
+    return __pg_output_dict, __qr_output_dict
 
 
 if __name__ == "__main__":
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         itertools.chain(program_generator.parameters(), question_reconstructor.parameters()),
         lr=config["initial_lr"], weight_decay=config["weight_decay"]
     )
-    lr_scheduler = lr_scheduler.MultiStepLR(
+    lr_scheduler = optim.lr_scheduler.MultiStepLR(
         optimizer, milestones=config["lr_steps"], gamma=config["lr_gamma"],
     )
 
@@ -134,15 +134,16 @@ if __name__ == "__main__":
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
-        __pg_batch_loss, __qr_batch_loss = do_iteration(
+        # keys: {"predictions", "loss"}
+        __pg_output_dict, __qr_output_dict = do_iteration(
             batch, program_generator, question_reconstructor, optimizer
         )
         # log losses and hyperparameters
         summary_writer.add_scalars(
             "losses",
             {
-                "program_generator": __pg_batch_loss,
-                "question_reconstructor": __qr_batch_loss
+                "program_generator": torch.mean(__pg_output_dict["loss"]),
+                "question_reconstructor": torch.mean(__qr_output_dict["loss"])
             },
             iteration
         )
@@ -168,9 +169,31 @@ if __name__ == "__main__":
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
-                    do_iteration(batch, program_generator, question_reconstructor)
- 
-            # log BLEU score and perplexity of both program_generator and question_reconstructor
+                    __pg_output_dict, __qr_output_dict = do_iteration(
+                        batch, program_generator, question_reconstructor
+                    )
+
+            # Print 10 qualitative examples from last batch.
+            print(f"Qualitative exmaples after iteration {iteration}...")
+            print("- " * 30)
+            for j in range(min(len(batch["question"]), 20)):
+                print(
+                    "PROGRAM: " + " ".join(
+                        [vocabulary.get_token_from_index(p_index.item(), "programs")
+                         for p_index in batch["program"][j] if p_index != 0]
+                    )
+                )
+                print("SAMPLED PROGRAM: " + " ".join(__pg_output_dict["predicted_tokens"][j]))
+                print(
+                    "QUESTION: " + " ".join(
+                        [vocabulary.get_token_from_index(q_index.item(), "questions")
+                         for q_index in batch["question"][j] if q_index != 0]
+                    )
+                )
+                print("RECONST QUESTION: " + " ".join(__qr_output_dict["predicted_tokens"][j]))
+                print("- " * 30)
+
+            # Log BLEU score and perplexity of both program_generator and question_reconstructor.
             if isinstance(program_generator, nn.DataParallel):
                 __pg_metrics = program_generator.module.get_metrics()
                 __qr_metrics = question_reconstructor.module.get_metrics()

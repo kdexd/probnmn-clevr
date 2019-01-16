@@ -6,10 +6,11 @@ from allennlp.modules.attention import DotProductAttention
 from allennlp.modules.seq2seq_encoders import PytorchSeq2SeqWrapper
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
-from allennlp.nn.util import sequence_cross_entropy_with_logits
+from allennlp.nn.util import add_sentence_boundary_token_ids, get_text_field_mask, sequence_cross_entropy_with_logits
 from allennlp.training.metrics import Average
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 
 class QuestionReconstructor(SimpleSeq2Seq):
@@ -46,6 +47,10 @@ class QuestionReconstructor(SimpleSeq2Seq):
             target_namespace="questions",
         )
 
+        # @@PADDING@@ and @@UNKNOWN@@ have same indices in all namespaces
+        self._pad_index = vocabulary.get_token_index("@@PADDING@@", namespace="questions")
+        self._unk_index = vocabulary.get_token_index("@@UNKNOWN@@", namespace="questions")
+
         # Record two metrics - BLEU score and perplexity.
         # super().__init__() already declared "self._bleu", perplexity = 2 ** average_val_loss.
         self._average_loss = Average()
@@ -72,20 +77,37 @@ class QuestionReconstructor(SimpleSeq2Seq):
         -------
         Dict[str, torch.Tensor]
         """
+
+        # Add "@start@" and "@end@" tokens to program and question sequences.
+        program_tokens, _ = add_sentence_boundary_token_ids(
+            program_tokens, (program_tokens > 0), self._start_index, self._end_index
+        )
+        if question_tokens is not None:
+            question_tokens, _ = add_sentence_boundary_token_ids(
+                question_tokens, (question_tokens > 0), self._start_index, self._end_index
+            )
+
+        # Remove "@start@" from program anyway (it's being encoded).
+        program_tokens = program_tokens[:, 1:]
+
         state = self._encode({"tokens": program_tokens})
         state = self._init_decoder_state(state)
 
         if question_tokens is not None:
             question_tokens = {"tokens": question_tokens}
 
-        # keys: {"predictions", "loss"}, question_tokens will never be None.
-        output_dict = self._forward_loop(state, question_tokens)
-        if not self.training:
-            # keys: {"predictions", "class_log_probabilities"}
-            output_dict.update(self._forward_beam_search(state))
-            # Keep only best prediction (most likely beam).
-            output_dict["predictions"] = output_dict["predictions"][:, 0, :]
-            output_dict["class_log_probabilities"] = output_dict["class_log_probabilities"][:, 0]
+        # keys: {"predictions", "loss"}, question_tokens will never be None while training.
+        if self.training:
+            output_dict = self._forward_loop(state, question_tokens)
+        else:
+            output_dict = self._sample(state, question_tokens)
+
+            # if not self.training:
+            # # keys: {"predictions", "class_log_probabilities"}
+            # output_dict.update(self._forward_beam_search(state))
+            # # Keep only best prediction (most likely beam).
+            # output_dict["predictions"] = output_dict["predictions"][:, 0, :]
+            # output_dict["class_log_probabilities"] = output_dict["class_log_probabilities"][:, 0]
 
             # Convert predictions to string tokens.
             output_dict = self.decode(output_dict)
@@ -95,6 +117,57 @@ class QuestionReconstructor(SimpleSeq2Seq):
                 self._bleu(output_dict["predictions"], question_tokens["tokens"])
                 self._average_loss(torch.mean(output_dict["loss"]).item())
 
+        return output_dict
+
+    def _sample(self,
+                state: Dict[str, torch.Tensor],
+                target_tokens: Dict[str, torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+        """During training, while sampling a sequence, sample from categorical distribution instead
+        of performing greedy decoding.
+        """
+
+        # shape: (batch_size, max_input_sequence_length)
+        source_mask = state["source_mask"]
+        batch_size = source_mask.size()[0]
+
+        # Initialize target predictions with the start index.
+        # shape: (batch_size,)
+        last_predictions = source_mask.new_full((batch_size,), fill_value=self._start_index)
+
+        step_logits: List[torch.Tensor] = []
+        step_predictions: List[torch.Tensor] = []
+        for timestep in range(self._max_decoding_steps):
+            # shape: (batch_size,)
+            input_choices = last_predictions
+            # shape: (batch_size, num_classes)
+            output_projections, state = self._prepare_output_projections(input_choices, state)
+            # list of tensors, shape: (batch_size, 1, num_classes)
+            step_logits.append(output_projections.unsqueeze(1))
+            # shape: (batch_size, num_classes)
+            class_probabilities = F.softmax(output_projections, dim=-1)
+
+            # Don't sample @@PADDING@@, @start@ and @@UNKNOWN@@ tokens
+            class_probabilities[:, self._pad_index] = 0
+            class_probabilities[:, self._start_index] = 0
+            class_probabilities[:, self._unk_index] = 0
+
+            # shape (predicted_classes): (batch_size, 1)
+            predicted_classes = torch.multinomial(class_probabilities, 1)
+            step_predictions.append(predicted_classes)
+            # shape (predicted_classes): (batch_size,)
+            last_predictions = predicted_classes.squeeze()
+
+        # shape: (batch_size, num_decoding_steps)
+        output_dict = {"predictions": torch.cat(step_predictions, 1)}
+
+        if target_tokens:
+            # shape: (batch_size, num_decoding_steps, num_classes)
+            logits = torch.cat(step_logits, 1)
+
+            # Compute loss.
+            target_mask = get_text_field_mask(target_tokens)
+            loss = self._get_loss(logits, target_tokens["tokens"], target_mask)
+            output_dict["loss"] = loss
         return output_dict
 
     @staticmethod
