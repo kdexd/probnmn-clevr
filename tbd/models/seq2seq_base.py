@@ -7,7 +7,7 @@ from allennlp.modules.seq2seq_encoders import PytorchSeq2SeqWrapper
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
 from allennlp.nn.util import add_sentence_boundary_token_ids, sequence_cross_entropy_with_logits
-from allennlp.training.metrics import Average
+from allennlp.training.metrics import Average, SequenceAccuracy
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -19,7 +19,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
     ProgramGenerator and QuestionReconstructor. The key differences from super class are:
         1. This class doesn't use BeamSearch, it performs categorical sampling while training
            and greedy decoding while validation / inference.
-        2. This class records two metrics, perplexity and BLEU.
+        2. This class records three metrics, perplexity, sequence_accuracy and BLEU score.
         3. Has sensible defaults for embedder, encoder and attention mechanism.
 
     Parameters
@@ -76,9 +76,10 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             use_bleu=True
         )
 
-        # Record two metrics - BLEU score and perplexity.
+        # Record three metrics - perplexity, sequence accuracy and BLEU score.
         # super().__init__() already declared "self._bleu", perplexity = 2 ** average_val_loss.
         self._average_loss = Average()
+        self._sequence_accuracy= SequenceAccuracy()
 
     def forward(self,
                 source_tokens: torch.LongTensor,
@@ -109,6 +110,9 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         Dict[str, torch.Tensor]
         """
 
+        # keep a copy of target tokens without sentence boundaries
+        target_tokens_trimmed = target_tokens
+
         # Add "@start@" and "@end@" tokens to source and target sequences.
         source_tokens, _ = add_sentence_boundary_token_ids(
             source_tokens, (source_tokens != self._pad_index),
@@ -136,6 +140,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         # The `_forward_loop` decodes the input sequence and computes the loss during training
         # and validation.
         output_dict = self._forward_loop(state, target_tokens, greedy_decode=greedy_decode)
+
         if not self.training:
             output_dict["predictions"] = self._trim_predictions(output_dict["predictions"])
 
@@ -143,6 +148,15 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         if not self.training and target_tokens:
             self._bleu(output_dict["predictions"], target_tokens["tokens"])
             self._average_loss(torch.mean(output_dict["loss"]).item())
+
+            # sequence accuracy expects top-k beams, so need to add beam dimension
+            # compare generated sequences without "@start@" and "@end@" tokens
+            self._sequence_accuracy(
+                output_dict["predictions"][:, :target_tokens_trimmed.size(-1)].unsqueeze(1),
+                target_tokens_trimmed,
+                (target_tokens_trimmed != self._pad_index).long()
+            )
+
         return output_dict
 
     def _forward_loop(self,
@@ -282,5 +296,10 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         all_metrics: Dict[str, float] = {}
         if not self.training:
             all_metrics.update(self._bleu.get_metric(reset=True))
-            all_metrics.update({"perplexity": 2 ** self._average_loss.get_metric(reset=True)})
+            all_metrics.update(
+                {
+                    "perplexity": 2 ** self._average_loss.get_metric(reset=True),
+                    "sequence_accuracy": self._sequence_accuracy.get_metric(reset=True)
+                }
+            )
         return all_metrics

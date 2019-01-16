@@ -206,22 +206,17 @@ if __name__ == "__main__":
                 __pg_metrics = program_generator.get_metrics()
                 __qr_metrics = question_reconstructor.get_metrics()
 
-            summary_writer.add_scalars(
-                "metrics/bleu",
-                {
-                    "program_generator": __pg_metrics["BLEU"],
-                    "question_reconstructor": __qr_metrics["BLEU"]
-                },
-                iteration
-            )
-            summary_writer.add_scalars(
-                "metrics/perplexity",
-                {
-                    "program_generator": __pg_metrics["perplexity"],
-                    "question_reconstructor": __qr_metrics["perplexity"]
-                },
-                iteration
-            )
+            # Log three metrics to tensorboard.
+            # keys: {"BLEU", "perplexity", "sequence_accuracy"}
+            for metric_name in __pg_metrics:
+                summary_writer.add_scalars(
+                    "metrics/" + metric_name,
+                    {
+                        "program_generator": __pg_metrics[metric_name],
+                        "question_reconstructor": __qr_metrics[metric_name]
+                    },
+                    iteration
+                )
             program_generator_checkpoint_manager.step(__pg_metrics["perplexity"])
             question_reconstructor_checkpoint_manager.step(__qr_metrics["perplexity"])
             print("\n")
