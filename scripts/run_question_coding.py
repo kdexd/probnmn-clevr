@@ -65,15 +65,26 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
         __pg_output_dict["loss"], batch["supervision"], dim=0
     )
 
+    # Question coding objective: (reconstruction loss) + (alpha * supervision loss)
+    # Reconstruction loss:       \log{p_\theta (x|z)} 
+    # Supervision loss:          \log{r_\phi (z|x)} * [x \in S]
+    loss_objective = __qr_batch_loss + config["ssl_alpha"] * __pg_batch_loss
+
     if program_generator.training and question_reconstructor.training:
-        # Question coding objective: (reconstruction loss) + (alpha * supervision loss)
-        # Reconstruction loss:       \log{p_\theta (x|z)} 
-        # Supervision loss:          \log{r_\phi (z|x)} * [x \in S]
-        __loss_objective = __qr_batch_loss + config["ssl_alpha"] * __pg_batch_loss
-        __loss_objective.backward()
+        loss_objective.backward()
         optimizer.step()
 
-    return __pg_output_dict, __qr_output_dict
+    return {
+        "predictions": {
+            "__pg": __pg_output_dict["predictions"],
+            "__qr": __qr_output_dict["predictions"]
+        },
+        "loss": {
+            "reconstruction": __pg_batch_loss,
+            "supervision": __qr_batch_loss,
+            "objective": loss_objective
+        }
+    }
 
 
 if __name__ == "__main__":
@@ -105,13 +116,29 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
 
+    # Program Prior checkpoint, this will be frozen during question coding.
+    program_prior = ProgramPrior(
+        vocabulary=vocabulary,
+        embedding_size=config["prior_embedding_size"],
+        hidden_size=config["prior_rnn_hidden_size"],
+        dropout=config["prior_rnn_dropout"]
+    ).to(device)
+    program_prior.load_state_dict(torch.load(config["prior_checkpoint"]))
+    program_prior.eval()
+
     # Works with 100% supervision for now.
     program_generator = ProgramGenerator(
-        vocabulary, config["embedding_size"], config["rnn_hidden_size"], config["rnn_dropout"]
+        vocabulary=vocabulary,
+        embedding_size=config["embedding_size"],
+        hidden_size=config["rnn_hidden_size"],
+        dropout=config["rnn_dropout"]
     ).to(device)
 
     question_reconstructor = QuestionReconstructor(
-        vocabulary, config["embedding_size"], config["rnn_hidden_size"], config["rnn_dropout"]
+        vocabulary=vocabulary,
+        embedding_size=config["embedding_size"],
+        hidden_size=config["rnn_hidden_size"],
+        dropout=config["rnn_dropout"]
     ).to(device)
 
     optimizer = optim.Adam(
@@ -123,7 +150,8 @@ if __name__ == "__main__":
     )
 
     if -1 not in args.gpu_ids:
-        # don't wrap to DataParallel for CPU-mode
+        # Don't wrap to DataParallel for CPU-mode.
+        program_prior = nn.DataParallel(program_prior, args.gpu_ids)
         program_generator = nn.DataParallel(program_generator, args.gpu_ids)
         question_reconstructor = nn.DataParallel(question_reconstructor, args.gpu_ids)
 
@@ -155,18 +183,11 @@ if __name__ == "__main__":
         for key in batch:
             batch[key] = batch[key].to(device)
         # keys: {"predictions", "loss"}
-        __pg_output_dict, __qr_output_dict = do_iteration(
+        iteration_output_dict = do_iteration(
             config, batch, None, program_generator, question_reconstructor, optimizer
         )
-        # log losses and hyperparameters
-        summary_writer.add_scalars(
-            "losses",
-            {
-                "program_generator": torch.mean(__pg_output_dict["loss"]),
-                "question_reconstructor": torch.mean(__qr_output_dict["loss"])
-            },
-            iteration
-        )
+        # Log losses and hyperparameters.
+        summary_writer.add_scalars("loss", iteration_output_dict["loss"], iteration)
         summary_writer.add_scalar("schedulers/batch_size", batch_size, iteration)
         summary_writer.add_scalar("schedulers/lr", optimizer.param_groups[0]["lr"], iteration)
 
@@ -189,7 +210,7 @@ if __name__ == "__main__":
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
-                    __pg_output_dict, __qr_output_dict = do_iteration(
+                    __iteration_output_dict = do_iteration(
                         config, batch, None, program_generator, question_reconstructor
                     )
 
@@ -204,7 +225,8 @@ if __name__ == "__main__":
 
                 print("SAMPLED PROGRAM: " + " ".join(
                     [vocabulary.get_token_from_index(p_index.item(), "programs")
-                     for p_index in __pg_output_dict["predictions"][j] if p_index != 0]
+                     for p_index in __iteration_output_dict["predictions"]["__pg"][j]
+                     if p_index != 0]
                 ))
 
                 print("QUESTION: " + " ".join(
@@ -214,7 +236,8 @@ if __name__ == "__main__":
 
                 print("RECONST QUESTION: " + " ".join(
                     [vocabulary.get_token_from_index(q_index.item(), "questions")
-                     for q_index in __qr_output_dict["predictions"][j] if q_index != 0]
+                     for q_index in __iteration_output_dict["predictions"]["__qr"][j]
+                     if q_index != 0]
                 ))
                 print("- " * 30)
 
