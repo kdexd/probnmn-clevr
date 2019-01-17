@@ -29,6 +29,13 @@ parser.add_argument(
     default="configs/question_coding.yml",
     help="Path to a config file listing model and solver parameters.",
 )
+parser.add-argument(
+    "--num-val-examples",
+    default=10000,
+    type=int,
+    help="Number of validation examples to use. CLEVR val is huge, this can be used to make the"
+         "validation loop a bit faster, although might provide a noisy estimate of performance."
+)
 # data file paths, gpu ids, checkpoint args etc.
 add_common_opts(parser)
 
@@ -44,32 +51,66 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
                  program_prior: ProgramPrior,
                  program_generator: ProgramGenerator,
                  question_reconstructor: QuestionReconstructor,
+                 moving_average_baseline: torch.Tensor,
                  optimizer: Optional[optim.Optimizer] = None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
 
-    # program_generator and question_reconstructor would simultaneusly be in either training
-    # mode or evaluation mode. program_prior is always in evaluation mode (frozen checkpoint).
-    if program_generator.training:
+    # Notations in comments: x', z' are questions and programs observed in dataset.
+    # z are sampled programs given x' from the dataset.
+    # In other words x' = batch["questions"] and z' = batch["programs"]
+    if program_generator.training and question_reconstructor.training:
         optimizer.zero_grad()
 
-    # keys: {"predictions", "loss"}
-    __pg_output_dict = program_generator(batch["question"], batch["program"])
-    # shape: (batch_size, max_program_length)
+    # Sample programs from program generator, using the observed questions.
+    # Sample z ~ q_\phi(z|x'), shape: (batch_size, max_program_length)
     sampled_programs = program_generator(batch["question"], greedy_decode=True)["predictions"]
+
+    # --------------------------------------------------------------------------------------------
+    # First term: question reconstruction loss (\log{p_\theta (x'|z)})
     # keys: {"predictions", "loss"}
     __qr_output_dict = question_reconstructor(sampled_programs, batch["question"])
+    negative_logprobs_reconstruction = __qr_output_dict["loss"]
+    question_reconstruction_loss = torch.mean(negative_logprobs_reconstruction)
+    # --------------------------------------------------------------------------------------------
 
-    __qr_batch_loss = torch.mean(__qr_output_dict["loss"])
+    # --------------------------------------------------------------------------------------------
+    # Second term: Full monte carlo estimator of KL divergence
+    # - \beta * KL (\log{q_\phi(z|x')} || \log{p(z)})
+    negative_logprobs_generation = program_generator(batch["question"], sampled_programs)["loss"]
+    negative_logprobs_prior = program_prior(sampled_programs)["loss"]
+
+    # REINFORCE reward (R): ( \log{ (p_\theta (x'|z) * p(z) ^ \beta) / (q_\phi (z|x') ) })
+    # shape: (batch_size, )
+    nelbo_loss = negative_logprobs_reconstruction + \
+                 config["kl_beta"] * (negative_logprobs_prior - negative_logprobs_generation)
+    # All terms in previous line were negative logprobs, so negate the loss for getting reward.
+    reinforce_reward = -nelbo_loss
+    # Detach the reward term, we don't want gradients to flow to through that and get counted
+    # twice, once already counted through path derivative loss.
+    # shape: (batch_size, )
+    centered_reward = (reinforce_reward - moving_average_baseline).detach()
+
+    score_derivative_generation_loss = torch.mean(centered_reward * negative_logprobs_generation)
+    path_derivative_generation_loss = torch.mean(negative_logprobs_generation)
+    full_monte_carlo_kl = path_derivative_generation_loss + score_derivative_generation_loss
+
+    # B := B + (1 - \delta * (R - B))
+    moving_average_baseline += config["elbo_delta"] * centered_reward.mean()
+    # --------------------------------------------------------------------------------------------
+
+    # --------------------------------------------------------------------------------------------
+    # Third term: Program supervision loss: \alpha * \log{r_\phi (z'|x')} * [[ x' \in S ]]
+    # keys: {"predictions", "loss"}
+    __pg_output_dict = program_generator(batch["question"], batch["program"])
+
     # Zero out loss contribution from examples having no program supervision.
-    __pg_batch_loss = allennlp_util.masked_mean(
+    program_supervision_loss = allennlp_util.masked_mean(
         __pg_output_dict["loss"], batch["supervision"], dim=0
     )
+    program_supervision_loss = config["ssl_alpha"] * program_supervision_loss
+    # --------------------------------------------------------------------------------------------
 
-    # Question coding objective: (reconstruction loss) + (alpha * supervision loss)
-    # Reconstruction loss:       \log{p_\theta (x|z)} 
-    # Supervision loss:          \log{r_\phi (z|x)} * [x \in S]
-    loss_objective = __qr_batch_loss + config["ssl_alpha"] * __pg_batch_loss
-
+    loss_objective = question_reconstruction_loss + full_monte_carlo_kl + program_supervision_loss
     if program_generator.training and question_reconstructor.training:
         loss_objective.backward()
         optimizer.step()
@@ -80,10 +121,12 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
             "__qr": __qr_output_dict["predictions"]
         },
         "loss": {
-            "reconstruction": __pg_batch_loss,
-            "supervision": __qr_batch_loss,
+            "reconstruction": question_reconstruction_loss,
+            "full_monte_carlo_kl": full_monte_carlo_kl,
+            "supervision": program_supervision_loss,
             "objective": loss_objective
-        }
+        },
+        "moving_average_baseline": moving_average_baseline
     }
 
 
@@ -177,6 +220,7 @@ if __name__ == "__main__":
     # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
     train_dataloader = itertools.cycle(train_dataloader)
 
+    moving_average_baseline = torch.tensor(0.0)
     print(f"Training for {config['num_iterations']} iterations:")
     for iteration in tqdm(range(1, config["num_iterations"] + 1)):
         batch = next(train_dataloader)
@@ -184,10 +228,14 @@ if __name__ == "__main__":
             batch[key] = batch[key].to(device)
         # keys: {"predictions", "loss"}
         iteration_output_dict = do_iteration(
-            config, batch, None, program_generator, question_reconstructor, optimizer
+            config, batch, program_prior, program_generator, question_reconstructor,
+            moving_average_baseline, optimizer
         )
+        moving_average_baseline = iteration_output_dict["moving_average_baseline"]
+
         # Log losses and hyperparameters.
         summary_writer.add_scalars("loss", iteration_output_dict["loss"], iteration)
+        summary_writer.add_scalar("moving_average_baseline", moving_average_baseline, iteration)
         summary_writer.add_scalar("schedulers/batch_size", batch_size, iteration)
         summary_writer.add_scalar("schedulers/lr", optimizer.param_groups[0]["lr"], iteration)
 
@@ -210,9 +258,11 @@ if __name__ == "__main__":
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
-                    __iteration_output_dict = do_iteration(
-                        config, batch, None, program_generator, question_reconstructor
+                    iteration_output_dict = do_iteration(
+                        config, batch, program_prior, program_generator, question_reconstructor,
+                        moving_average_baseline
                     )
+                if (i + 1) * batch > args.num_val_examples: break
 
             # Print 10 qualitative examples from last batch.
             print(f"Qualitative examples after iteration {iteration}...")
@@ -225,7 +275,7 @@ if __name__ == "__main__":
 
                 print("SAMPLED PROGRAM: " + " ".join(
                     [vocabulary.get_token_from_index(p_index.item(), "programs")
-                     for p_index in __iteration_output_dict["predictions"]["__pg"][j]
+                     for p_index in iteration_output_dict["predictions"]["__pg"][j]
                      if p_index != 0]
                 ))
 
@@ -236,7 +286,7 @@ if __name__ == "__main__":
 
                 print("RECONST QUESTION: " + " ".join(
                     [vocabulary.get_token_from_index(q_index.item(), "questions")
-                     for q_index in __iteration_output_dict["predictions"]["__qr"][j]
+                     for q_index in iteration_output_dict["predictions"]["__qr"][j]
                      if q_index != 0]
                 ))
                 print("- " * 30)
