@@ -1,5 +1,6 @@
 from typing import Optional
 
+import numpy as np
 import torch
 from torch.utils.data import Dataset
 
@@ -44,29 +45,27 @@ class QuestionCodingDataset(Dataset):
     ----------
     tokens_hdfpath: str
         Path to an HDF file to initialize the underlying reader.
-    supervision_npypath: int, optional (default = None)
+    num_supervision: int, optional (default = None)
         Number of examples where there would be a program supervision over questions, for
         ``ProgramGenerator``.
     """
 
     def __init__(self,
                  tokens_hdfpath: str,
-                 supervision: int = 699989):
+                 num_supervision: int = 699989):
         self._tokens = ClevrTokensReader(tokens_hdfpath)
 
-        self._supervision_list = torch.ones(len(self._tokens))
+        self._supervision_list = np.zeros(len(self._tokens))
 
         # 100% supervision by default, and there's no notion of supervision in val split.
-        if self.split == "train" and supervision < len(self._tokens):
-            # Sample desired number of example indices equally likely.
+        if self.split == "train" and num_supervision < len(self._tokens):
             # This would be completely deterministic if seed is set in training script.
-            __supervision_examples = torch.multinomial(self._supervision_list, supervision)
-            self._supervision_list[__supervision_examples] += 1
+            __supervision_examples = np.random.choice(
+                list(range(self._supervision_list)), replace=False, size=num_supervision
+            )
+            self._supervision_list[__supervision_examples] = 1
 
-            # Convert to list of 0's and 1's
-            self._supervision_list -= 1
-
-        self._supervision_list = self._supervision_list.long()
+        self._supervision_list = torch.tensor(self._supervision_list).long()
 
     def __len__(self):
         return len(self._tokens)
