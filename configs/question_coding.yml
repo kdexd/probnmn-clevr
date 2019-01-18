@@ -18,12 +18,18 @@ initial_lr: 0.01
 lr_gamma: 0.1
 lr_steps: [1000, 2500, 5000, 10000, 15000]
 
-### arguments and hyperparameters specific to question coding
+### question coding: data loading
 num_supervision: 699989
+question_max_length_initial: 8
+question_max_length_gamma: 5
+question_max_length_steps: [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+
+### question coding: objective
 ssl_alpha: 100.0
 kl_beta: 0.1
 elbo_delta: 0.99
 
+### question coding: prior checkpoint
 prior_checkpoint: "data/program_prior_best_checkpoint.pth"  # ppl: 2.6068
 prior_embedding_size: 128
 prior_rnn_hidden_size: 64
