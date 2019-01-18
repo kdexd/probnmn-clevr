@@ -88,7 +88,7 @@ class QuestionCodingDataset(Dataset):
     def get_supervision_list(self):
         """
         Return a list of 1's and 0's, indicating which examples have program supervision during
-        question coding. This list is used by WeightedRandomSampler to sample a mini-batch which
-        shall have similar number of supervision/non-supervision examples.
+        question coding. It is used by ``tbd.data.sampler.SupervisionWeightedRandomSampler`` to
+        form a mini-batch with nearly equal number of examples with/without program supervision.
         """
         return self._supervision_list
