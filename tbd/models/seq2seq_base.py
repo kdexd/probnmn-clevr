@@ -140,7 +140,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         # The `_forward_loop` decodes the input sequence and computes the loss during training
         # and validation.
         output_dict = self._forward_loop(state, target_tokens, greedy_decode=greedy_decode)
-
         if not self.training:
             output_dict["predictions"] = self._trim_predictions(output_dict["predictions"])
 
@@ -243,7 +242,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             if self._end_index in prediction_indices:
                 end_index = prediction_indices.index(self._end_index)
                 if end_index > 0:
-                    trimmed_predictions[i][:end_index] = prediction[:end_index]                    
+                    trimmed_predictions[i][:end_index] = prediction[:end_index]
             else:
                 trimmed_predictions[i] = prediction
         return trimmed_predictions
@@ -259,7 +258,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         Extended Summary
         ----------------
         From AllenNLP documentation:
-        
+
         Compute loss.
         Takes logits (unnormalized outputs from the decoder) of size (batch_size,
         num_decoding_steps, num_classes), target indices of size (batch_size, num_decoding_steps+1)
