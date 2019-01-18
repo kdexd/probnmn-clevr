@@ -19,8 +19,8 @@ import yaml
 from tbd.data import QuestionCodingDataset
 from tbd.data.sampler import SupervisionWeightedRandomSampler
 from tbd.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
-from tbd.opts import add_common_opts
 from tbd.utils.checkpointing import CheckpointManager
+from tbd.utils.opts import add_common_opts, override_config_from_opts
 
 
 parser = argparse.ArgumentParser("Question coding for CLEVR v1.0 programs and questions.")
@@ -30,12 +30,15 @@ parser.add_argument(
     help="Path to a config file listing model and solver parameters.",
 )
 parser.add_argument(
-    "--num-val-examples",
-    default=10000,
-    type=int,
-    help="Number of validation examples to use. CLEVR val is huge, this can be used to make the"
-         "validation loop a bit faster, although might provide a noisy estimate of performance."
+    "--config-override",
+    type=str,
+    default="{}",
+    help="A string following python dict syntax, specifying certain config arguments to override,"
+         " useful for launching batch jobs through shel lscripts. The actual config will be "
+         "updated and recorded in the checkpoint saving directory. Only argument names already "
+         "present in config will be overriden, rest ignored."
 )
+
 # data file paths, gpu ids, checkpoint args etc.
 add_common_opts(parser)
 
@@ -137,12 +140,14 @@ if __name__ == "__main__":
     # ============================================================================================
     args = parser.parse_args()
     config = yaml.load(open(args.config_yml))
-    device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+    config = override_config_from_opts(config, args.config_override)
 
     # print config and args
     print(yaml.dump(config, default_flow_style=False))
     for arg in vars(args):
         print("{:<20}: {}".format(arg, getattr(args, arg)))
+
+    device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
 
     # ============================================================================================
     #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL, OPTIMIZER
@@ -274,7 +279,7 @@ if __name__ == "__main__":
                         config, batch, program_prior, program_generator, question_reconstructor,
                         moving_average_baseline
                     )
-                if (i + 1) * batch > args.num_val_examples: break
+                if (i + 1) * len(batch["program"]) > args.num_val_examples: break
 
             # Print 10 qualitative examples from last batch.
             print(f"Qualitative examples after iteration {iteration}...")

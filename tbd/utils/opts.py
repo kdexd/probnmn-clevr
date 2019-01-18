@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Dict, Optional, Union
+import warnings
 
 
 def add_common_opts(parser):
@@ -29,6 +30,14 @@ def add_common_opts(parser):
         type=int,
         help="List of ids of GPUs to use (-1 for CPU).",
     )
+    parser.add_argument(
+        "--num-val-examples",
+        default=10000,
+        type=int,
+        help="Number of validation examples to use. CLEVR val is huge, this can be used to make "
+             "the validation loop a bit faster, although might provide a noisy estimate of "
+             "performance."
+    )
 
     parser.add_argument_group("Checkpointing related arguments")
     parser.add_argument(
@@ -44,3 +53,15 @@ def add_common_opts(parser):
         type=int,
         help="Save a checkpoint after every this many epochs/iterations.",
     )
+
+
+def override_config_from_opts(config: Dict[str, Union[int, float, str]], config_override: str):
+    # Convert string to a python dict.
+    config_override = eval(config_override)
+
+    for config_key in config_override:
+        if config_key in config:
+            config[config_key] = config_override[config_key]
+        else:
+            warnings.warn(f"Config '{config_key}', does not exist in provided config file.")
+    return config

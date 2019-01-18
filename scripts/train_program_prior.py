@@ -16,8 +16,8 @@ import yaml
 
 from tbd.data import ProgramPriorDataset
 from tbd.models import ProgramPrior
-from tbd.opts import add_common_opts
 from tbd.utils.checkpointing import CheckpointManager
+from tbd.utils.opts import add_common_opts, override_config_from_opts
 
 
 parser = argparse.ArgumentParser("Train program prior over CLEVR v1.0 training split programs.")
@@ -25,6 +25,15 @@ parser.add_argument(
     "--config-yml",
     default="configs/program_prior.yml",
     help="Path to a config file listing model and solver parameters.",
+)
+parser.add_argument(
+    "--config-override",
+    type=str,
+    default="{}",
+    help="A string following python dict syntax, specifying certain config arguments to override,"
+         " useful for launching batch jobs through shel lscripts. The actual config will be "
+         "updated and recorded in the checkpoint saving directory. Only argument names already "
+         "present in config will be overriden, rest ignored."
 )
 # data file paths, gpu ids, checkpoint args etc.
 add_common_opts(parser)
@@ -56,12 +65,14 @@ if __name__ == "__main__":
     # ============================================================================================
     args = parser.parse_args()
     config = yaml.load(open(args.config_yml))
-    device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+    config = override_config_from_opts(config, args.config_override)
 
     # print config and args
     print(yaml.dump(config, default_flow_style=False))
     for arg in vars(args):
         print("{:<20}: {}".format(arg, getattr(args, arg)))
+
+    device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
 
     # ============================================================================================
     #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL, OPTIMIZER
