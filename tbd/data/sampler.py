@@ -10,14 +10,14 @@ class SupervisionWeightedRandomSampler(WeightedRandomSampler):
 
     def __init__(self, question_coding_dataset: Dataset):
 
-        supervision_list = question_coding_dataset.get_supervision_list()
+        supervision_list = question_coding_dataset.get_supervision_list().float()
         num_supervision = torch.sum(supervision_list)
         num_no_supervision = len(question_coding_dataset) - num_supervision
 
         # Set weights of indices for weighted random sampler.
         weights = torch.zeros_like(supervision_list)
-        weights[supervision_list == 1] = 1 / num_supervision_yes
-        weights[supervision_list == 0] = 1 / num_supervision_no
+        weights[supervision_list == 1] = 1 / num_supervision
+        weights[supervision_list == 0] = 1 / num_no_supervision
 
         super().__init__(
             weights=weights,

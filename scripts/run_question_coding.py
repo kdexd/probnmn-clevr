@@ -7,6 +7,7 @@ import os
 import random
 
 from allennlp.data import Vocabulary
+from allennlp.nn import util as allennlp_util
 from tensorboardX import SummaryWriter
 import torch
 from torch import nn, optim
@@ -15,6 +16,7 @@ from tqdm import tqdm
 import yaml
 
 from tbd.data import QuestionCodingDataset
+from tbd.data.sampler import SupervisionWeightedRandomSampler
 from tbd.models import ProgramGenerator, QuestionReconstructor
 from tbd.opts import add_common_opts
 from tbd.utils.checkpointing import CheckpointManager
@@ -36,7 +38,7 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 
-def do_iteration(batch, program_generator, question_reconstructor, optimizer=None):
+def do_iteration(config, batch, program_generator, question_reconstructor, optimizer=None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
 
     if program_generator.training and question_reconstructor.training:
@@ -48,12 +50,18 @@ def do_iteration(batch, program_generator, question_reconstructor, optimizer=Non
     # keys: {"predictions", "loss"}
     __qr_output_dict = question_reconstructor(sampled_programs, batch["question"])
 
-    __pg_batch_loss = torch.mean(__pg_output_dict["loss"])
     __qr_batch_loss = torch.mean(__qr_output_dict["loss"])
+    # Zero out loss contribution from examples having no program supervision.
+    __pg_batch_loss = allennlp_util.masked_mean(
+        __pg_output_dict["loss"], batch["supervision"], dim=0
+    )
 
     if program_generator.training and question_reconstructor.training:
-        __pg_batch_loss.backward()
-        __qr_batch_loss.backward()
+        # Question coding objective: (reconstruction loss) + (alpha * supervision loss)
+        # Reconstruction loss:       \log{p_\theta (x|z)} 
+        # Supervision loss:          \log{r_\phi (z|x)} * [x \in S]
+        __loss_objective = __qr_batch_loss + config["ssl_alpha"] * __pg_batch_loss
+        __loss_objective.backward()
         optimizer.step()
 
     return __pg_output_dict, __qr_output_dict
@@ -77,15 +85,18 @@ if __name__ == "__main__":
     # ============================================================================================
 
     vocabulary = Vocabulary.from_files(args.vocab_dirpath)
-    train_dataset = QuestionCodingDataset(args.tokens_train_h5)
+    train_dataset = QuestionCodingDataset(
+        args.tokens_train_h5, config["num_supervision"]
+    )
     val_dataset = QuestionCodingDataset(args.tokens_val_h5)
+    train_sampler = SupervisionWeightedRandomSampler(train_dataset)
 
-    # train dataloader can be re-initialized later while doing batch size scheduling
+    # Train dataloader can be re-initialized later while doing batch size scheduling.
     batch_size = config["initial_bs"]
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
 
-    # works with 100% supervision for now
+    # Works with 100% supervision for now.
     program_generator = ProgramGenerator(
         vocabulary, config["embedding_size"], config["rnn_hidden_size"], config["rnn_dropout"]
     ).to(device)
@@ -136,7 +147,7 @@ if __name__ == "__main__":
             batch[key] = batch[key].to(device)
         # keys: {"predictions", "loss"}
         __pg_output_dict, __qr_output_dict = do_iteration(
-            batch, program_generator, question_reconstructor, optimizer
+            config, batch, program_generator, question_reconstructor, optimizer
         )
         # log losses and hyperparameters
         summary_writer.add_scalars(
@@ -155,7 +166,7 @@ if __name__ == "__main__":
         if iteration in config["bs_steps"]:
             batch_size *= config["bs_gamma"]
             train_dataloader = itertools.cycle(
-                DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+                DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
             )
 
         # ========================================================================================
@@ -170,7 +181,7 @@ if __name__ == "__main__":
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
                     __pg_output_dict, __qr_output_dict = do_iteration(
-                        batch, program_generator, question_reconstructor
+                        config, batch, program_generator, question_reconstructor
                     )
 
             # Print 10 qualitative examples from last batch.
@@ -222,7 +233,6 @@ if __name__ == "__main__":
             print("\n")
             program_generator.train()
             question_reconstructor.train()
-
 
     # ============================================================================================
     #   AFTER TRAINING END

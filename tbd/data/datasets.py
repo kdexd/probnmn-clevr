@@ -61,7 +61,7 @@ class QuestionCodingDataset(Dataset):
         if self.split == "train" and num_supervision < len(self._tokens):
             # This would be completely deterministic if seed is set in training script.
             __supervision_examples = np.random.choice(
-                list(range(self._supervision_list)), replace=False, size=num_supervision
+                np.arange(len(self._supervision_list)), replace=False, size=num_supervision
             )
             self._supervision_list[__supervision_examples] = 1
 
