@@ -5,6 +5,7 @@ import itertools
 import json
 import os
 import random
+from typing import Dict, Optional, Union
 
 from allennlp.data import Vocabulary
 from allennlp.nn import util as allennlp_util
@@ -17,7 +18,7 @@ import yaml
 
 from tbd.data import QuestionCodingDataset
 from tbd.data.sampler import SupervisionWeightedRandomSampler
-from tbd.models import ProgramGenerator, QuestionReconstructor
+from tbd.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
 from tbd.opts import add_common_opts
 from tbd.utils.checkpointing import CheckpointManager
 
@@ -38,11 +39,19 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 
-def do_iteration(config, batch, program_generator, question_reconstructor, optimizer=None):
+def do_iteration(config: Dict[str, Union[int, float, str]],
+                 batch: Dict[str, torch.Tensor],
+                 program_prior: ProgramPrior,
+                 program_generator: ProgramGenerator,
+                 question_reconstructor: QuestionReconstructor,
+                 optimizer: Optional[optim.Optimizer] = None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
 
-    if program_generator.training and question_reconstructor.training:
+    # program_generator and question_reconstructor would simultaneusly be in either training
+    # mode or evaluation mode. program_prior is always in evaluation mode (frozen checkpoint).
+    if program_generator.training:
         optimizer.zero_grad()
+
     # keys: {"predictions", "loss"}
     __pg_output_dict = program_generator(batch["question"], batch["program"])
     # shape: (batch_size, max_program_length)
@@ -147,7 +156,7 @@ if __name__ == "__main__":
             batch[key] = batch[key].to(device)
         # keys: {"predictions", "loss"}
         __pg_output_dict, __qr_output_dict = do_iteration(
-            config, batch, program_generator, question_reconstructor, optimizer
+            config, batch, None, program_generator, question_reconstructor, optimizer
         )
         # log losses and hyperparameters
         summary_writer.add_scalars(
@@ -181,7 +190,7 @@ if __name__ == "__main__":
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
                     __pg_output_dict, __qr_output_dict = do_iteration(
-                        config, batch, program_generator, question_reconstructor
+                        config, batch, None, program_generator, question_reconstructor
                     )
 
             # Print 10 qualitative examples from last batch.

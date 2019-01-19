@@ -11,13 +11,13 @@ weight_decay: 0.000
 ### batch size scheduling - (bs *= gamma) at specified iterations
 initial_bs: 256
 bs_gamma: 2
-bs_steps: [500, 1000, 2500, 5000, 10000]  # batch size reachs 8192 this way
+bs_steps: [1000, 2500, 5000, 10000, 15000]  # batch size reachs 8192 this way
 
 ### learning rate scheduling - (lr *= gamma) if validation loss plateaus
 initial_lr: 0.01
 lr_gamma: 0.1
-lr_steps: [500, 1000, 2500, 5000, 10000]
+lr_steps: [1000, 2500, 5000, 10000, 15000]
 
 ### arguments and hyperparameters specific to question coding
-num_supervision: 500
-ssl_alpha: 100.0
+num_supervision: 699989
+ssl_alpha: 1.0

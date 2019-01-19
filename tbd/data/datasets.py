@@ -64,6 +64,8 @@ class QuestionCodingDataset(Dataset):
                 np.arange(len(self._supervision_list)), replace=False, size=num_supervision
             )
             self._supervision_list[__supervision_examples] = 1
+        else:
+            self._supervision_list += 1
 
         self._supervision_list = torch.tensor(self._supervision_list).long()
 
