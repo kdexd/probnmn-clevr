@@ -143,7 +143,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         if not self.training:
             output_dict["predictions"] = self._trim_predictions(output_dict["predictions"])
 
-        # Record BLEU and perplexity during validation.
+        # Record BLEU, perplexity and sequence accuracy during validation.
         if not self.training and target_tokens:
             self._bleu(output_dict["predictions"], target_tokens["tokens"])
             self._average_loss(torch.mean(output_dict["loss"]).item())

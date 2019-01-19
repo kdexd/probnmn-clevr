@@ -21,3 +21,7 @@ lr_steps: [1000, 2500, 5000, 10000, 15000]
 ### arguments and hyperparameters specific to question coding
 num_supervision: 699989
 ssl_alpha: 1.0
+prior_checkpoint: "data/program_prior_best_checkpoint.pth"  # ppl: 2.6068
+prior_embedding_size: 128
+prior_rnn_hidden_size: 64
+prior_rnn_dropout: 0.0
