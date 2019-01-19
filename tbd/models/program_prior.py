@@ -92,13 +92,15 @@ class ProgramPriorVanillaLSTM(nn.Module):
         # multiply with mask just to be sure
         next_timestep = next_timestep[:, :-1] * program_tokens_mask[:, 1:]
 
+        sequence_cross_entropy = sequence_cross_entropy_with_logits(
+            output_logits[:, :-1, :].contiguous(),
+            program_tokens[:, 1:].contiguous(),
+            weights=program_tokens_mask[:, 1:],
+            average=None
+        )
         output_dict = {
             "predicted_tokens": next_timestep,
-            "loss": sequence_cross_entropy_with_logits(
-                output_logits[:, :-1].contiguous(),
-                program_tokens[:, 1:].contiguous(),
-                weights=program_tokens_mask[:, 1:],
-            )
+            "loss": sequence_cross_entropy * program_tokens_mask[:, 1:].sum(-1).float()
         }
         return output_dict
 
@@ -166,20 +168,15 @@ class ProgramPriorResidualLSTM(nn.Module):
         # multiply with mask just to be sure
         next_timestep = next_timestep[:, :-1] * program_tokens_mask[:, 1:]
 
-        # depending on whether model is training or under inference mode
-        # set the way to compute sequence cross entropy
-        if self.training:
-            cross_entropy_average_mode = "token"
-        else:
-            cross_entropy_average_mode = "batch"
-
+        sequence_cross_entropy = sequence_cross_entropy_with_logits(
+            output_logits[:, :-1, :].contiguous(),
+            program_tokens[:, 1:].contiguous(),
+            weights=program_tokens_mask[:, 1:],
+            average=None
+        )
         output_dict = {
             "predicted_tokens": next_timestep,
-            "loss": sequence_cross_entropy_with_logits(
-                output_logits[:, :-1].contiguous(),
-                program_tokens[:, 1:].contiguous(),
-                weights=program_tokens_mask[:, 1:],
-            )
+            "loss": sequence_cross_entropy * program_tokens_mask[:, 1:].sum(-1).float()
         }
         return output_dict
 
