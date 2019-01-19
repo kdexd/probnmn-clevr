@@ -16,7 +16,16 @@ class SupervisionWeightedRandomSampler(WeightedRandomSampler):
 
         # Hold a list of question lengths, element is length of i-th question in CLEVR v1.0
         # train split, excluding "@start@" and "@end@".
-        question_mask = question_coding_dataset._tokens.questions[:] != 0
+        tokens = question_coding_dataset._tokens
+
+        if isinstance(tokens, list):
+            # In Overfit mode.
+            questions = [torch.tensor(token["question"]) for token in tokens]
+            questions = torch.stack(questions)
+            question_mask = questions != 0
+        else:
+            question_mask = tokens.questions[:] != 0
+
         # Shape: (699989, ) for CLEVR v1.0 train split
         self._question_lengths = torch.tensor(question_mask.sum(-1)).long()
 
