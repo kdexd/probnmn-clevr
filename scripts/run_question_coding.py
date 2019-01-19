@@ -29,7 +29,7 @@ parser.add_argument(
     default="configs/question_coding.yml",
     help="Path to a config file listing model and solver parameters.",
 )
-parser.add-argument(
+parser.add_argument(
     "--num-val-examples",
     default=10000,
     type=int,
@@ -63,12 +63,13 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
 
     # Sample programs from program generator, using the observed questions.
     # Sample z ~ q_\phi(z|x'), shape: (batch_size, max_program_length)
-    sampled_programs = program_generator(batch["question"], greedy_decode=True)["predictions"]
+    sampled_programs = program_generator(batch["question"], greedy_decode=False)["predictions"]
 
     # --------------------------------------------------------------------------------------------
     # First term: question reconstruction loss (\log{p_\theta (x'|z)})
     # keys: {"predictions", "loss"}
     __qr_output_dict = question_reconstructor(sampled_programs, batch["question"])
+    # shape: (batch_size, )
     negative_logprobs_reconstruction = __qr_output_dict["loss"]
     question_reconstruction_loss = torch.mean(negative_logprobs_reconstruction)
     # --------------------------------------------------------------------------------------------
@@ -91,7 +92,7 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
     centered_reward = (reinforce_reward - moving_average_baseline).detach()
 
     score_derivative_generation_loss = torch.mean(centered_reward * negative_logprobs_generation)
-    path_derivative_generation_loss = torch.mean(negative_logprobs_generation)
+    path_derivative_generation_loss = config["kl_beta"] * torch.mean(negative_logprobs_generation)
     full_monte_carlo_kl = path_derivative_generation_loss + score_derivative_generation_loss
 
     # B := B + (1 - \delta * (R - B))
@@ -99,7 +100,7 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
     # --------------------------------------------------------------------------------------------
 
     # --------------------------------------------------------------------------------------------
-    # Third term: Program supervision loss: \alpha * \log{r_\phi (z'|x')} * [[ x' \in S ]]
+    # Third term: Program supervision loss: \alpha * \log{r_\phi (z'|x')}
     # keys: {"predictions", "loss"}
     __pg_output_dict = program_generator(batch["question"], batch["program"])
 
