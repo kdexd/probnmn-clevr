@@ -118,13 +118,11 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             source_tokens, (source_tokens != self._pad_index),
             self._start_index, self._end_index
         )
-
         if target_tokens is not None:
             target_tokens, _ = add_sentence_boundary_token_ids(
                 target_tokens, (target_tokens != self._pad_index),
                 self._start_index, self._end_index
             )
-
         # Remove "@start@" from source sequences anyway (it's being encoded).
         source_tokens = {"tokens": source_tokens[:, 1:]}
         if target_tokens is not None:
@@ -155,7 +153,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
                 target_tokens_trimmed,
                 (target_tokens_trimmed != self._pad_index).long()
             )
-
         return output_dict
 
     def _forward_loop(self,
@@ -182,7 +179,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         last_predictions = source_mask.new_full((batch_size,), fill_value=self._start_index)
 
         step_logits: List[torch.Tensor] = []
-        step_log_probabilities: List[torch.Tensor] = []
         step_predictions: List[torch.Tensor] = []
         for timestep in range(num_decoding_steps):
             if self.training and torch.rand(1).item() < self._scheduled_sampling_ratio:
@@ -203,7 +199,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             step_logits.append(output_projections.unsqueeze(1))
             # shape: (batch_size, num_classes)
             class_probabilities = F.softmax(output_projections, dim=-1)
-            class_log_probabilities = F.log_softmax(output_projections, dim=-1)
 
             # NOTE -------------------------------------------------------------------------------
             # This differs from super()._forward_loop(...)
@@ -218,17 +213,12 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
                 predicted_classes = torch.multinomial(class_probabilities, 1).squeeze()
             # ------------------------------------------------------------------------------------
 
-            predicted_classes_log_probabilities = class_probabilities[
-                torch.arange(batch_size), predicted_classes]
-
             # shape (predicted_classes): (batch_size,)
             last_predictions = predicted_classes
             step_predictions.append(last_predictions.unsqueeze(1))
-            step_log_probabilities.append(predicted_classes_log_probabilities.unsqueeze(1))
 
         # shape: (batch_size, num_decoding_steps)
         predictions = torch.cat(step_predictions, 1)
-        step_log_probabilities = torch.cat(step_log_probabilities, 1)
         output_dict = {"predictions": predictions}
 
         if target_tokens:
@@ -237,10 +227,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             target_mask = (targets != self._pad_index)
             loss = self._get_loss(logits, targets, target_mask)
             output_dict["loss"] = loss
-        else:
-            # shape: (batch_size, num_decoding_steps)
-            # be careful, this is unmasked and only for sanity checks
-            output_dict["loss"] = -step_log_probabilities
 
         return output_dict
 
@@ -301,7 +287,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         # shape: (batch_size, )
         relevant_lengths = relevant_mask.sum(-1)
 
-        # TODO: multiple with sequence lengths
         sequence_negative_logprobs = sequence_cross_entropy_with_logits(
             logits, relevant_targets, relevant_mask, average=None
         )
@@ -315,7 +300,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             all_metrics.update(self._bleu.get_metric(reset=True))
             all_metrics.update(
                 {
-                    "perplexity": 2 ** self._average_loss.get_metric(reset=True),
+                    "negative_logprobs": self._average_loss.get_metric(reset=True),
                     "sequence_accuracy": self._sequence_accuracy.get_metric(reset=True)
                 }
             )

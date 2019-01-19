@@ -94,9 +94,9 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
     # shape: (batch_size, )
     centered_reward = (reinforce_reward - moving_average_baseline).detach()
 
-    score_derivative_generation_loss = torch.mean(centered_reward * negative_logprobs_generation)
-    path_derivative_generation_loss = config["kl_beta"] * torch.mean(negative_logprobs_generation)
-    full_monte_carlo_kl = path_derivative_generation_loss + score_derivative_generation_loss
+    reinforce_loss = torch.mean(centered_reward * negative_logprobs_generation)
+    path_derivative_generation_loss = torch.mean(negative_logprobs_generation)
+    full_monte_carlo_kl = config["kl_beta"] * path_derivative_generation_loss + reinforce_loss
 
     # B := B + (1 - \delta * (R - B))
     moving_average_baseline += config["elbo_delta"] * centered_reward.mean()
@@ -111,10 +111,13 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
     program_supervision_loss = allennlp_util.masked_mean(
         __pg_output_dict["loss"], batch["supervision"], dim=0
     )
-    program_supervision_loss = config["ssl_alpha"] * program_supervision_loss
     # --------------------------------------------------------------------------------------------
 
-    loss_objective = question_reconstruction_loss + full_monte_carlo_kl + program_supervision_loss
+    loss_objective = question_reconstruction_loss + config["ssl_alpha"] * program_supervision_loss
+    # Baseline model does not have ELBO term. (using .get() because backward compatibility)
+    if not config.get("run_baseline", True):
+        loss_objective += full_monte_carlo_kl
+
     if program_generator.training and question_reconstructor.training:
         loss_objective.backward()
         optimizer.step()
@@ -130,7 +133,8 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
             "supervision": program_supervision_loss,
             "objective": loss_objective
         },
-        "moving_average_baseline": moving_average_baseline
+        "reinforce_reward": reinforce_reward.mean(),
+        "baseline": moving_average_baseline
     }
 
 
@@ -224,7 +228,7 @@ if __name__ == "__main__":
         optimizer=optimizer,
         filename_prefix="question_reconstructor",
     )
-    summary_writer = SummaryWriter(log_dir=os.path.join(args.save_dirpath, "tensorboard_logs"))
+    summary_writer = SummaryWriter(log_dir=os.path.join(args.save_dirpath))
 
     # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
     train_dataloader = itertools.cycle(train_dataloader)
@@ -240,11 +244,17 @@ if __name__ == "__main__":
             config, batch, program_prior, program_generator, question_reconstructor,
             moving_average_baseline, optimizer
         )
-        moving_average_baseline = iteration_output_dict["moving_average_baseline"]
+        moving_average_baseline = iteration_output_dict["baseline"]
 
         # Log losses and hyperparameters.
         summary_writer.add_scalars("loss", iteration_output_dict["loss"], iteration)
-        summary_writer.add_scalar("moving_average_baseline", moving_average_baseline, iteration)
+        summary_writer.add_scalars(
+            "elbo", {
+                "reinforce_reward": iteration_output_dict["reinforce_reward"],
+                "baseline": moving_average_baseline
+            },
+            iteration
+        )
         summary_writer.add_scalar("schedulers/batch_size", batch_size, iteration)
         summary_writer.add_scalar("schedulers/lr", optimizer.param_groups[0]["lr"], iteration)
 
@@ -320,15 +330,14 @@ if __name__ == "__main__":
             # keys: {"BLEU", "perplexity", "sequence_accuracy"}
             for metric_name in __pg_metrics:
                 summary_writer.add_scalars(
-                    "metrics/" + metric_name,
-                    {
+                    "metrics/" + metric_name, {
                         "program_generator": __pg_metrics[metric_name],
                         "question_reconstructor": __qr_metrics[metric_name]
                     },
                     iteration
                 )
-            program_generator_checkpoint_manager.step(__pg_metrics["perplexity"])
-            question_reconstructor_checkpoint_manager.step(__qr_metrics["perplexity"])
+            program_generator_checkpoint_manager.step(__pg_metrics["negative_logprobs"])
+            question_reconstructor_checkpoint_manager.step(__qr_metrics["negative_logprobs"])
             print("\n")
             program_generator.train()
             question_reconstructor.train()
