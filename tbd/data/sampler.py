@@ -19,15 +19,7 @@ class SupervisionWeightedRandomSampler(WeightedRandomSampler):
         question_mask = question_coding_dataset._tokens.questions[:] != 0
         # Shape: (699989, ) for CLEVR v1.0 train split
         self._question_lengths = torch.tensor(question_mask.sum(-1)).long()
-        weights = self.update_curriculum(max_question_length)
 
-        super().__init__(
-            weights=weights,
-            num_samples=len(question_coding_dataset),
-            replacement=True,
-        )
-
-    def update_curriculum(self, max_question_length):
         supervision_mask = (self._question_lengths <= max_question_length).float()
 
         # Examples with questions longer than specified will be temporarily dropped.
@@ -44,5 +36,9 @@ class SupervisionWeightedRandomSampler(WeightedRandomSampler):
 
         # Set probability of sampling masked examples as zero.
         weights[supervision_mask == 0] = 0
-        self.weights = weights
-        return weights
+
+        super().__init__(
+            weights=weights,
+            num_samples=len(question_coding_dataset),
+            replacement=True,
+        )

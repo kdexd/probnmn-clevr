@@ -153,10 +153,13 @@ if __name__ == "__main__":
         args.tokens_train_h5, config["num_supervision"]
     )
     val_dataset = QuestionCodingDataset(args.tokens_val_h5)
-    train_sampler = SupervisionWeightedRandomSampler(train_dataset)
 
-    # Train dataloader can be re-initialized later while doing batch size scheduling.
+    # Train dataloader and train sampler can be re-initialized later while doing batch size
+    # scheduling and question max length curriculum.
     batch_size = config["initial_bs"]
+    question_max_length = config["question_max_length_initial"]
+
+    train_sampler = SupervisionWeightedRandomSampler(train_dataset, question_max_length)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
 
@@ -240,10 +243,18 @@ if __name__ == "__main__":
         summary_writer.add_scalar("schedulers/batch_size", batch_size, iteration)
         summary_writer.add_scalar("schedulers/lr", optimizer.param_groups[0]["lr"], iteration)
 
-        # batch size and learning rate scheduling
-        lr_scheduler.step()
+        # Batch size and learning rate scheduling.
         if iteration in config["bs_steps"]:
             batch_size *= config["bs_gamma"]
+            train_dataloader = itertools.cycle(
+                DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
+            )
+        lr_scheduler.step()
+
+        # Curriculum training of question reconstructor based on question length.
+        if iteration in config["question_max_length_steps"]:
+            question_max_length += config["question_max_length_gamma"]
+            train_sampler = SupervisionWeightedRandomSampler(train_dataset, question_max_length)
             train_dataloader = itertools.cycle(
                 DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
             )
