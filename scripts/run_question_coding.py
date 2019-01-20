@@ -38,13 +38,19 @@ parser.add_argument(
          "updated and recorded in the checkpoint saving directory. Only argument names already "
          "present in config will be overriden, rest ignored."
 )
-
+parser.add_argument(
+    "--random-seed",
+    type=int,
+    default=0,
+    help="Random seed for all devices, useful for doing multiple runs and reporting mean/variance."
+)
 # data file paths, gpu ids, checkpoint args etc.
 add_common_opts(parser)
+args = parser.parse_args()
 
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
+torch.manual_seed(args.random_seed)
+torch.cuda.manual_seed_all(args.random_seed)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
@@ -80,7 +86,8 @@ def do_iteration(config: Dict[str, Union[int, float, str]],
     # --------------------------------------------------------------------------------------------
     # Second term: Full monte carlo estimator of KL divergence
     # - \beta * KL (\log{q_\phi(z|x')} || \log{p(z)})
-    negative_logprobs_generation = program_generator(batch["question"], sampled_programs)["loss"]
+    negative_logprobs_generation = program_generator(
+        batch["question"], sampled_programs, record_metrics=False)["loss"]
     negative_logprobs_prior = program_prior(sampled_programs)["loss"]
 
     # REINFORCE reward (R): ( \log{ (p_\theta (x'|z) * p(z) ^ \beta) / (q_\phi (z|x') ) })
@@ -142,7 +149,6 @@ if __name__ == "__main__":
     # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
     # ============================================================================================
-    args = parser.parse_args()
     config = yaml.load(open(args.config_yml))
     config = override_config_from_opts(config, args.config_override)
 
@@ -239,7 +245,7 @@ if __name__ == "__main__":
 
     moving_average_baseline = torch.tensor(0.0)
     print(f"Training for {config['num_iterations']} iterations:")
-    for iteration in tqdm(range(1, config["num_iterations"] + 1)):
+    for iteration in tqdm(range(config["num_iterations"])):
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)

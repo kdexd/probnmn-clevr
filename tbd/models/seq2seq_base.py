@@ -84,7 +84,8 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
     def forward(self,
                 source_tokens: torch.LongTensor,
                 target_tokens: Optional[torch.LongTensor] = None,
-                greedy_decode: bool = False) -> Dict[str, torch.Tensor]:
+                greedy_decode: bool = False,
+                record_metrics: bool = True) -> Dict[str, torch.Tensor]:
         """Override AllenNLP's forward, changing decoder logic. During training, it performs
         categorical sampling, while during evaluation it performs greedy decoding. This means
         beam search with beam size 1 by default.
@@ -142,7 +143,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             output_dict["predictions"] = self._trim_predictions(output_dict["predictions"])
 
         # Record BLEU, perplexity and sequence accuracy during validation.
-        if not self.training and target_tokens:
+        if not self.training and target_tokens and record_metrics:
             self._bleu(output_dict["predictions"], target_tokens["tokens"])
             self._average_loss(torch.mean(output_dict["loss"]).item())
 
