@@ -1,26 +1,7 @@
-# DISTRIBUTION STATEMENT A. Approved for public release: distribution unlimited.
-#
-# This material is based upon work supported by the Assistant Secretary of Defense for Research and
-# Engineering under Air Force Contract No. FA8721-05-C-0002 and/or FA8702-15-D-0001. Any opinions,
-# findings, conclusions or recommendations expressed in this material are those of the author(s) and
-# do not necessarily reflect the views of the Assistant Secretary of Defense for Research and
-# Engineering.
-#
-# © 2017 Massachusetts Institute of Technology.
-#
-# MIT Proprietary, Subject to FAR52.227-11 Patent Rights - Ownership by the contractor (May 2014)
-#
-# The software/firmware is provided to you on an As-Is basis
-#
-# Delivered to the U.S. Government with Unlimited Rights, as defined in DFARS Part 252.227-7013 or
-# 7014 (Feb 2014). Notwithstanding any copyright notice, U.S. Government rights in this work are
-# defined by DFARS 252.227-7013 or DFARS 252.227-7014 as detailed above. Use of this work other than
-# as specifically authorized by the U.S. Government may violate any copyrights that exist in this
-# work.
-
+"""Collection of PyTorch modules used by our Neural Module Network."""
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional as F
 
 
 class AndModule(nn.Module):
@@ -73,12 +54,12 @@ class AttentionModule(nn.Module):
     attention mask highlighting all the red objects, it will produce an attention mask highlighting
     all the red cubes.
 
-    Attributes
+    Parameters
     ----------
-    dim : int
+    dim: int
         The number of channels of each convolutional filter.
     """
-    def __init__(self, dim):
+    def __init__(self, dim: int):
         super().__init__()
         self.conv1 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(dim, dim, kernel_size=3, padding=1) 
@@ -110,12 +91,12 @@ class QueryModule(nn.Module):
     feature map encoding what color the attended object is. A module intended to count would output
     a feature map encoding the number of attended objects in the scene.
 
-    Attributes
+    Parameters
     ----------
-    dim : int
+    dim: int
         The number of channels of each convolutional filter.
     """
-    def __init__(self, dim):
+    def __init__(self, dim: int):
         super().__init__()
         self.conv1 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
@@ -141,12 +122,12 @@ class RelateModule(nn.Module):
     uses a series of dilated convolutional filters to indicate a spatial relationship to the input
     attended region.
 
-    Attributes
+    Parameters
     ----------
-    dim : int
+    dim: int
         The number of channels of each convolutional filter.
     """
-    def __init__(self, dim):
+    def __init__(self, dim: int):
         super().__init__()
         self.conv1 = nn.Conv2d(dim, dim, kernel_size=3, padding=1, dilation=1)  # receptive field 3
         self.conv2 = nn.Conv2d(dim, dim, kernel_size=3, padding=2, dilation=2)  # 7
@@ -189,12 +170,12 @@ class SameModule(nn.Module):
     operation, which will highlight every region of an image that shares the same shape as an object
     of interest (excluding the original object).
 
-    Attributes
+    Parameters
     ----------
-    dim : int
+    dim: int
         The number of channels in the input feature map.
     """
-    def __init__(self, dim):
+    def __init__(self, dim: int):
         super().__init__()
         self.conv = nn.Conv2d(dim+1, 1, kernel_size=1)
         torch.nn.init.kaiming_normal_(self.conv.weight)
@@ -224,12 +205,12 @@ class ComparisonModule(nn.Module):
     there more red things than small spheres?'' It can also be used to determine whether some
     relationship holds of two objects (e.g. they are the same shape, size, color, or material).
 
-    Attributes
+    Parameters
     ----------
-    dim : int
+    dim: int
         The number of channels of each convolutional filter.
     """
-    def __init__(self, dim):
+    def __init__(self, dim: int):
         super().__init__()
         self.projection = nn.Conv2d(2*dim, dim, kernel_size=1, padding=0)
         self.conv1 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
