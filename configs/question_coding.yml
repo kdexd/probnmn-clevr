@@ -5,7 +5,7 @@ rnn_hidden_size: 64
 rnn_dropout: 0.2
 
 # optimization related arguments
-num_iterations: 15000
+num_iterations: 11000
 weight_decay: 0.001
 
 ### batch size scheduling - (bs *= gamma) at specified iterations
