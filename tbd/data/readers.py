@@ -64,6 +64,12 @@ class ClevrFeaturesReader(object):
     A Reader for retrieving pre-extracted image features from CLEVR images. We typically use
     features extracted using ResNet-101.
 
+    Example of an HDF file:
+    ```
+    features_train.h5
+       |--- "features" [shape: (num_images, channels, height, width)]
+       +--- .attrs ("split", "train")
+
     Parameters
     ----------
     features_hdfpath: str
@@ -74,29 +80,27 @@ class ClevrFeaturesReader(object):
 
     def __init__(self, features_hdfpath: str, in_memory: bool = True):
         self.features_hdfpath = features_hdfpath
+        self._in_memory = in_memory
+
         # Image feature files are typically 50-100 GB in size, careful when loading in memory.
-        self.features = None
-        with h5py.File(features_hdfpath, "r") as clevr_features:
-            if in_memory:
-                self.features = clevr_features["features"][:]
-            self.num_images = clevr_features["features"].shape[0]
-            self._split = clevr_features.attrs["split"]
+        with h5py.File(self.features_hdfpath, "r") as features_hdf:
+            self._split = features_hdf.attrs["split"]
+            if self._in_memory:
+                self.features = features_hdf["features"][:]
+            else:
+                self.features = None
 
     def __len__(self):
-        return len(self.num_images)
+        return len(self.features)
 
     def __getitem__(self, index):
-        if self.features is not None:
+        if self._in_memory:
             features = self.features[index]
         else:
-            with h5py.File(self.features_hdfpath, "r") as clevr_features:
-                features = clevr_features["features"][index]
-
-        if isinstance(index, slice):
-            # return list of single instances if a slice
-            return [{"features": f} for f in features]
-        else:
-            return {"features": features}
+            # read chunk from file everytime if not loaded in memory
+            with h5py.File(self.features_hdfpath, "r") as features_hdf:
+                features = features_hdf["features"][index]
+        return features
 
     @property
     def split(self):

@@ -128,10 +128,12 @@ class ModuleTrainingDataset(Dataset):
         item = self._tokens[index]
         features = self._features[item["image_index"]]
 
+	# We sample programs, but GT programs can give upper bound on performance.
         return {
             "question": torch.tensor(item["question"]).long(),
             "answer": torch.tensor(item["answer"]).long(),
-            "image": torch.tensor(features["features"])
+            "image": torch.tensor(features),
+            "program": torch.tensor(item["program"]).long()
         }
 
     @property

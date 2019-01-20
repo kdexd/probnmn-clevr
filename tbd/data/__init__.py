@@ -1,1 +1,1 @@
-from .datasets import ProgramPriorDataset, QuestionCodingDataset
+from .datasets import ProgramPriorDataset, ModuleTrainingDataset, QuestionCodingDataset

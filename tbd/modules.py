@@ -73,7 +73,7 @@ class AttentionModule(nn.Module):
         attended_feats = torch.mul(feats, attn.repeat(1, self.dim, 1, 1))
         out = F.relu(self.conv1(attended_feats))
         out = F.relu(self.conv2(out))
-        out = F.sigmoid(self.conv3(out))
+        out = torch.sigmoid(self.conv3(out))
         return out
 
 
@@ -150,7 +150,7 @@ class RelateModule(nn.Module):
         out = F.relu(self.conv3(out))
         out = F.relu(self.conv4(out))
         out = F.relu(self.conv5(out))
-        out = F.sigmoid(self.conv6(out))
+        out = torch.sigmoid(self.conv6(out))
         return out
 
 
@@ -188,7 +188,7 @@ class SameModule(nn.Module):
         attended_feats = attended_feats.index_select(3, the_idx[0, 0, 0, 0] % size)
         x = torch.mul(feats, attended_feats.repeat(1, 1, size, size))
         x = torch.cat([x, attn], dim=1)
-        out = F.sigmoid(self.conv(x))
+        out = torch.sigmoid(self.conv(x))
         return out
 
 
