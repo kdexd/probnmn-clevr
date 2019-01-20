@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from tbd.data.readers import ClevrTokensReader
+from tbd.data.readers import ClevrFeaturesReader, ClevrTokensReader
 
 
 class ProgramPriorDataset(Dataset):
@@ -38,7 +38,7 @@ class ProgramPriorDataset(Dataset):
 class QuestionCodingDataset(Dataset):
     """
     Provides questions and programs as tokenized sequences for question coding. It also provides
-    a "supervision" flag, which can behave as a maskwhen batched, to tune the amount of program
+    a "supervision" flag, which can behave as a mask when batched, to tune the amount of program
     supervision on ``ProgramGenerator``.
 
     Parameters
@@ -93,3 +93,47 @@ class QuestionCodingDataset(Dataset):
         form a mini-batch with nearly equal number of examples with/without program supervision.
         """
         return self._supervision_list
+
+
+class ModuleTrainingDataset(Dataset):
+    """
+    Provides questions, image features an answers for module training. Programs are inferred by
+    ``ProgramGenerator`` trained during question coding.
+
+    Parameters
+    ----------
+    tokens_hdfpath: str
+        Path to an HDF file to initialize the underlying reader.
+    features_hdfpath: str
+        Path to an HDF file containing a 'dataset' of pre-extracted image features.
+    in_memory: bool, optional (default = True)
+        Whether to load all image features in memory.
+    """
+
+    def __init__(self,
+                 tokens_hdfpath: str,
+                 features_hdfpath: str,
+                 in_memory: bool = True,
+                 overfit: bool = False):
+        self._tokens = ClevrTokensReader(tokens_hdfpath)
+        self._features = ClevrFeaturesReader(features_hdfpath, in_memory)
+
+        if overfit:
+            self._tokens = self._tokens[:5]
+
+    def __len__(self):
+        return len(self._tokens)
+
+    def __getitem__(self, index):
+        item = self._tokens[index]
+        features = self._features[item["image_index"]]
+
+        return {
+            "question": torch.tensor(item["question"]).long(),
+            "answer": torch.tensor(item["answer"]).long(),
+            "image": torch.tensor(features["features"])
+        }
+
+    @property
+    def split(self):
+        return self._tokens.split
