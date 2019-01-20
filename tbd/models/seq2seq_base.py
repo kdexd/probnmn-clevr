@@ -218,19 +218,22 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         # shape: (batch_size, num_decoding_steps)
         predictions = torch.cat(step_predictions, 1)
         logprobs = torch.cat(step_logprobs, 1)
-        output_dict = {"predictions": predictions, "negative_logprobs": -logprobs}
+        output_dict = {"predictions": predictions, "loss": -logprobs}
 
         # Trim predictions after first "@end@" token.
-        output_dict["predictions"] = self._trim_predictions(output_dict["predictions"])
-        output_dict["negative_logprobs"] *= (output_dict["predictions"] != self._pad_index).float()
-        output_dict["negative_logprobs"] = output_dict["negative_logprobs"].sum(-1)
+        if not self.training:
+            output_dict["predictions"] = self._trim_predictions(output_dict["predictions"])
 
         if target_tokens:
+            # Update loss as teacher forcing loss with target tokens.
             # shape: (batch_size, num_decoding_steps, num_classes)
             logits = torch.cat(step_logits, 1)
             target_mask = (targets != self._pad_index)
             loss = self._get_loss(logits, targets, target_mask)
             output_dict["loss"] = loss
+        else:
+            output_dict["loss"] *= (output_dict["predictions"] != self._pad_index).float()
+            output_dict["loss"] = output_dict["loss"].sum(-1)
 
         return output_dict
 
