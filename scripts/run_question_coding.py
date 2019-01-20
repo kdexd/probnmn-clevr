@@ -166,7 +166,11 @@ if __name__ == "__main__":
     # Train dataloader and train sampler can be re-initialized later while doing batch size
     # scheduling and question max length curriculum.
     batch_size = config["initial_bs"]
-    question_max_length = config["question_max_length_initial"]
+    if config["do_question_curriculum"]:
+        question_max_length = config["question_max_length_initial"]
+    else:
+        # Set arbitrary large question length to avoid curriculum.
+        question_max_length = 50
 
     train_sampler = SupervisionWeightedRandomSampler(train_dataset, question_max_length)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
@@ -267,7 +271,7 @@ if __name__ == "__main__":
         lr_scheduler.step()
 
         # Curriculum training of question reconstructor based on question length.
-        if iteration in config["question_max_length_steps"]:
+        if config["do_question_curriculum"] and iteration in config["question_max_length_steps"]:
             question_max_length += config["question_max_length_gamma"]
             train_sampler = SupervisionWeightedRandomSampler(train_dataset, question_max_length)
             train_dataloader = itertools.cycle(

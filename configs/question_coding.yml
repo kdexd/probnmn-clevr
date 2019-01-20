@@ -5,21 +5,22 @@ rnn_hidden_size: 64
 rnn_dropout: 0.2
 
 # optimization related arguments
-num_iterations: 20000
+num_iterations: 15000
 weight_decay: 0.001
 
 ### batch size scheduling - (bs *= gamma) at specified iterations
 initial_bs: 256
 bs_gamma: 2
-bs_steps: [1000, 2500, 5000, 10000, 15000]  # batch size reachs 8192 this way
+bs_steps: [1000, 2500, 5000, 10000]  # batch size reachs 4096 this way
 
 ### learning rate scheduling - (lr *= gamma) if validation loss plateaus
 initial_lr: 0.01
 lr_gamma: 0.1
-lr_steps: [2500, 5000, 7500, 10000, 15000]
+lr_steps: [2500, 5000, 7500, 10000]
 
 ### question coding: data loading
 num_supervision: 1000
+do_question_curriculum: 1
 question_max_length_initial: 10
 question_max_length_gamma: 8
 question_max_length_steps: [250, 500, 1000, 1500, 2000, 2250, 2500]
