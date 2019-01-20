@@ -57,3 +57,47 @@ class ClevrTokensReader(object):
     @property
     def split(self):
         return self._split
+
+
+class ClevrFeaturesReader(object):
+    """
+    A Reader for retrieving pre-extracted image features from CLEVR images. We typically use
+    features extracted using ResNet-101.
+
+    Parameters
+    ----------
+    features_hdfpath: str
+        Path to an HDF file containing a 'dataset' of pre-extracted image features.
+    in_memory: bool, optional (default = True)
+        Whether to load all image features in memory.
+    """
+
+    def __init__(self, features_hdfpath: str, in_memory: bool = True):
+        self.features_hdfpath = features_hdfpath
+        # Image feature files are typically 50-100 GB in size, careful when loading in memory.
+        self.features = None
+        with h5py.File(features_hdfpath, "r") as clevr_features:
+            if in_memory:
+                self.features = clevr_features["features"][:]
+            self.num_images = clevr_features["features"].shape[0]
+            self._split = clevr_features.attrs["split"]
+
+    def __len__(self):
+        return len(self.num_images)
+
+    def __getitem__(self, index):
+        if self.features is not None:
+            features = self.features[index]
+        else:
+            with h5py.File(self.features_hdfpath, "r") as clevr_features:
+                features = clevr_features["features"][index]
+
+        if isinstance(index, slice):
+            # return list of single instances if a slice
+            return [{"features": f} for f in features]
+        else:
+            return {"features": features}
+
+    @property
+    def split(self):
+        return self._split
