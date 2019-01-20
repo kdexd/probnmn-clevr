@@ -101,6 +101,10 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         target_tokens: torch.LongTensor, optional (default = None)
             Tokenized target sequences padded to maximum length. These are not padded with
             @start@ and @end@ sentence boundaries. Shape: (batch_size, max_target_length)
+        record_metrics: bool, optional (default = True)
+            A flag which can skip recording metrics for current forward pass, useful in two cases,
+            first in case of ``ProgramGenerator`` when teacher forcing using sampled programs, and
+            second when you need to record metrics for only a subset of train/val splits.
 
         Returns
         -------
@@ -134,7 +138,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         output_dict = self._forward_loop(state, target_tokens)
 
         # Record BLEU, perplexity and sequence accuracy during validation.
-        if not self.training and target_tokens and record_metrics:
+        if target_tokens and record_metrics:
             self._bleu(output_dict["predictions"], target_tokens["tokens"])
             self._average_loss(torch.mean(output_dict["loss"]).item())
 
