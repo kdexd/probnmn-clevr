@@ -84,7 +84,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
     def forward(self,
                 source_tokens: torch.LongTensor,
                 target_tokens: Optional[torch.LongTensor] = None,
-                greedy_decode: bool = False,
                 record_metrics: bool = True) -> Dict[str, torch.Tensor]:
         """Override AllenNLP's forward, changing decoder logic. During training, it performs
         categorical sampling, while during evaluation it performs greedy decoding. This means
@@ -102,17 +101,11 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         target_tokens: torch.LongTensor, optional (default = None)
             Tokenized target sequences padded to maximum length. These are not padded with
             @start@ and @end@ sentence boundaries. Shape: (batch_size, max_target_length)
-        greedy_decode: bool, optional (default = False)
-            A flag which can let you do greedy decoding even during training. Won't work
-            during evaluation.
 
         Returns
         -------
         Dict[str, torch.Tensor]
         """
-
-        # keep a copy of target tokens without sentence boundaries
-        target_tokens_trimmed = target_tokens
 
         # Add "@start@" and "@end@" tokens to source and target sequences.
         source_tokens, _ = add_sentence_boundary_token_ids(
@@ -138,28 +131,26 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
 
         # The `_forward_loop` decodes the input sequence and computes the loss during training
         # and validation.
-        output_dict = self._forward_loop(state, target_tokens, greedy_decode=greedy_decode)
-        if not self.training:
-            output_dict["predictions"] = self._trim_predictions(output_dict["predictions"])
+        output_dict = self._forward_loop(state, target_tokens)
 
         # Record BLEU, perplexity and sequence accuracy during validation.
         if not self.training and target_tokens and record_metrics:
             self._bleu(output_dict["predictions"], target_tokens["tokens"])
             self._average_loss(torch.mean(output_dict["loss"]).item())
 
-            # sequence accuracy expects top-k beams, so need to add beam dimension
-            # compare generated sequences without "@start@" and "@end@" tokens
+            # Sequence accuracy expects top-k beams, so need to add beam dimension.
+            # Compare generated sequences without "@start@" token.
+            relevant_targets = target_tokens["tokens"][:, 1:]
             self._sequence_accuracy(
-                output_dict["predictions"][:, :target_tokens_trimmed.size(-1)].unsqueeze(1),
-                target_tokens_trimmed,
-                (target_tokens_trimmed != self._pad_index).long()
+                output_dict["predictions"][:, :relevant_targets.size(-1)].unsqueeze(1),
+                relevant_targets,
+                (relevant_targets != self._pad_index).long()
             )
         return output_dict
 
     def _forward_loop(self,
                       state: Dict[str, torch.Tensor],
-                      target_tokens: Dict[str, torch.LongTensor] = None,
-                      greedy_decode: bool = False) -> Dict[str, torch.Tensor]:
+                      target_tokens: Dict[str, torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
         # shape: (batch_size, max_input_sequence_length)
         source_mask = state["source_mask"]
         batch_size = source_mask.size()[0]
@@ -180,7 +171,9 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         last_predictions = source_mask.new_full((batch_size,), fill_value=self._start_index)
 
         step_logits: List[torch.Tensor] = []
+        step_logprobs: List[torch.Tensor] = []
         step_predictions: List[torch.Tensor] = []
+
         for timestep in range(num_decoding_steps):
             if self.training and torch.rand(1).item() < self._scheduled_sampling_ratio:
                 # Use gold tokens at test time and at a rate of 1 - _scheduled_sampling_ratio
@@ -196,14 +189,13 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
 
             # shape: (batch_size, num_classes)
             output_projections, state = self._prepare_output_projections(input_choices, state)
-            # list of tensors, shape: (batch_size, 1, num_classes)
-            step_logits.append(output_projections.unsqueeze(1))
             # shape: (batch_size, num_classes)
             class_probabilities = F.softmax(output_projections, dim=-1)
+            class_logprobs = F.log_softmax(output_projections, dim=-1)
 
             # NOTE -------------------------------------------------------------------------------
             # This differs from super()._forward_loop(...)
-            if greedy_decode or not self.training:
+            if not self.training:
                 # perform greedy decoding during evaluation
                 _, predicted_classes = torch.max(class_probabilities, 1)
             else:
@@ -216,11 +208,22 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
 
             # shape (predicted_classes): (batch_size,)
             last_predictions = predicted_classes
+            class_logprobs = class_logprobs[torch.arange(batch_size), predicted_classes]
+
+            # list of tensors, shape: (batch_size, 1, num_classes)
             step_predictions.append(last_predictions.unsqueeze(1))
+            step_logits.append(output_projections.unsqueeze(1))
+            step_logprobs.append(class_logprobs.unsqueeze(1))
 
         # shape: (batch_size, num_decoding_steps)
         predictions = torch.cat(step_predictions, 1)
-        output_dict = {"predictions": predictions}
+        logprobs = torch.cat(step_logprobs, 1)
+        output_dict = {"predictions": predictions, "negative_logprobs": -logprobs}
+
+        # Trim predictions after first "@end@" token.
+        output_dict["predictions"] = self._trim_predictions(output_dict["predictions"])
+        output_dict["negative_logprobs"] *= (output_dict["predictions"] != self._pad_index).float()
+        output_dict["negative_logprobs"] = output_dict["negative_logprobs"].sum(-1)
 
         if target_tokens:
             # shape: (batch_size, num_decoding_steps, num_classes)
@@ -232,7 +235,10 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         return output_dict
 
     def _trim_predictions(self, predictions: torch.LongTensor):
-        """Trim output predictions to first "@end@" and pad the rest of sequence."""
+        """
+        Trim output predictions at first "@end@" and pad the rest of sequence.
+        This includes "@end@" as last token in trimmed sequence.
+        """
 
         # shape: (batch_size, num_decoding_steps)
         trimmed_predictions = torch.zeros_like(predictions)
@@ -241,7 +247,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             if self._end_index in prediction_indices:
                 end_index = prediction_indices.index(self._end_index)
                 if end_index > 0:
-                    trimmed_predictions[i][:end_index] = prediction[:end_index]
+                    trimmed_predictions[i][:end_index + 1] = prediction[:end_index + 1]
             else:
                 trimmed_predictions[i] = prediction
         return trimmed_predictions
