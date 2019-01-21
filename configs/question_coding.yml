@@ -4,31 +4,32 @@ embedding_size: 128
 rnn_hidden_size: 64
 rnn_dropout: 0.2
 
-# optimization related arguments
-num_iterations: 11000
-weight_decay: 0.001
+# Optimization related arguments
+num_iterations: 10000
+weight_decay: 0.002
+
+### learning rate scheduling - (lr *= gamma)
+initial_lr: 0.01
+lr_gamma: 0.5
+lr_steps: [4000, 6000, 8000]
 
 ### batch size scheduling - (bs *= gamma) at specified iterations
 initial_bs: 256
 bs_gamma: 2
-bs_steps: [1000, 2500, 5000, 10000]  # batch size reachs 4096 this way
-
-### learning rate scheduling - (lr *= gamma) if validation loss plateaus
-initial_lr: 0.01
-lr_gamma: 0.1
-lr_steps: [2500, 5000, 7500, 10000]
+bs_steps: [7000, 9000]  # batch size reachs 1024 this way
 
 ### question coding: data loading
-num_supervision: 1000
-do_question_curriculum: 1
-question_max_length_initial: 10
-question_max_length_gamma: 8
-question_max_length_steps: [250, 500, 1000, 1500, 2000, 2250, 2500]
+num_supervision: 600
 
 ### question coding: objective
-ssl_alpha: 100.0
+ssl_alpha: 10.0
 kl_beta: 0.1
 elbo_delta: 0.99
+
+### Change the optimization objective from 'baseline' to ours.
+### This means inclusion of scaled supervision loss and reconstruction loss and ELBO.
+### Set this greater than number of iterations to train only a baseline.
+elbo_turnon_step: 3000
 
 ### question coding: prior checkpoint
 prior_checkpoint: "data/program_prior_best_checkpoint.pth"  # ppl: 2.6068

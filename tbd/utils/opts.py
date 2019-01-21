@@ -63,5 +63,5 @@ def override_config_from_opts(config: Dict[str, Union[int, float, str]], config_
         if config_key in config:
             config[config_key] = config_override[config_key]
         else:
-            warnings.warn(f"Config '{config_key}', does not exist in provided config file.")
+            warnings.warn(f"Config {config_key}, does not exist in provided config file.")
     return config
