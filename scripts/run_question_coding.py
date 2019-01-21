@@ -287,7 +287,7 @@ if __name__ == "__main__":
         # ========================================================================================
         #   VALIDATE AND PRINT FEW EXAMPLES
         # ========================================================================================
-        if iteration % args.checkpoint_every == 0:
+        if iteration > 0 and iteration % args.checkpoint_every == 0:
             print(f"Cross-validation after iteration {iteration}:")
             program_generator.eval()
             question_reconstructor.eval()
