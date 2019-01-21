@@ -1,11 +1,20 @@
-from typing import Tuple
+from typing import Dict, Optional, Tuple
 
 from allennlp.data import Vocabulary
+from allennlp.training.metrics import Average, BooleanAccuracy
 import torch
 from torch import nn
+from torch.nn import functional as F
 
-from tbd.modules import AndModule, AttentionModule, ComparisonModule, OrModule, QueryModule, \
-                        RelateModule, SameModule
+from tbd.modules import (
+    AndModule,
+    AttentionModule,
+    ComparisonModule,
+    OrModule,
+    QueryModule,
+    RelateModule,
+    SameModule,
+)
 
 
 class Flatten(nn.Module):
@@ -35,18 +44,24 @@ class TbDNet(nn.Module):
         The depth to project the final feature map to before classification.
     """
 
-    def __init__(self,
-                 vocabulary: Vocabulary,
-                 image_feature_size: Tuple[int, int, int] = (1024, 14, 14),
-                 module_channels: int = 128,
-                 class_projection_channels: int = 1024,
-                 classifier_linear_size: int = 1024):
+    def __init__(
+        self,
+        vocabulary: Vocabulary,
+        image_feature_size: Tuple[int, int, int] = (1024, 14, 14),
+        module_channels: int = 128,
+        class_projection_channels: int = 1024,
+        classifier_linear_size: int = 1024,
+    ):
         super().__init__()
         self.vocabulary = vocabulary
 
         # Short-hand notations for convenience.
         __channels, __height, __width = image_feature_size
-        __num_answers = len(vocabulary.get_index_to_token_vocabulary(namespace="answers"))
+
+        # Exclude "@@UNKNOWN@@" answer token, our network will never generate this output through
+        # regular forward pass. We hard set this when programs are invalid.
+        # __num_answers will be 28 for all practical purposes.
+        __num_answers = len(vocabulary.get_index_to_token_vocabulary(namespace="answers")) - 1
 
         # The stem takes features from ResNet (or another feature extractor) and projects down to
         # a lower-dimensional space for sending through the TbD-net
@@ -54,7 +69,7 @@ class TbDNet(nn.Module):
             nn.Conv2d(image_feature_size[0], module_channels, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(module_channels, module_channels, kernel_size=3, padding=1),
-            nn.ReLU()
+            nn.ReLU(),
         )
         # The classifier takes the output of the last module (which will be a Query or Equal module)
         # and produces a distribution over answers
@@ -65,7 +80,7 @@ class TbDNet(nn.Module):
             Flatten(),
             nn.Linear(class_projection_channels * __height * __width // 4, classifier_linear_size),
             nn.ReLU(),
-            nn.Linear(classifier_linear_size, __num_answers)  # note no softmax here
+            nn.Linear(classifier_linear_size, __num_answers),  # note no softmax here
         )
 
         # Instantiate a module for each program token in our vocabulary.
@@ -100,46 +115,19 @@ class TbDNet(nn.Module):
             self._function_modules[program_token] = module
             self.add_module(program_token, module)
 
-        # this is used as input to the first AttentionModule in each program
-        ones = torch.ones(1, 1, __width, __height)
-        self._ones_var = ones.cuda() if torch.cuda.is_available() else ones
+        # Record accuracy while training and validation.
+        self._answer_accuracy = BooleanAccuracy()
+        # Record average number of invalid programs per batch.
+        self._average_invalid_programs = Average()
 
-        self._attention_sum = 0
+    def forward(
+        self, features: torch.Tensor, programs: torch.LongTensor, answers: torch.LongTensor
+    ):
 
-    @property
-    def attention_sum(self):
-        """
-        Returns
-        -------
-        attention_sum : int
-            The sum of attention masks produced during the previous forward pass, or zero if a
-            forward pass has not yet happened.
-
-        Extended Summary
-        ----------------
-        This property holds the sum of attention masks produced during a forward pass of the model.
-        It will hold the sum of all the AttentionModule, RelateModule, and SameModule outputs. This
-        can be used to regularize the output attention masks, hinting to the model that spurious
-        activations that do not correspond to objects of interest (e.g. activations in the 
-        background) should be minimized. For example, a small factor multiplied by this could be
-        added to your loss function to add this type of regularization as in:
-
-            loss = xent_loss(outs, answers)
-            loss += executor.attention_sum * 2.5e-07
-            loss.backward()
-
-        where `xent_loss` is our loss function, `outs` is the output of the model, `answers` is the
-        PyTorch `Tensor` containing the answers, and `executor` is this model. The above block
-        will penalize the model's attention outputs multiplied by a factor of 2.5e-07 to push the
-        model to produce sensible, minimal activations.
-        """
-        return self._attention_sum
-
-    def forward(self, feats, programs):
-        batch_size = feats.size(0)
-        assert batch_size == len(programs)
-
-        feat_input_volume = self.stem(feats)  # forward all the features through the stem at once
+        # Forward all the features through the stem at once.
+        # shape: (batch_size, module_channels, __height, __width)
+        feat_input_volume = self.stem(features)
+        batch_size, module_channels, height, width = feat_input_volume.size()
 
         # We compose each module network individually since they are constructed on a per-question
         # basis. Here we go through each program in the batch, construct a modular network based on
@@ -147,119 +135,95 @@ class TbDNet(nn.Module):
         # last module for each program in final_module_outputs. These are needed to then compute a
         # distribution over answers for all the questions as a batch.
         final_module_outputs = []
-        self._attention_sum = 0
+
+        # Only execute the valid programs, else just assign highest possible negative logprobs to
+        # answers for that example. There are 28 unique answers (excluding @@UNKNOWN@@)
+        # => - ln (28) ~= 3.33
+        valid_examples_mask = []
         for n in range(batch_size):
-            feat_input = feat_input_volume[n:n+1] 
+            feat_input = feat_input_volume[n : n + 1]
             output = feat_input
             saved_output = None
-            for i in reversed(programs.data[n].cpu().numpy()):
-                module_type = self.vocab["program_idx_to_token"][i]
-                if module_type in {"@@PADDING@@", "@start@", "@end@", "@@UNKNOWN@@", "unique"}:
-                    continue  # the above are no-ops in our model
-                
-                module = self._function_modules[module_type]
-                if module_type == "scene":
-                    # store the previous output; it will be needed later
-                    # scene is just a flag, performing no computation
-                    saved_output = output
-                    output = self._ones_var
-                    continue
-                
-                if "equal" in module_type or module_type in {"intersect", "union", "less_than",
-                                                             "greater_than"}:
-                    output = module(output, saved_output)  # these modules take two feature maps
-                else:
-                    # these modules take extracted image features and a previous attention
-                    output = module(feat_input, output)
 
-                if any(t in module_type for t in ["filter", "relate", "same"]):
-                    self._attention_sum += output.sum()
-                    
-            final_module_outputs.append(output)
-            
+            try:
+                for i in reversed(programs[n].cpu().numpy()):
+                    module_type = self.vocabulary.get_token_from_index(i, namespace="programs")
+                    if module_type in {"@@PADDING@@", "@start@", "@end@", "@@UNKNOWN@@", "unique"}:
+                        continue  # the above are no-ops in our model
+
+                    module = self._function_modules[module_type]
+                    if module_type == "scene":
+                        # Store the previous output; it will be needed later
+                        # scene is just a flag, performing no computation
+                        saved_output = output
+                        # shape: (1, 1, __height, __width)
+                        output = torch.ones_like(feat_input)[:, :1, :, :]
+                        continue
+
+                    if "equal" in module_type or module_type in {
+                        "intersect",
+                        "union",
+                        "less_than",
+                        "greater_than",
+                    }:
+                        # These modules take two feature maps
+                        output = module(output, saved_output)
+                    else:
+                        # These modules take extracted image features and a previous attention
+                        output = module(feat_input, output)
+
+                if output.size(1) != module_channels:
+                    raise ValueError("Program must end by 'encoding' as output, not 'attention'.")
+                final_module_outputs.append(output)
+                valid_examples_mask.append(1)
+            except:
+                output = torch.zeros_like(feat_input)
+                final_module_outputs.append(output)
+                valid_examples_mask.append(0)
+
+        # shape: (batch_size, module_channels, __height, __width)
         final_module_outputs = torch.cat(final_module_outputs, 0)
-        return self.classifier(final_module_outputs)
 
-    def forward_and_return_intermediates(self, program_var, feats_var):
-        """ Forward program `program_var` and image features `feats_var` through the TbD-Net
-        and return an answer and intermediate outputs.
+        # shape: (batch_size, __num_answers)
+        answer_logits = self.classifier(final_module_outputs)
+        _, answer_predictions = torch.max(answer_logits, dim=1)
 
-        Parameters
-        ----------
-        program_var : torch.Tensor
-            The program to carry out.
+        # Replace answers of examples with invalid programs as @@UNKNOWN@@
+        valid_examples_mask = torch.tensor(valid_examples_mask)
+        answer_predictions[valid_examples_mask == 0] = self.vocabulary.get_token_index(
+            "@@UNKNOWN@@", namespace="answers"
+        )
 
-        feats_var : torch.Tensor
-            The image features to operate on.
+        loss = self._get_loss(answer_logits, answers)
+        # Replace loss values of examples with invalid programs as ln (28)
+        loss[valid_examples_mask == 0] = 3.33
 
-        Returns
-        -------
-        Tuple[str, List[Tuple[str, numpy.ndarray]]]
-            A tuple of (answer, [(operation, attention), ...]). Note that some of the
-            intermediates will be `None`, which indicates a break in the logic chain. For
-            example, in the question:
-                "What color is the cube to the left of the sphere and right of the cylinder?"
-            We have 3 distinct chains of reasoning. We first localize the sphere and look left. We
-            then localize the cylinder and look right. Thirdly, we look at the intersection of these
-            two, and find the cube.
-        """
-        intermediaries = []
-        # the logic here is the same as self.forward()
-        scene_input = self.stem(feats_var)
-        output = scene_input
-        saved_output = None
-        for i in reversed(program_var.data.cpu().numpy()[0]):
-            module_type = self.vocab["program_idx_to_token"][i]
-            if module_type in {"@@PADDING@@", "@start@", "@end@", "@@UNKNOWN@@", "unique"}:
-                continue
+        output_dict = {"predictions": answer_predictions, "loss": loss}
+        self._answer_accuracy(answer_predictions, answers)
+        self._average_invalid_programs((1 - valid_examples_mask).sum())
+        if self.training:
+            # Report batch answer accuracy only during training.
+            output_dict["answer_accuracy"] = self._answer_accuracy.get_metric(reset=True)
+            output_dict["average_invalid"] = self._average_invalid_programs.get_metric(reset=True)
+        return output_dict
 
-            module = self._function_modules[module_type]
-            if module_type == "scene":
-                saved_output = output
-                output = self._ones_var
-                intermediaries.append(None) # indicates a break/start of a new logic chain
-                continue
+    @staticmethod
+    def _get_loss(answer_logits: torch.Tensor, answer_targets: torch.Tensor) -> torch.Tensor:
+        batch_size = answer_targets.size(0)
+        # shape: (batch_size, __num_answers)
+        negative_logprobs = -F.log_softmax(answer_logits, dim=-1)
+        # shape: (batch_size, )
+        negative_target_logprobs = negative_logprobs[torch.arange(batch_size), answer_targets]
+        return negative_target_logprobs
 
-            if "equal" in module_type or module_type in {"intersect", "union", "less_than",
-                                                         "greater_than"}:
-                output = module(output, saved_output)
-            else:
-                output = module(scene_input, output)
-
-            if module_type in {"intersect", "union"}:
-                intermediaries.append(None) # this is the start of a new logic chain
-
-            if module_type in {"intersect", "union"} or any(s in module_type for s in ["same",
-                                                                                       "filter",
-                                                                                       "relate"]):
-                intermediaries.append((module_type, output.data.cpu().numpy().squeeze()))
-
-        _, pred = self.classifier(output).max(1)
-        return (self.vocab["answer_idx_to_token"][pred.item()], intermediaries)
-
-
-def load_tbd_net(checkpoint, vocab):
-    """ Convenience function to load a TbD-Net model from a checkpoint file.
-
-    Parameters
-    ----------
-    checkpoint : Union[pathlib.Path, str]
-        The path to the checkpoint.
-
-    vocab : Dict[str, Dict[any, any]]
-        The vocabulary file associated with the TbD-Net. For an extended description, see above.
-
-    Returns
-    -------
-    torch.nn.Module
-        The TbD-Net model.
-
-    Notes
-    -----
-    This pushes the TbD-Net model to the GPU if a GPU is available.
-    """
-    tbd_net = TbDNet(vocab)
-    tbd_net.load_state_dict(torch.load(str(checkpoint), map_location={"cuda:0": "cpu"}))
-    if torch.cuda.is_available():
-        tbd_net.cuda()
-    return tbd_net
+    def get_metrics(self) -> Dict[str, float]:
+        """Return recorded answer accuracy."""
+        all_metrics: Dict[str, float] = {}
+        if not self.training:
+            all_metrics.update(
+                {
+                    "answer_accuracy": self._answer_accuracy.get_metric(reset=True),
+                    "average_invalid": self._average_invalid_programs.get_metric(reset=True),
+                }
+            )
+        return all_metrics

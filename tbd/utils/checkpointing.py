@@ -1,5 +1,4 @@
-"""
-A checkpoint manager periodically saves model and optimizer as .pth files during training, and
+"""A checkpoint manager periodically saves model and optimizer as .pth files during training, and
 keeps track of best performing checkpoint based on a particular metric. Checkpoint managers help
 with experiment reproducibility, they record the commit SHA of your current codebase in the
 checkpoint saving directory. While loading any checkpoint from other commit, they raise a friendly
@@ -19,11 +18,11 @@ class CheckpointManager(object):
     """A checkpoint manager saves state dicts of model and optimizer as .pth files in a specified
     directory. This class closely follows the API of PyTorch optimizers and learning rate
     schedulers.
-    
+
     Note::
         For ``DataParallel`` modules, ``model.module.state_dict()`` is
-        saved, instead of ``model.state_dict()``. 
-    
+        saved, instead of ``model.state_dict()``.
+
     Parameters
     ----------
     model: nn.Module
@@ -45,11 +44,11 @@ class CheckpointManager(object):
     -------
     >>> model = torch.nn.Linear(10, 2)
     >>> optimizer = torch.optim.Adam(model.parameters())
-    >>> ckpt_manager = CheckpointManager(model, optimizer, "/tmp/ckpt")
+    >>> ckpt_manager = CheckpointManager(model, optimizer, "/tmp/ckpt", mode="min")
     >>> for epoch in range(20):
     ...     train(...)
-    ...     val_accuracy = validate(...)
-    ...     ckpt_manager.step(val_accuracy)
+    ...     val_loss = validate(...)
+    ...     ckpt_manager.step(val_loss)
     """
 
     def __init__(self, model, optimizer, checkpoint_dirpath, mode="min",
@@ -97,8 +96,8 @@ class CheckpointManager(object):
         )
 
     def step(self, metric, epoch=None):
-        """Save checkpoint if step size conditions meet, and update best checkpoint based on
-        metric and mode.
+        """Save checkpoint if step size conditions meet, and update best checkpoint based
+        on metric and mode.
         """
 
         if not epoch:
@@ -142,14 +141,17 @@ def load_checkpoint(checkpoint_pthpath):
     of model and optimizer from it. This method checks if the current
     commit SHA of codebase matches the commit SHA recorded when this
     checkpoint was saved by checkpoint manager.
+
     Parameters
     ----------
     checkpoint_pthpath: str or pathlib.Path
         Path to saved checkpoint (as created by ``CheckpointManager``).
+
     Returns
     -------
     nn.Module, optim.Optimizer
         Model and optimizer state dicts loaded from checkpoint.
+
     Raises
     ------
     UserWarning
