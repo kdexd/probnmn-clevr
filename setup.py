@@ -3,12 +3,11 @@ from setuptools import setup
 
 
 setup(
-    name='tbd',
-    version='1.0.0',
-    author='David Mascharka, Philip Tran, Ryan Soklaski, Arjun Majumdar',
-    url='https://github.com/davidmascharka/tbd-nets',
-    description='Transparency by Design: Closing the Gap Between Performance '
-                'and Interpretability in Visual Reasoning',
-    license='MIT',
+    name="probnmn",
+    version="0.1.0",
+    author="Karan Desai",
+    description="Experiments for ICML 2019 Submission: 'Probabilistic Neural-symbolic Models "
+                "for Interpretable Visual Question Answering' on CLEVR v1.0 dataset.",
+    license="MIT",
     zip_safe=True,
 )

@@ -6,15 +6,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from tbd.modules import (
-    AndModule,
-    AttentionModule,
-    ComparisonModule,
-    OrModule,
-    QueryModule,
-    RelateModule,
-    SameModule,
-)
+from probnmn.modules import AndModule, AttentionModule, ComparisonModule, OrModule, QueryModule, \
+                            RelateModule, SameModule
 
 
 class Flatten(nn.Module):
@@ -22,12 +15,9 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 
-class TbDNet(nn.Module):
-    """ The real deal. A full Transparency by Design network (TbD-net).
-
-    Extended Summary
-    ----------------
-    A :class:`TbDNet` holds neural :mod:`modules`, a stem network, and a classifier network. It
+class NeuralModuleNetwork(nn.Module):
+    """
+    A ``NeuralModuleNetwork`` holds neural modules, a stem network, and a classifier network. It
     hooks these all together to answer a question given some scene and a program describing how to
     arrange the neural modules.
 
@@ -36,11 +26,11 @@ class TbDNet(nn.Module):
     vocabulary: Vocabulary
         AllenNLP's vocabulary object. This vocabulary has three namespaces - "questions",
         "programs" and "answers", which contain respective token to integer mappings.
-    image_feature_size : the tuple (K, R, C), optional
+    image_feature_size: tuple (K, R, C), optional
         The shape of input feature tensors, excluding the batch size.
-    module_channels : int, optional (default = 128)
+    module_channels: int, optional (default = 128)
         The depth of each neural module's convolutional blocks.
-    class_projection_channels : int, optional (default = 512)
+    class_projection_channels: int, optional (default = 512)
         The depth to project the final feature map to before classification.
     """
 

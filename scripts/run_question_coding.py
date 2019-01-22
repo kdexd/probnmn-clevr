@@ -13,11 +13,11 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
 
-from tbd.data import QuestionCodingDataset
-from tbd.data.sampler import SupervisionWeightedRandomSampler
-from tbd.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
-from tbd.utils.checkpointing import CheckpointManager
-from tbd.utils.opts import add_common_opts, override_config_from_opts
+from probnmn.data import QuestionCodingDataset
+from probnmn.data.sampler import SupervisionWeightedRandomSampler
+from probnmn.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
+from probnmn.utils.checkpointing import CheckpointManager
+from probnmn.utils.opts import add_common_opts, override_config_from_opts
 
 
 parser = argparse.ArgumentParser("Question coding for CLEVR v1.0 programs and questions.")
