@@ -5,11 +5,11 @@ from torch.nn import functional as F
 
 
 class AndModule(nn.Module):
-    """ A neural module that (basically) performs a logical and.
+    """A neural module that (basically) performs a logical and.
 
     Extended Summary
     ---------------- 
-    An :class:`AndModule` is a neural module that takes two input attention masks and (basically)
+    A :class:`AndModule` is a neural module that takes two input attention masks and (basically)
     performs a set intersection. This would be used in a question like "What color is the cube to
     the left of the sphere and right of the yellow cylinder?" After localizing the regions left of
     the sphere and right of the yellow cylinder, an :class:`AndModule` would be used to find the
@@ -22,11 +22,11 @@ class AndModule(nn.Module):
 
 
 class OrModule(nn.Module):
-    """ A neural module that (basically) performs a logical or.
+    """A neural module that (basically) performs a logical or.
 
     Extended Summary
     ----------------
-    An :class:`OrModule` is a neural module that takes two input attention masks and (basically)
+    A :class:`OrModule` is a neural module that takes two input attention masks and (basically)
     performs a set union. This would be used in a question like "How many cubes are left of the
     brown sphere or right of the cylinder?" After localizing the regions left of the brown sphere
     and right of the cylinder, an :class:`OrModule` would be used to find the union of the two. Its
@@ -38,12 +38,12 @@ class OrModule(nn.Module):
 
 
 class AttentionModule(nn.Module):
-    """ A neural module that takes a feature map and attention, attends to the features, and 
+    """A neural module that takes a feature map and attention, attends to the features, and 
     produces an attention.
 
     Extended Summary
     ----------------
-    An :class:`AttentionModule` takes input features and an attention and produces an attention. It
+    A :class:`AttentionModule` takes input features and an attention and produces an attention. It
     multiplicatively combines its input feature map and attention to attend to the relevant region
     of the feature map. It then processes the attended features via a series of convolutions and
     produces an attention mask highlighting the objects that possess the attribute the module is
@@ -78,7 +78,7 @@ class AttentionModule(nn.Module):
 
 
 class QueryModule(nn.Module):
-    """ A neural module that takes as input a feature map and an attention and produces a feature
+    """A neural module that takes as input a feature map and an attention and produces a feature
     map as output.
 
     Extended Summary
@@ -112,7 +112,7 @@ class QueryModule(nn.Module):
 
 
 class RelateModule(nn.Module):
-    """ A neural module that takes as input a feature map and an attention and produces an attention
+    """A neural module that takes as input a feature map and an attention and produces an attention
     as output.
 
     Extended Summary
@@ -155,7 +155,7 @@ class RelateModule(nn.Module):
 
 
 class SameModule(nn.Module):
-    """ A neural module that takes as input a feature map and an attention and produces an attention
+    """A neural module that takes as input a feature map and an attention and produces an attention
     as output.
 
     Extended Summary
@@ -193,7 +193,7 @@ class SameModule(nn.Module):
 
 
 class ComparisonModule(nn.Module):
-    """ A neural module that takes as input two feature maps and produces a feature map as output.
+    """A neural module that takes as input two feature maps and produces a feature map as output.
 
     Extended Summary
     ----------------

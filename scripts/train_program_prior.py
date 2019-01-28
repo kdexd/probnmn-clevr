@@ -14,10 +14,10 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
 
-from tbd.data import ProgramPriorDataset
-from tbd.models import ProgramPrior
-from tbd.utils.checkpointing import CheckpointManager
-from tbd.utils.opts import add_common_opts, override_config_from_opts
+from probnmn.data import ProgramPriorDataset
+from probnmn.models import ProgramPrior
+from probnmn.utils.checkpointing import CheckpointManager
+from probnmn.utils.opts import add_common_opts, override_config_from_opts
 
 
 parser = argparse.ArgumentParser("Train program prior over CLEVR v1.0 training split programs.")

@@ -13,11 +13,12 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
 
-from tbd.data import ModuleTrainingDataset
-from tbd.models import ProgramGenerator
-from tbd.models.tbd_net import TbDNet
-from tbd.utils.checkpointing import CheckpointManager, load_checkpoint
-from tbd.utils.opts import add_common_opts, override_config_from_opts
+from probneural_module_network.data import ModuleTrainingDataset
+from probneural_module_network.data.sampler import QuestionCurriculumSampler
+from probneural_module_network.models import ProgramGenerator
+from probneural_module_network.models.neural_module_network import NeuralModuleNetwork
+from probneural_module_network.utils.checkpointing import CheckpointManager, load_checkpoint
+from probneural_module_network.utils.opts import add_common_opts, override_config_from_opts
 
 
 parser = argparse.ArgumentParser(
@@ -60,22 +61,19 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 
-def do_iteration(
-    batch: Dict[str, torch.Tensor],
-    program_generator: ProgramGenerator,
-    tbd_net: TbDNet,
-    optimizer: Optional[optim.Optimizer] = None,
-):
-    if tbd_net.training:
+def do_iteration(batch: Dict[str, torch.Tensor],
+                 program_generator: ProgramGenerator,
+                 neural_module_network: ProbNMN,
+                 optimizer: Optional[optim.Optimizer] = None):
+    if neural_module_network.training:
         optimizer.zero_grad()
 
     sampled_programs = program_generator(batch["question"])["predictions"]
-    output_dict = tbd_net(batch["image"], sampled_programs, batch["answer"])
-    # output_dict = tbd_net(batch["image"], batch["program"], batch["answer"])
+    output_dict = neural_module_network(batch["image"], sampled_programs, batch["answer"])
 
     batch_loss = output_dict["loss"].mean()
 
-    if tbd_net.training:
+    if neural_module_network.training:
         batch_loss.backward()
         optimizer.step()
         return_dict = {
@@ -118,10 +116,10 @@ if __name__ == "__main__":
     # ============================================================================================
     vocabulary = Vocabulary.from_files(args.vocab_dirpath)
     train_dataset = ModuleTrainingDataset(
-        args.tokens_train_h5, args.features_train_h5, overfit=args.overfit, in_memory=False
+        args.tokens_train_h5, args.features_train_h5, in_memory=False
     )
     val_dataset = ModuleTrainingDataset(
-        args.tokens_val_h5, args.features_val_h5, overfit=args.overfit, in_memory=False
+        args.tokens_val_h5, args.features_val_h5, in_memory=False
     )
 
     train_dataloader = DataLoader(
@@ -140,7 +138,7 @@ if __name__ == "__main__":
     program_generator.load_state_dict(program_generator_model)
     program_generator.eval()
 
-    tbd_net = TbDNet(
+    neural_module_network = NeuralModuleNetwork(
         vocabulary=vocabulary,
         image_feature_size=tuple(config["image_feature_size"]),
         module_channels=config["module_channels"],
@@ -149,9 +147,8 @@ if __name__ == "__main__":
     ).to(device)
 
     optimizer = optim.Adam(
-        itertools.chain(program_generator.parameters(), tbd_net.parameters()),
-        lr=config["initial_lr"],
-        weight_decay=config["weight_decay"],
+        itertools.chain(program_generator.parameters(), neural_module_network.parameters()),
+        lr=config["initial_lr"], weight_decay=config["weight_decay"]
     )
     lr_scheduler = optim.lr_scheduler.MultiStepLR(
         optimizer, milestones=config["lr_steps"], gamma=config["lr_gamma"]
@@ -159,9 +156,9 @@ if __name__ == "__main__":
 
     # Load from saved checkpoint if specified.
     if args.checkpoint_pthpath != "":
-        tbd_net_model, tbd_net_optimizer = load_checkpoint(args.checkpoint_pthpath)
-        tbd_net.load_state_dict(tbd_net_model)
-        optimizer.load_state_dict(tbd_net_optimizer)
+        neural_module_network_model, neural_module_network_optimizer = load_checkpoint(args.checkpoint_pthpath)
+        neural_module_network.load_state_dict(neural_module_network_model)
+        optimizer.load_state_dict(neural_module_network_optimizer)
         start_iteration = int(args.checkpoint_pthpath.split("_")[-1][:-4]) + 1
     else:
         start_iteration = 1
@@ -169,7 +166,7 @@ if __name__ == "__main__":
     if -1 not in args.gpu_ids:
         # Don't wrap to DataParallel for CPU-mode.
         program_generator = nn.DataParallel(program_generator, args.gpu_ids)
-        tbd_net = nn.DataParallel(tbd_net, args.gpu_ids)
+        neural_module_network = nn.DataParallel(neural_module_network, args.gpu_ids)
 
     # ============================================================================================
     #   BEFORE TRAINING LOOP
@@ -177,10 +174,10 @@ if __name__ == "__main__":
     checkpoint_manager = CheckpointManager(
         checkpoint_dirpath=args.save_dirpath,
         config=config,
-        model=tbd_net,
+        model=neural_module_network,
         optimizer=optimizer,
         mode="max",
-        filename_prefix="tbd_net",
+        filename_prefix="neural_module_network",
     )
     summary_writer = SummaryWriter(log_dir=os.path.join(args.save_dirpath))
 
@@ -204,7 +201,7 @@ if __name__ == "__main__":
             answer, program = answer.to(device), program.to(device)
             batch = {"image": image, "answer": answer, "question": question, "program": program}
             # keys: {"predictions", "loss", "answer_accuracy"}
-            iteration_output_dict = do_iteration(batch, program_generator, tbd_net, optimizer)
+            iteration_output_dict = do_iteration(batch, program_generator, neural_module_network, optimizer)
             summary_writer.add_scalar("train/loss", iteration_output_dict["loss"], iteration)
             summary_writer.add_scalar(
                 "train/answer_accuracy", iteration_output_dict["answer_accuracy"], iteration
@@ -221,7 +218,7 @@ if __name__ == "__main__":
         # ========================================================================================
         if iteration % args.checkpoint_every == 0:
             print(f"Validation after iteration {iteration}:")
-            tbd_net.eval()
+            neural_module_network.eval()
             for i, batch in enumerate(tqdm(val_dataloader)):
                 # Shift tensors to device manually instead of looping through ict, because memory leak (?)
                 image, question = batch["image"], batch["question"]
@@ -235,21 +232,20 @@ if __name__ == "__main__":
                     "program": program,
                 }
                 with torch.no_grad():
-                    iteration_output_dict = do_iteration(batch, program_generator, tbd_net)
-                if (i + 1) * len(batch["question"]) > args.num_val_examples:
-                    break
+                    iteration_output_dict = do_iteration(batch, program_generator, neural_module_network)
+                if (i + 1) * len(batch["question"]) > args.num_val_examples: break
 
             if isinstance(program_generator, nn.DataParallel):
-                val_metrics = tbd_net.module.get_metrics()
+                val_metrics = neural_module_network.module.get_metrics()
             else:
-                val_metrics = tbd_net.get_metrics()
+                val_metrics = neural_module_network.get_metrics()
             answer_accuracy = val_metrics["answer_accuracy"]
             average_invalid = val_metrics["average_invalid"]
 
             summary_writer.add_scalar("val/answer_accuracy", answer_accuracy, iteration)
             summary_writer.add_scalar("val/average_invalid", average_invalid, iteration)
             checkpoint_manager.step(answer_accuracy, iteration)
-            tbd_net.train()
+            neural_module_network.train()
 
     # ============================================================================================
     #   AFTER TRAINING END
