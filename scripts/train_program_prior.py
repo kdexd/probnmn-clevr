@@ -1,5 +1,4 @@
 import argparse
-import copy
 from datetime import datetime
 import itertools
 import json
@@ -7,192 +6,171 @@ import os
 import random
 
 from allennlp.data import Vocabulary
+from tensorboardX import SummaryWriter
 import torch
 from torch import nn, optim
-from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import yaml
 
 from probnmn.data import ProgramPriorDataset
 from probnmn.models import ProgramPrior
 from probnmn.utils.checkpointing import CheckpointManager
-from probnmn.utils.opts import add_common_opts, override_config_from_opts
+import probnmn.utils.common as probnmn_utils
 
 
 parser = argparse.ArgumentParser("Train program prior over CLEVR v1.0 training split programs.")
 parser.add_argument(
     "--config-yml",
     default="configs/program_prior.yml",
-    help="Path to a config file listing model and solver parameters.",
+    help="Path to a config file listing model and optimization arguments and hyperparameters.",
 )
-parser.add_argument(
-    "--config-override",
-    type=str,
-    default="{}",
-    help="A string following python dict syntax, specifying certain config arguments to override,"
-         " useful for launching batch jobs through shel lscripts. The actual config will be "
-         "updated and recorded in the checkpoint saving directory. Only argument names already "
-         "present in config will be overriden, rest ignored."
-)
-# data file paths, gpu ids, checkpoint args etc.
-add_common_opts(parser)
+# Data file paths, gpu ids, checkpoint args etc.
+probnmn_utils.add_common_args(parser)
+args = parser.parse_args()
 
-# for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
+# For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
+torch.manual_seed(args.random_seed)
+torch.cuda.manual_seed_all(args.random_seed)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 
-def do_iteration(batch, model, optimizer=None):
+def do_iteration(batch, program_prior, optimizer=None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
-    if model.training:
+    if program_prior.training:
         optimizer.zero_grad()
     # keys: {"predicted_tokens", "loss"}
-    output_dict = model(batch["program"])
-    batch_loss = torch.mean(output_dict["loss"])
+    output_dict = program_prior(batch["program"])
+    batch_loss = output_dict["loss"].mean()
 
-    if model.training:
+    if program_prior.training:
         batch_loss.backward()
+        # Clamp all gradients between (-5, 5).
+        for parameter in program_prior.parameters():
+            if parameter.grad is not None:
+                parameter.grad.clamp_(min=-5, max=5)
         optimizer.step()
-    return batch_loss
+    return output_dict
 
 
 if __name__ == "__main__":
     # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
     # ============================================================================================
-    args = parser.parse_args()
-    config = yaml.load(open(args.config_yml))
-    config = override_config_from_opts(config, args.config_override)
-
-    # print config and args
-    print(yaml.dump(config, default_flow_style=False))
-    for arg in vars(args):
-        print("{:<20}: {}".format(arg, getattr(args, arg)))
+    config = probnmn_utils.read_config(args.config_yml)
+    config = probnmn_utils.override_config_from_opts(config, args.config_override)
+    probnmn_utils.print_config_and_args(config, args)
 
     device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
 
     # ============================================================================================
     #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL, OPTIMIZER
     # ============================================================================================
-
     vocabulary = Vocabulary.from_files(args.vocab_dirpath)
     train_dataset = ProgramPriorDataset(args.tokens_train_h5)
     val_dataset = ProgramPriorDataset(args.tokens_val_h5)
 
-    # train dataloader can be re-initialized later while doing batch size scheduling
-    batch_size = config["initial_bs"]
+    # `train_dataloader` can be re-initialized later while doing batch size scheduling
+    batch_size = config["optim_bs_initial"]
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
 
-    model = ProgramPrior(
+    program_prior = ProgramPrior(
         vocabulary,
-        embedding_size=config["embedding_size"],
-        hidden_size=config["rnn_hidden_size"],
-        dropout=config["rnn_dropout"],
+        input_size=config["model_input_size"],
+        hidden_size=config["model_hidden_size"],
+        num_layers=config["model_num_layers"],
+        dropout=config["model_dropout"],
     )
     optimizer = optim.Adam(
-        model.parameters(),
-        lr=config["initial_lr"],
-        weight_decay=config["weight_decay"]
+        program_prior.parameters(),
+        lr=config["optim_lr_initial"],
+        weight_decay=config["optim_weight_decay"]
     )
-    scheduler = lr_scheduler.MultiStepLR(
+    lr_scheduler = optim.lr_scheduler.MultiStepLR(
         optimizer,
-        milestones=config["lr_steps"],
-        gamma=config["lr_gamma"],
+        milestones=config["optim_lr_steps"],
+        gamma=config["optim_lr_gamma"],
     )
 
-    model = model.to(device)
+    program_prior = program_prior.to(device)
     if -1 not in args.gpu_ids:
         # don't wrap to DataParallel for CPU-mode
-        model = nn.DataParallel(model, args.gpu_ids)
+        program_prior = nn.DataParallel(program_prior, args.gpu_ids)
 
 
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
+    summary_writer = SummaryWriter(log_dir=args.save_dirpath)
     checkpoint_manager = CheckpointManager(
         checkpoint_dirpath=args.save_dirpath,
-        config_ymlpath=args.config_yml,
-        model=model,
+        config=config,
+        model=program_prior,
         optimizer=optimizer,
-        metric_mode="min"
+        mode="min"
     )
+    # Make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
+    train_dataloader = probnmn_utils.cycle(train_dataloader)
 
-    running_loss = 0.0
-    train_begin = datetime.now()
-
-    # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
-    train_dataloader = itertools.cycle(train_dataloader)
-
-    for iteration in range(1, config["num_iterations"]):
+    print(f"Training for {config['optim_num_iterations']}:")
+    for iteration in tqdm(range(config["optim_num_iterations"])):
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
-        batch_loss = do_iteration(batch, model, optimizer)
+        output_dict = do_iteration(batch, program_prior, optimizer)
 
-        if running_loss > 0.0:
-            running_loss = 0.95 * running_loss + 0.05 * batch_loss.item()
-        else:
-            running_loss = batch_loss.item()
-
-        # print current time, iteration, running loss, learning rate
-        if iteration % 100 == 0:
-            print("[{}][Iter: {:6d}][Loss: {:5f}][Lr: {:7f}][Bs: {:4d}]".format(
-                datetime.now() - train_begin, iteration, running_loss,
-                optimizer.param_groups[0]["lr"], batch_size
-            ))
-
-        # batch size and learning rate scheduling
-        scheduler.step()
-        if iteration in config["bs_steps"]:
-            batch_size *= config["bs_gamma"]
-            train_dataloader = itertools.cycle(
+        # Batch size and learning rate scheduling
+        lr_scheduler.step()
+        if iteration in config["optim_bs_steps"]:
+            batch_size *= config["optim_bs_gamma"]
+            train_dataloader = probnmn_utils.cycle(
                 DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
             )
+        # Log loss and schedulers to tensorboard.
+        summary_writer.add_scalar("train/loss", output_dict["loss"].mean(), iteration)
+        summary_writer.add_scalar("optim/learning_rate", optimizer.param_groups[0]["lr"], iteration)
+        summary_writer.add_scalar("optim/batch_size", batch_size, iteration)
 
         # ========================================================================================
         #   VALIDATE AND PRINT FEW EXAMPLES
         # ========================================================================================
         if iteration % args.checkpoint_every == 0:
-            print(f"Cross-validation after iteration {iteration}:")
-            model.eval()
-            batch_val_losses = []
+            print(f"Validation after iteration {iteration}:")
+            program_prior.eval()
             for i, batch in enumerate(tqdm(val_dataloader)):
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
-                    batch_loss = do_iteration(batch, model)
-                    batch_val_losses.append(batch_loss)
-            model.train()
+                    output_dict = do_iteration(batch, program_prior)
 
-            average_val_loss = torch.mean(torch.stack(batch_val_losses, 0))
-            perplexity = 2 ** average_val_loss
-            print("Model perplexity: ", perplexity.item(), "\n")
-            checkpoint_manager.step(perplexity)
+            if isinstance(program_prior, nn.DataParallel):
+                program_prior_metrics = program_prior.module.get_metrics()
+            else:
+                program_prior_metrics = program_prior.get_metrics()
 
-            # print three five programs and their outputs (of next time-step)
-            print("Some predicted examples by the language model (greedy decoding):")
+            print("\nPerplexity:", program_prior_metrics["perplexity"])
+            checkpoint_manager.step(program_prior_metrics["perplexity"])
+            summary_writer.add_scalars("val", program_prior_metrics, iteration)
+
+            # Print five programs and their predicted next time-step
+            print("Some predicted examples by the language program_prior (greedy decoding):")
             print("- " * 30)  # separator for neatness
-            print_dataloader = DataLoader(val_dataset, batch_size=5)
-            batch = next(iter(print_dataloader))
-            with torch.no_grad():
-                output_dict = model(batch["program"])
-                output_tokens = output_dict["predicted_tokens"]
 
-            input_programs = batch["program"].cpu().numpy()
-            output_programs = output_tokens.cpu().numpy()
+            input_programs = batch["program"][:5].cpu().numpy()
+            output_programs = output_dict["predicted_tokens"][:5].cpu().numpy()
             for inp, out in zip(input_programs, output_programs):
-                # print only first five time-steps, these sequences can be really long
+                # Print only first five time-steps, these sequences can be really long
                 print("INPUT PROGRAM: ",
-                      " ".join(vocabulary.get_token_from_index(i, "programs") for i in inp[1:6]),
+                      " ".join(vocabulary.get_token_from_index(i, "programs") for i in inp[:6]),
                       "...")
+                # Output is one time-step shifted, but input also has a @start@ token, so the
+                # shift gets cancelled.
                 print("OUTPUT PROGRAM: ",
-                      " ".join(vocabulary.get_token_from_index(o, "programs") for o in out[0:5]),
+                      " ".join(vocabulary.get_token_from_index(o, "programs") for o in out[:6]),
                       "...")
                 print("- " * 30)  # separator for neatness
+            program_prior.train()
 
     # ============================================================================================
     #   AFTER TRAINING ENDS
