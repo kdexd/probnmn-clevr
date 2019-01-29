@@ -35,12 +35,6 @@ parser.add_argument(
          "updated and recorded in the checkpoint saving directory. Only argument names already "
          "present in config will be overriden, rest ignored."
 )
-parser.add_argument(
-    "--random-seed",
-    type=int,
-    default=0,
-    help="Random seed for all devices, useful for doing multiple runs and reporting mean/variance."
-)
 # data file paths, gpu ids, checkpoint args etc.
 add_common_opts(parser)
 args = parser.parse_args()
