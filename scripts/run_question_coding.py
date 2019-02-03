@@ -16,7 +16,7 @@ import yaml
 from probnmn.data import QuestionCodingDataset
 from probnmn.data.sampler import SupervisionWeightedRandomSampler
 from probnmn.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
-from probnmn.utils.checkpointing import CheckpointManager
+from probnmn.utils.checkpointing import CheckpointManager, load_checkpoint
 import probnmn.utils.common as probnmn_utils
 
 
@@ -73,7 +73,7 @@ def do_iteration(iteration: int,
     )
     # --------------------------------------------------------------------------------------------
 
-    if iteration < config["elbo_turnon_step"]:
+    if iteration < config["qc_objective_step"]:
         loss_objective = program_generation_loss_gt_supervision + \
                          question_reconstruction_loss_gt_supervision
 
@@ -116,7 +116,7 @@ def do_iteration(iteration: int,
         # REINFORCE reward (R): ( \log{ (p_\theta (x'|z) * p(z) ^ \beta) / (q_\phi (z|x') ) })
         # shape: (batch_size, )
         reinforce_reward = logprobs_reconstruction + \
-                           config["kl_beta"] * (logprobs_prior - logprobs_generation)
+                           config["qc_beta"] * (logprobs_prior - logprobs_generation)
 
         # Detach the reward term, we don't want gradients to flow to through that and get counted
         # twice, once already counted through path derivative loss.
@@ -135,18 +135,18 @@ def do_iteration(iteration: int,
             logprobs_generation, no_gt_supervision_mask, dim=-1
         )
         full_monte_carlo_kl = question_reconstruction_loss_no_gt_supervision + \
-                              config["kl_beta"] * path_derivative_generation_loss + \
+                              config["qc_beta"] * path_derivative_generation_loss + \
                               reinforce_loss
 
         # B := B + (1 - \delta * (R - B))
-        moving_average_baseline += config["elbo_delta"] * allennlp_util.masked_mean(
+        moving_average_baseline += config["qc_delta"] * allennlp_util.masked_mean(
             centered_reward, no_gt_supervision_mask, dim=-1
         )
         reward = allennlp_util.masked_mean(reinforce_reward, no_gt_supervision_mask, dim=-1)
         # ----------------------------------------------------------------------------------------
 
-        loss_objective = question_reconstruction_loss_gt_supervision + \
-                         config["ssl_alpha"] * program_generation_loss_gt_supervision + \
+        loss_objective = config["qc_alpha"] * question_reconstruction_loss_gt_supervision + \
+                         config["qc_alpha"] * program_generation_loss_gt_supervision + \
                          full_monte_carlo_kl
 
     if program_generator.training and question_reconstructor.training:
@@ -194,13 +194,13 @@ if __name__ == "__main__":
 
     vocabulary = Vocabulary.from_files(args.vocab_dirpath)
     train_dataset = QuestionCodingDataset(
-        args.tokens_train_h5, config["num_supervision"]
+        args.tokens_train_h5, config["qc_num_supervision"]
     )
     val_dataset = QuestionCodingDataset(args.tokens_val_h5)
 
     # Train dataloader and train sampler can be re-initialized later while doing batch size
     # scheduling and question max length curriculum.
-    batch_size = config["initial_bs"]
+    batch_size = config["optim_bs_initial"]
 
     train_sampler = SupervisionWeightedRandomSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
@@ -214,29 +214,32 @@ if __name__ == "__main__":
         num_layers=config["prior_num_layers"],
         dropout=config["prior_dropout"]
     ).to(device)
-    program_prior.load_state_dict(torch.load(config["prior_checkpoint"]))
+    prior_model, prior_optimizer = load_checkpoint(config["prior_checkpoint"])
+    program_prior.load_state_dict(prior_model)
     program_prior.eval()
 
     program_generator = ProgramGenerator(
         vocabulary=vocabulary,
-        input_size=config["embedding_size"],
-        hidden_size=config["rnn_hidden_size"],
-        dropout=config["rnn_dropout"]
+        input_size=config["model_input_size"],
+        hidden_size=config["model_hidden_size"],
+        num_layers=config["model_num_layers"],
+        dropout=config["model_dropout"]
     ).to(device)
 
     question_reconstructor = QuestionReconstructor(
         vocabulary=vocabulary,
-        input_size=config["embedding_size"],
-        hidden_size=config["rnn_hidden_size"],
-        dropout=config["rnn_dropout"]
+        input_size=config["model_input_size"],
+        hidden_size=config["model_hidden_size"],
+        num_layers=config["model_num_layers"],
+        dropout=config["model_dropout"]
     ).to(device)
 
     optimizer = optim.Adam(
         itertools.chain(program_generator.parameters(), question_reconstructor.parameters()),
-        lr=config["initial_lr"], weight_decay=config["weight_decay"]
+        lr=config["optim_lr_initial"], weight_decay=config["optim_weight_decay"]
     )
     lr_scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones=config["lr_steps"], gamma=config["lr_gamma"],
+        optimizer, milestones=config["optim_lr_steps"], gamma=config["optim_lr_gamma"],
     )
 
     if -1 not in args.gpu_ids:
@@ -267,15 +270,15 @@ if __name__ == "__main__":
     summary_writer = SummaryWriter(log_dir=os.path.join(args.save_dirpath))
 
     # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
-    train_dataloader = cycle(train_dataloader)
+    train_dataloader = probnmn_utils.cycle(train_dataloader)
 
     moving_average_baseline = torch.tensor(0.0)
 
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
-    print(f"Training for {config['num_iterations']} iterations:")
-    for iteration in tqdm(range(config["num_iterations"])):
+    print(f"Training for {config['optim_num_iterations']} iterations:")
+    for iteration in tqdm(range(config["optim_num_iterations"])):
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
@@ -299,9 +302,9 @@ if __name__ == "__main__":
         summary_writer.add_scalar("schedulers/lr", optimizer.param_groups[0]["lr"], iteration)
 
         # Batch size and learning rate scheduling.
-        if iteration in config["bs_steps"]:
-            batch_size *= config["bs_gamma"]
-            train_dataloader = cycle(
+        if iteration in config["optim_bs_steps"]:
+            batch_size *= config["optim_bs_gamma"]
+            train_dataloader = probnmn_utils.cycle(
                 DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
             )
         lr_scheduler.step()

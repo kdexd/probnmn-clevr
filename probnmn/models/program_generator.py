@@ -13,16 +13,18 @@ class ProgramGenerator(Seq2SeqBase):
 
     def __init__(self,
                  vocabulary: Vocabulary,
-                 embedding_size: int = 128,
-                 hidden_size: int = 64,
+                 input_size: int = 256,
+                 hidden_size: int = 128,
+                 num_layers: int = 2,
                  dropout: float = 0.0,
                  max_decoding_steps: int = 26):  # 26 is max_program_length in CLEVR v1.0 train
         super().__init__(
             vocabulary,
             source_namespace="questions",
             target_namespace="programs",
-            embedding_size=embedding_size,
+            input_size=input_size,
             hidden_size=hidden_size,
+            num_layers=num_layers,
             dropout=dropout,
             max_decoding_steps=max_decoding_steps
         )

@@ -12,8 +12,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from probnmn.modules import ResidualLstm
-
 
 class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
     """
@@ -57,12 +55,14 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         __target_vocab_size = vocabulary.get_vocab_size(namespace=target_namespace)
 
         # Source embedder converts tokenized source sequences to dense embeddings.
-        source_embedder = BasicTextFieldEmbedder(
+        __source_embedder = BasicTextFieldEmbedder(
             {"tokens": Embedding(__source_vocab_size, input_size, padding_index=self._pad_index)}
         )
 
         # Encodes the sequence of source embeddings into a sequence of hidden states.
-        __encoder = ResidualLstm(input_size, hidden_size, num_layers, dropout)
+        __encoder = PytorchSeq2SeqWrapper(
+            nn.LSTM(input_size, hidden_size, num_layers, dropout=dropout, batch_first=True)
+        )
 
         # Attention mechanism between decoder context and encoder hidden states at each time step.
         __attention = DotProductAttention()
