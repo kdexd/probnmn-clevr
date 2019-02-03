@@ -1,9 +1,4 @@
 import argparse
-from datetime import datetime
-import itertools
-import json
-import os
-import random
 
 from allennlp.data import Vocabulary
 from tensorboardX import SummaryWriter
