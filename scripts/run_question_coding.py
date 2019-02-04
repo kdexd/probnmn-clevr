@@ -73,7 +73,7 @@ def do_iteration(iteration: int,
     )
     # --------------------------------------------------------------------------------------------
 
-    if iteration < config["qc_objective_step"]:
+    if config["qc_objective"] == "baseline":
         loss_objective = program_generation_loss_gt_supervision + \
                          question_reconstruction_loss_gt_supervision
 
@@ -82,7 +82,7 @@ def do_iteration(iteration: int,
         full_monte_carlo_kl = 0
         reward = 0
         moving_average_baseline = 0
-    else:
+    elif config["qc_objective"] == "ours":
         # ----------------------------------------------------------------------------------------
         # Full monte carlo gradient estimator
         # \log{p_\theta (x'|z)} - \beta * KL (\log{q_\phi(z|x')} || \log{p(z)})
@@ -99,7 +99,7 @@ def do_iteration(iteration: int,
 
         # keys: {"predictions", "loss", "sequence_logprobs"}
         __qr_output_dict_no_gt_supervision = question_reconstructor(
-            sampled_programs, batch["question"]
+            sampled_programs, batch["question"], record_metrics=False
         )
 
         question_reconstruction_loss_no_gt_supervision = allennlp_util.masked_mean(
@@ -198,10 +198,7 @@ if __name__ == "__main__":
     )
     val_dataset = QuestionCodingDataset(args.tokens_val_h5)
 
-    # Train dataloader and train sampler can be re-initialized later while doing batch size
-    # scheduling and question max length curriculum.
-    batch_size = config["optim_bs_initial"]
-
+    batch_size = config["optim_batch_size"]
     train_sampler = SupervisionWeightedRandomSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
@@ -223,7 +220,8 @@ if __name__ == "__main__":
         input_size=config["model_input_size"],
         hidden_size=config["model_hidden_size"],
         num_layers=config["model_num_layers"],
-        dropout=config["model_dropout"]
+        dropout=config["model_dropout"],
+        average_across_timesteps=config["qc_average_logprobs_across_timesteps"]
     ).to(device)
 
     question_reconstructor = QuestionReconstructor(
@@ -231,15 +229,17 @@ if __name__ == "__main__":
         input_size=config["model_input_size"],
         hidden_size=config["model_hidden_size"],
         num_layers=config["model_num_layers"],
-        dropout=config["model_dropout"]
+        dropout=config["model_dropout"],
+        average_across_timesteps=config["qc_average_logprobs_across_timesteps"]
     ).to(device)
 
     optimizer = optim.Adam(
         itertools.chain(program_generator.parameters(), question_reconstructor.parameters()),
         lr=config["optim_lr_initial"], weight_decay=config["optim_weight_decay"]
     )
-    lr_scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones=config["optim_lr_steps"], gamma=config["optim_lr_gamma"],
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="max", factor=config["optim_lr_gamma"],
+        patience=config["optim_lr_patience"], threshold=1e-2
     )
 
     if -1 not in args.gpu_ids:
@@ -298,16 +298,7 @@ if __name__ == "__main__":
             },
             iteration
         )
-        summary_writer.add_scalar("schedulers/batch_size", batch_size, iteration)
         summary_writer.add_scalar("schedulers/lr", optimizer.param_groups[0]["lr"], iteration)
-
-        # Batch size and learning rate scheduling.
-        if iteration in config["optim_bs_steps"]:
-            batch_size *= config["optim_bs_gamma"]
-            train_dataloader = probnmn_utils.cycle(
-                DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
-            )
-        lr_scheduler.step()
 
         # ========================================================================================
         #   VALIDATE AND PRINT FEW EXAMPLES
@@ -371,8 +362,12 @@ if __name__ == "__main__":
                     },
                     iteration
                 )
-            program_generator_checkpoint_manager.step(__pg_metrics["perplexity"])
-            question_reconstructor_checkpoint_manager.step(__qr_metrics["perplexity"])
+
+            # Learning rate scheduling.
+            lr_scheduler.step(__pg_metrics["sequence_accuracy"])
+
+            program_generator_checkpoint_manager.step(__pg_metrics["perplexity"], iteration)
+            question_reconstructor_checkpoint_manager.step(__qr_metrics["perplexity"], iteration)
             print("\n")
             program_generator.train()
             question_reconstructor.train()
