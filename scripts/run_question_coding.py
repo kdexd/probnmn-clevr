@@ -209,7 +209,9 @@ if __name__ == "__main__":
         input_size=config["prior_input_size"],
         hidden_size=config["prior_hidden_size"],
         num_layers=config["prior_num_layers"],
-        dropout=config["prior_dropout"]
+        dropout=config["prior_dropout"],
+        average_loss_across_timesteps=config["qc_average_loss_across_timesteps"],
+        average_logprobs_across_timesteps=config["qc_average_logprobs_across_timesteps"],
     ).to(device)
     prior_model, prior_optimizer = load_checkpoint(config["prior_checkpoint"])
     program_prior.load_state_dict(prior_model)
@@ -221,7 +223,8 @@ if __name__ == "__main__":
         hidden_size=config["model_hidden_size"],
         num_layers=config["model_num_layers"],
         dropout=config["model_dropout"],
-        average_across_timesteps=config["qc_average_logprobs_across_timesteps"]
+        average_loss_across_timesteps=config["qc_average_loss_across_timesteps"],
+        average_logprobs_across_timesteps=config["qc_average_logprobs_across_timesteps"],
     ).to(device)
 
     question_reconstructor = QuestionReconstructor(
@@ -230,7 +233,8 @@ if __name__ == "__main__":
         hidden_size=config["model_hidden_size"],
         num_layers=config["model_num_layers"],
         dropout=config["model_dropout"],
-        average_across_timesteps=config["qc_average_logprobs_across_timesteps"]
+        average_loss_across_timesteps=config["qc_average_loss_across_timesteps"],
+        average_logprobs_across_timesteps=config["qc_average_logprobs_across_timesteps"],
     ).to(device)
 
     optimizer = optim.Adam(

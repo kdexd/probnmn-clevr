@@ -14,11 +14,14 @@ class QuestionReconstructor(Seq2SeqBase):
     def __init__(self,
                  vocabulary: Vocabulary,
                  input_size: int = 256,
-                 hidden_size: int = 128,
+                 hidden_size: int = 256,
                  num_layers: int = 2,
                  dropout: float = 0.0,
-                 average_across_timesteps: bool = False,
-                 max_decoding_steps: int = 45):  # 45 is max_question_length in CLEVR v1.0 train
+                 average_loss_across_timesteps: bool = True,
+                 average_logprobs_across_timesteps: bool = False):
+        # 45 is max_program_length in CLEVR v1.0 train
+        __max_decoding_steps = 45
+
         super().__init__(
             vocabulary,
             source_namespace="programs",
@@ -27,7 +30,8 @@ class QuestionReconstructor(Seq2SeqBase):
             hidden_size=hidden_size,
             num_layers=num_layers,
             dropout=dropout,
-            average_across_timesteps=average_across_timesteps,
-            max_decoding_steps=max_decoding_steps
+            average_loss_across_timesteps=average_loss_across_timesteps,
+            average_logprobs_across_timesteps=average_logprobs_across_timesteps,
+            max_decoding_steps=__max_decoding_steps
         )
 

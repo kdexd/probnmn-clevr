@@ -14,7 +14,6 @@ from tqdm import tqdm
 import yaml
 
 from probneural_module_network.data import ModuleTrainingDataset
-from probneural_module_network.data.sampler import QuestionCurriculumSampler
 from probneural_module_network.models import ProgramGenerator
 from probneural_module_network.models.neural_module_network import NeuralModuleNetwork
 from probneural_module_network.utils.checkpointing import CheckpointManager, load_checkpoint

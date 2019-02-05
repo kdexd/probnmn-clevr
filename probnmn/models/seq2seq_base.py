@@ -39,9 +39,12 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         The dimension of the outputs of the LSTM.
     num_layers: int, optional (default = 2)
         Number of recurrent layers of the LSTM.
-    average_across_timesteps: bool, optional (default = False)
-        Whether to average teacher forcing loss and sampled sequence log-probabilities across
-        time-steps. If ``False``, they will be summed across time-steps.
+    average_loss_across_timesteps: bool, optional (default = True)
+        Whether to average cross entropy loss (teacher forcing) across time-steps. If `False`,
+        it will be summed across time-steps.
+    average_logprobs_across_timesteps: bool, optional (default = False)
+        Whether to average sampled sequence log-probabilities across time-steps. If ``False``,
+        they will be summed across time-steps.
     """
     def __init__(self,
                  vocabulary: Vocabulary,
@@ -51,7 +54,8 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
                  hidden_size: int = 256,
                  num_layers: int = 2,
                  dropout: float = 0.0,
-                 average_across_timesteps: bool = False,
+                 average_loss_across_timesteps: bool = True,
+                 average_logprobs_across_timesteps: bool = False,
                  max_decoding_steps: int = 30):
 
         # @@PADDING@@, @@UNKNOWN@@, @start@, @end@ have same indices in all namespaces
@@ -87,11 +91,13 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             use_bleu=True
         )
 
-        self._average_across_timesteps = average_across_timesteps
+        # Flags for averaging loss and log-probabilities across time-step.
+        self._average_loss_across_timesteps = average_loss_across_timesteps
+        self._average_logprobs_across_timesteps = average_logprobs_across_timesteps
 
         # Record three metrics - perplexity, sequence accuracy and BLEU score.
         # super().__init__() already declared "self._bleu", perplexity = 2 ** average_val_loss.
-        self._average_loss = Average()
+        self._log2_perplexity = Average()
         self._sequence_accuracy= SequenceAccuracy()
 
     def forward(self,
@@ -230,16 +236,12 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         # We need this other than `loss` to compute REINFORCE reward in question coding.
         logprobs = torch.cat(step_logprobs, 1)
         prediction_mask = (predictions != self._pad_index).float()
-        logprobs *= prediction_mask
+        sequence_logprobs = logprobs.mul(prediction_mask).sum(-1)
 
-        # shape: (batch_size, )
-        logprobs = logprobs.sum(-1)
-
-        if self._average_across_timesteps:
+        if self._average_logprobs_across_timesteps:
             prediction_lengths = prediction_mask.sum(-1)
-            logprobs /= prediction_lengths + 1e-12
-
-        output_dict = {"predictions": predictions, "sequence_logprobs": logprobs}
+            # shape: (batch_size, )
+            sequence_logprobs /= (prediction_lengths + 1e-12)
 
         if target_tokens:
             # shape: (batch_size, num_decoding_steps, num_classes)
@@ -247,29 +249,32 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             # shape: (batch_size, max_sequence_length)
             target_mask = (targets != self._pad_index)
             # shape: (batch_size, )
-            loss = self._get_loss(logits, targets, target_mask)
+            sequence_cross_entropy = self._get_loss(logits, targets, target_mask)
             relevant_targets = targets[:, 1:]
 
             if not self.training:
                 # Record BLEU, perplexity and sequence accuracy during validation.
-                self._bleu(output_dict["predictions"], targets)
-                self._average_loss(loss.mean().item())
+                self._bleu(predictions, targets)
+                self._log2_perplexity(sequence_cross_entropy.mean().item())
 
                 # Sequence accuracy expects top-k beams, so need to add beam dimension.
                 # Compare generated sequences without "@start@" token.
                 self._sequence_accuracy(
-                    output_dict["predictions"][:, :relevant_targets.size(-1)].unsqueeze(1),
+                    predictions[:, :relevant_targets.size(-1)].unsqueeze(1),
                     relevant_targets,
                     (relevant_targets != self._pad_index).long()
                 )
 
-            output_dict["loss"] = loss
-            if not self._average_across_timesteps:
+            if not self._average_loss_across_timesteps:
                 # Scale sequence loss according to the length of sequence (this means it is no
                 # longer an average cross entropy loss across time-steps)
-                output_dict["loss"] *= (relevant_targets != self._pad_index).float().sum(-1)
+                sequence_cross_entropy *= (relevant_targets != self._pad_index).float().sum(-1)
 
-        return output_dict
+        return {
+            "predictions": predictions,
+            "loss": sequence_cross_entropy,
+            "sequence_logprobs": sequence_logprobs
+        }
 
     def _trim_predictions(self, predictions: torch.LongTensor):
         """
@@ -339,7 +344,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             all_metrics.update(self._bleu.get_metric(reset=True))
             all_metrics.update(
                 {
-                    "perplexity": 2 ** self._average_loss.get_metric(reset=True),
+                    "perplexity": 2 ** self._log2_perplexity.get_metric(reset=True),
                     "sequence_accuracy": self._sequence_accuracy.get_metric(reset=True)
                 }
             )
