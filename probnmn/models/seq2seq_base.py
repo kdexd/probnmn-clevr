@@ -243,6 +243,8 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             # shape: (batch_size, )
             sequence_logprobs /= (prediction_lengths + 1e-12)
 
+        output_dict = {"predictions": predictions, "sequence_logprobs": sequence_logprobs}
+
         if target_tokens:
             # shape: (batch_size, num_decoding_steps, num_classes)
             logits = torch.cat(step_logits, 1)
@@ -264,17 +266,12 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
                     relevant_targets,
                     (relevant_targets != self._pad_index).long()
                 )
-
             if not self._average_loss_across_timesteps:
                 # Scale sequence loss according to the length of sequence (this means it is no
                 # longer an average cross entropy loss across time-steps)
                 sequence_cross_entropy *= (relevant_targets != self._pad_index).float().sum(-1)
-
-        return {
-            "predictions": predictions,
-            "loss": sequence_cross_entropy,
-            "sequence_logprobs": sequence_logprobs
-        }
+            output_dict["loss"] = sequence_cross_entropy
+        return output_dict
 
     def _trim_predictions(self, predictions: torch.LongTensor):
         """
