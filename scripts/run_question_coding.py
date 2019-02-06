@@ -17,8 +17,9 @@ import yaml
 from probnmn.data import QuestionCodingDataset
 from probnmn.data.sampler import SupervisionWeightedRandomSampler
 from probnmn.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
-from probnmn.utils.checkpointing import CheckpointManager, load_checkpoint
-import probnmn.utils.common as probnmn_utils
+import probnmn.utils.checkpointing as checkpointing_utils
+import probnmn.utils.common as common_utils
+import probnmn.utils.logging as logging_utils
 
 
 parser = argparse.ArgumentParser("Question coding for CLEVR v1.0 programs and questions.")
@@ -28,7 +29,7 @@ parser.add_argument(
     help="Path to a config file listing model and solver parameters.",
 )
 # Data file paths, gpu ids, checkpoint args etc.
-probnmn_utils.add_common_args(parser)
+common_utils.add_common_args(parser)
 args = parser.parse_args()
 
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
@@ -183,9 +184,9 @@ if __name__ == "__main__":
     # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
     # ============================================================================================
-    config = probnmn_utils.read_config(args.config_yml)
-    config = probnmn_utils.override_config_from_opts(config, args.config_override)
-    probnmn_utils.print_config_and_args(config, args)
+    config = common_utils.read_config(args.config_yml)
+    config = common_utils.override_config_from_opts(config, args.config_override)
+    common_utils.print_config_and_args(config, args)
 
     device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
 
@@ -195,7 +196,9 @@ if __name__ == "__main__":
 
     vocabulary = Vocabulary.from_files(args.vocab_dirpath)
     train_dataset = QuestionCodingDataset(
-        args.tokens_train_h5, config["qc_num_supervision"]
+        args.tokens_train_h5,
+        config["qc_num_supervision"],
+        supervision_question_max_length=config["qc_supervision_question_max_length"],
     )
     val_dataset = QuestionCodingDataset(args.tokens_val_h5)
 
@@ -214,7 +217,7 @@ if __name__ == "__main__":
         average_loss_across_timesteps=config["qc_average_loss_across_timesteps"],
         average_logprobs_across_timesteps=config["qc_average_logprobs_across_timesteps"],
     ).to(device)
-    prior_model, prior_optimizer = load_checkpoint(config["prior_checkpoint"])
+    prior_model, prior_optimizer = checkpointing_utils.load_checkpoint(config["prior_checkpoint"])
     program_prior.load_state_dict(prior_model)
     program_prior.eval()
 
@@ -256,7 +259,7 @@ if __name__ == "__main__":
     # ============================================================================================
     #   BEFORE TRAINING LOOP
     # ============================================================================================
-    program_generator_checkpoint_manager = CheckpointManager(
+    program_generator_checkpoint_manager = checkpointing_utils.CheckpointManager(
         checkpoint_dirpath=args.save_dirpath,
         config=config,
         model=program_generator,
@@ -264,7 +267,7 @@ if __name__ == "__main__":
         filename_prefix="program_generator",
         mode="min",
     )
-    question_reconstructor_checkpoint_manager = CheckpointManager(
+    question_reconstructor_checkpoint_manager = checkpointing_utils.CheckpointManager(
         checkpoint_dirpath=args.save_dirpath,
         config=config,
         model=question_reconstructor,
@@ -273,9 +276,11 @@ if __name__ == "__main__":
         mode="min",
     )
     summary_writer = SummaryWriter(log_dir=args.save_dirpath)
+    # Log a histogram of question lengths, for examples with (GT) program supervision.
+    logging_utils.log_question_length_histogram(train_dataset, summary_writer)
 
-    # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
-    train_dataloader = probnmn_utils.cycle(train_dataloader)
+    # Make train dataloader iteration cyclical.
+    train_dataloader = common_utils.cycle(train_dataloader)
 
     moving_average_baseline = torch.tensor(0.0)
     all_results = {}
@@ -304,7 +309,7 @@ if __name__ == "__main__":
             },
             iteration
         )
-        summary_writer.add_scalar("schedulers/lr", optimizer.param_groups[0]["lr"], iteration)
+        summary_writer.add_scalars("schedule", {"lr": optimizer.param_groups[0]["lr"]}, iteration)
 
         # ========================================================================================
         #   VALIDATE AND PRINT FEW EXAMPLES
@@ -324,43 +329,17 @@ if __name__ == "__main__":
                 if (i + 1) * len(batch["program"]) > args.num_val_examples: break
 
             # Print 10 qualitative examples from last batch.
-            print(f"Qualitative examples after iteration {iteration}...")
-            print("- " * 30)
-            for j in range(min(len(batch["question"]), 20)):
-                print("PROGRAM: " + " ".join(
-                    [vocabulary.get_token_from_index(p_index.item(), "programs")
-                     for p_index in batch["program"][j] if p_index != 0]
-                ))
+            print(f"Qualitative examples after iteration {iteration}...\n")
+            logging_utils.print_question_coding_examples(
+                batch, iteration_output_dict, vocabulary, num=10
+            )
 
-                print("SAMPLED PROGRAM: " + " ".join(
-                    [vocabulary.get_token_from_index(p_index.item(), "programs")
-                     for p_index in iteration_output_dict["predictions"]["__pg"][j]
-                     if p_index != 0]
-                ))
-
-                print("QUESTION: " + " ".join(
-                    [vocabulary.get_token_from_index(q_index.item(), "questions")
-                     for q_index in batch["question"][j] if q_index != 0]
-                ))
-
-                print("RECONST QUESTION: " + " ".join(
-                    [vocabulary.get_token_from_index(q_index.item(), "questions")
-                     for q_index in iteration_output_dict["predictions"]["__qr"][j]
-                     if q_index != 0]
-                ))
-                print("- " * 30)
-
-            # Log BLEU score and perplexity of both program_generator and question_reconstructor.
             if isinstance(program_generator, nn.DataParallel):
                 __pg_metrics = program_generator.module.get_metrics()
                 __qr_metrics = question_reconstructor.module.get_metrics()
             else:
                 __pg_metrics = program_generator.get_metrics()
                 __qr_metrics = question_reconstructor.get_metrics()
-
-            all_results[iteration] = {}
-            all_results[iteration]["program_generation"] = __pg_metrics
-            all_results[iteration]["question_reconstruction"] = __qr_metrics
 
             # Log three metrics to tensorboard.
             # keys: {"BLEU", "perplexity", "sequence_accuracy"}
@@ -372,7 +351,12 @@ if __name__ == "__main__":
                     },
                     iteration
                 )
-            # Learning rate scheduling.
+
+            all_results[iteration] = {}
+            all_results[iteration]["program_generation"] = __pg_metrics
+            all_results[iteration]["question_reconstruction"] = __qr_metrics
+
+            # Learning rate scheduling (drop lr if sequence accuracy plateaus).
             lr_scheduler.step(__pg_metrics["sequence_accuracy"])
 
             program_generator_checkpoint_manager.step(__pg_metrics["perplexity"], iteration)
