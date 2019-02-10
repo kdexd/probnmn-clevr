@@ -1,22 +1,22 @@
-# TbD net arguments (pass to constructor)
-image_feature_size: [1024, 14, 14]
-module_channels: 128
-class_projection_channels: 1024
-classifier_linear_size: 1024
+# Arguments for the constructor of NeuralModuleNetwork model
+model_image_feature_size: [1024, 14, 14]
+model_module_channels: 128
+model_class_projection_channels: 1024
+model_classifier_linear_size: 1024
 
-# optimization related arguments
-num_iterations: 20000
-weight_decay: 0.000
-batch_size: 512
+# Optimization arguments (adam optimizer by default)
+optim_num_iterations: 35000
+optim_batch_size: 512
+optim_weight_decay: 0.000
 
-### learning rate scheduling - (lr *= gamma)
-### We don't do it for NMN training.
-initial_lr: 0.0004
-lr_gamma: 1
-lr_steps: [100000]
+### Learning rate scheduling - (lr *= gamma) if answer accuracy plateaus
+optim_lr_initial: 0.0004
+optim_lr_gamma: 0.9
+optim_lr_patience: 5
 
-### module training: program generator checkpoint
-pg_checkpoint: "checkpoints/program_generator_best.pth"
-pg_embedding_size: 128
-pg_rnn_hidden_size: 64
-pg_rnn_dropout: 0.0
+# Arguments for the constructor of ProgramGenerator model
+pg_checkpoint: "data/program_generator_best_checkpoint.pth"
+pg_input_size: 256
+pg_hidden_size: 256
+pg_num_layers: 2
+pg_dropout: 0.0

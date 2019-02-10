@@ -1,8 +1,6 @@
 import argparse
 import itertools
-import os
 from typing import Dict, Optional
-import warnings
 
 from allennlp.data import Vocabulary
 from allennlp.nn import util as allennlp_util
@@ -11,13 +9,12 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import yaml
 
-from probneural_module_network.data import ModuleTrainingDataset
-from probneural_module_network.models import ProgramGenerator
-from probneural_module_network.models.neural_module_network import NeuralModuleNetwork
-from probneural_module_network.utils.checkpointing import CheckpointManager, load_checkpoint
-from probneural_module_network.utils.opts import add_common_opts, override_config_from_opts
+from probnmn.data import ModuleTrainingDataset
+from probnmn.models import ProgramGenerator
+from probnmn.models.nmn import NeuralModuleNetwork
+import probnmn.utils.checkpointing as checkpointing_utils
+import probnmn.utils.common as common_utils
 
 
 parser = argparse.ArgumentParser(
@@ -29,28 +26,16 @@ parser.add_argument(
     help="Path to a config file listing model and solver parameters.",
 )
 parser.add_argument(
-    "--config-override",
-    type=str,
-    default="{}",
-    help="A string following python dict syntax, specifying certain config arguments to override,"
-    " useful for launching batch jobs through shel lscripts. The actual config will be "
-    "updated and recorded in the checkpoint saving directory. Only argument names already "
-    "present in config will be overriden, rest ignored.",
-)
-parser.add_argument(
-    "--random-seed",
+    "--cpu-workers",
     type=int,
     default=0,
-    help="Random seed for all devices, useful for doing multiple runs and reporting mean/variance.",
-)
-parser.add_argument(
-    "--cpu-workers", type=int, default=16, help="Number of CPU workers to use for data loading."
+    help="Number of CPU workers to use for data loading."
 )
 parser.add_argument(
     "--checkpoint-pthpath", default="", help="Path to load checkpoint and continue training."
 )
 # data file paths, gpu ids, checkpoint args etc.
-add_common_opts(parser)
+common_utils.add_common_args(parser)
 args = parser.parse_args()
 
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
@@ -62,17 +47,17 @@ torch.backends.cudnn.deterministic = True
 
 def do_iteration(batch: Dict[str, torch.Tensor],
                  program_generator: ProgramGenerator,
-                 neural_module_network: ProbNMN,
+                 nmn: NeuralModuleNetwork,
                  optimizer: Optional[optim.Optimizer] = None):
-    if neural_module_network.training:
+    if nmn.training:
         optimizer.zero_grad()
 
     sampled_programs = program_generator(batch["question"])["predictions"]
-    output_dict = neural_module_network(batch["image"], sampled_programs, batch["answer"])
+    output_dict = nmn(batch["image"], sampled_programs, batch["answer"])
 
     batch_loss = output_dict["loss"].mean()
 
-    if neural_module_network.training:
+    if nmn.training:
         batch_loss.backward()
         optimizer.step()
         return_dict = {
@@ -89,24 +74,13 @@ def do_iteration(batch: Dict[str, torch.Tensor],
     return return_dict
 
 
-def cycle(iterable):
-    # Using itertools.cycle with dataloader is harmful
-    while True:
-        for x in iterable:
-            yield x
-
-
 if __name__ == "__main__":
     # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
     # ============================================================================================
-    config = yaml.load(open(args.config_yml))
-    config = override_config_from_opts(config, args.config_override)
-
-    # print config and args
-    print(yaml.dump(config, default_flow_style=False))
-    for arg in vars(args):
-        print("{:<20}: {}".format(arg, getattr(args, arg)))
+    config = common_utils.read_config(args.config_yml)
+    config = common_utils.override_config_from_opts(config, args.config_override)
+    common_utils.print_config_and_args(config, args)
 
     device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
 
@@ -122,42 +96,49 @@ if __name__ == "__main__":
     )
 
     train_dataloader = DataLoader(
-        train_dataset, batch_size=config["batch_size"], shuffle=True, num_workers=args.cpu_workers
+        train_dataset,
+        batch_size=config["optim_batch_size"],
+        num_workers=args.cpu_workers
     )
-    val_dataloader = DataLoader(val_dataset, batch_size=config["batch_size"])
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=config["optim_batch_size"],
+        num_workers=args.cpu_workers
+    )
 
     # Program generator will be frozen during module training.
     program_generator = ProgramGenerator(
         vocabulary=vocabulary,
-        embedding_size=config["pg_embedding_size"],
-        hidden_size=config["pg_rnn_hidden_size"],
-        dropout=config["pg_rnn_dropout"],
-    ).to(device)
-    program_generator_model, _ = load_checkpoint(config["pg_checkpoint"])
+        input_size=config["pg_input_size"],
+        hidden_size=config["pg_hidden_size"],
+        num_layers=config["pg_num_layers"],
+        dropout=config["pg_dropout"]
+    ).to(device).eval()
+    program_generator_model, _ = checkpointing_utils.load_checkpoint(config["pg_checkpoint"])
     program_generator.load_state_dict(program_generator_model)
-    program_generator.eval()
 
-    neural_module_network = NeuralModuleNetwork(
+    nmn = NeuralModuleNetwork(
         vocabulary=vocabulary,
-        image_feature_size=tuple(config["image_feature_size"]),
-        module_channels=config["module_channels"],
-        class_projection_channels=config["class_projection_channels"],
-        classifier_linear_size=config["classifier_linear_size"],
+        image_feature_size=tuple(config["model_image_feature_size"]),
+        module_channels=config["model_module_channels"],
+        class_projection_channels=config["model_class_projection_channels"],
+        classifier_linear_size=config["model_classifier_linear_size"]
     ).to(device)
 
     optimizer = optim.Adam(
-        itertools.chain(program_generator.parameters(), neural_module_network.parameters()),
-        lr=config["initial_lr"], weight_decay=config["weight_decay"]
+        itertools.chain(program_generator.parameters(), nmn.parameters()),
+        lr=config["optim_lr_initial"], weight_decay=config["optim_weight_decay"]
     )
-    lr_scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones=config["lr_steps"], gamma=config["lr_gamma"]
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="max", factor=config["optim_lr_gamma"],
+        patience=config["optim_lr_patience"], threshold=1e-2
     )
 
     # Load from saved checkpoint if specified.
     if args.checkpoint_pthpath != "":
-        neural_module_network_model, neural_module_network_optimizer = load_checkpoint(args.checkpoint_pthpath)
-        neural_module_network.load_state_dict(neural_module_network_model)
-        optimizer.load_state_dict(neural_module_network_optimizer)
+        nmn_model, nmn_optimizer = checkpointing_utils.load_checkpoint(args.checkpoint_pthpath)
+        nmn.load_state_dict(nmn_model)
+        optimizer.load_state_dict(nmn_optimizer)
         start_iteration = int(args.checkpoint_pthpath.split("_")[-1][:-4]) + 1
     else:
         start_iteration = 1
@@ -165,86 +146,70 @@ if __name__ == "__main__":
     if -1 not in args.gpu_ids:
         # Don't wrap to DataParallel for CPU-mode.
         program_generator = nn.DataParallel(program_generator, args.gpu_ids)
-        neural_module_network = nn.DataParallel(neural_module_network, args.gpu_ids)
+        nmn = nn.DataParallel(nmn, args.gpu_ids)
 
     # ============================================================================================
     #   BEFORE TRAINING LOOP
     # ============================================================================================
-    checkpoint_manager = CheckpointManager(
+    checkpoint_manager = checkpointing_utils.CheckpointManager(
         checkpoint_dirpath=args.save_dirpath,
         config=config,
-        model=neural_module_network,
+        model=nmn,
         optimizer=optimizer,
         mode="max",
-        filename_prefix="neural_module_network",
+        filename_prefix="nmn",
     )
-    summary_writer = SummaryWriter(log_dir=os.path.join(args.save_dirpath))
+    summary_writer = SummaryWriter(log_dir=args.save_dirpath)
 
     # Make train dataloader iteration cyclical.
-    train_dataloader = cycle(train_dataloader)
+    train_dataloader = common_utils.cycle(train_dataloader)
 
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
-    print(f"Training for {config['num_iterations']} iterations:")
-    for iteration in tqdm(range(start_iteration, config["num_iterations"])):
-        # Skip iteration if causes an error, there are one or two dirty batches.
-        # Don't want to abruptly stop training, NMNs take time.
-        try:
-            batch = next(train_dataloader)
-            # Shift tensors to device manually instead of looping through dict, because memory leak
-            image, question = batch["image"], batch["question"]
-            image, question = image.to(device), question.to(device)
+    print(f"Training for {config['optim_num_iterations']} iterations:")
+    for iteration in tqdm(range(start_iteration, config["optim_num_iterations"])):
+        batch = next(train_dataloader)
+        for key in batch:
+            batch[key] = batch[key].to(device)
 
-            answer, program = batch["answer"], batch["program"]
-            answer, program = answer.to(device), program.to(device)
-            batch = {"image": image, "answer": answer, "question": question, "program": program}
-            # keys: {"predictions", "loss", "answer_accuracy"}
-            iteration_output_dict = do_iteration(batch, program_generator, neural_module_network, optimizer)
-            summary_writer.add_scalar("train/loss", iteration_output_dict["loss"], iteration)
-            summary_writer.add_scalar(
-                "train/answer_accuracy", iteration_output_dict["answer_accuracy"], iteration
-            )
-            summary_writer.add_scalar(
-                "train/average_invalid", iteration_output_dict["average_invalid"], iteration
-            )
-        except RuntimeError:
-            warnings.warn(f"Exception thrown at {iteration} iteration during training!")
-        lr_scheduler.step()
+        # keys: {"predictions", "loss", "answer_accuracy"}
+        iteration_output_dict = do_iteration(batch, program_generator, nmn, optimizer)
+        summary_writer.add_scalar("train/loss", iteration_output_dict["loss"], iteration)
+        summary_writer.add_scalar(
+            "train/answer_accuracy", iteration_output_dict["answer_accuracy"], iteration
+        )
+        summary_writer.add_scalar(
+            "train/average_invalid", iteration_output_dict["average_invalid"], iteration
+        )
 
         # ========================================================================================
         #   VALIDATE AND (TODO) PRINT FEW EXAMPLES
         # ========================================================================================
         if iteration % args.checkpoint_every == 0:
             print(f"Validation after iteration {iteration}:")
-            neural_module_network.eval()
+            nmn.eval()
             for i, batch in enumerate(tqdm(val_dataloader)):
-                # Shift tensors to device manually instead of looping through ict, because memory leak (?)
-                image, question = batch["image"], batch["question"]
-                answer, program = batch["answer"], batch["program"]
-                image, question = image.to(device), question.to(device)
-                answer, program = answer.to(device), program.to(device)
-                batch = {
-                    "image": image,
-                    "answer": answer,
-                    "question": question,
-                    "program": program,
-                }
+                for key in batch:
+                    batch[key] = batch[key].to(device)
+
                 with torch.no_grad():
-                    iteration_output_dict = do_iteration(batch, program_generator, neural_module_network)
+                    iteration_output_dict = do_iteration(batch, program_generator, nmn)
                 if (i + 1) * len(batch["question"]) > args.num_val_examples: break
 
             if isinstance(program_generator, nn.DataParallel):
-                val_metrics = neural_module_network.module.get_metrics()
+                val_metrics = nmn.module.get_metrics()
             else:
-                val_metrics = neural_module_network.get_metrics()
+                val_metrics = nmn.get_metrics()
             answer_accuracy = val_metrics["answer_accuracy"]
             average_invalid = val_metrics["average_invalid"]
+
+            lr_scheduler.step(val_metrics["answer_accuracy"])
 
             summary_writer.add_scalar("val/answer_accuracy", answer_accuracy, iteration)
             summary_writer.add_scalar("val/average_invalid", average_invalid, iteration)
             checkpoint_manager.step(answer_accuracy, iteration)
-            neural_module_network.train()
+            nmn.train()
 
     # ============================================================================================
     #   AFTER TRAINING END

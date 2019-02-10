@@ -184,4 +184,4 @@ def load_checkpoint(checkpoint_pthpath):
                 " are different. This might affect reproducibility."
             )
     components = torch.load(checkpoint_pthpath)
-    return components["model"], components["optimizer"]
+    return components["model"], components.get("optimizer", None)

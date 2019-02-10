@@ -6,8 +6,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from probnmn.modules import AndModule, AttentionModule, ComparisonModule, OrModule, QueryModule, \
-                            RelateModule, SameModule
+from probnmn.modules.nmn_modules import AndModule, AttentionModule, ComparisonModule, OrModule, \
+                                        QueryModule, RelateModule, SameModule
 
 
 class Flatten(nn.Module):
