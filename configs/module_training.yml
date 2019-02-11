@@ -6,13 +6,14 @@ model_classifier_linear_size: 1024
 
 # Optimization arguments (adam optimizer by default)
 optim_num_iterations: 35000
-optim_batch_size: 512
+optim_batch_size: 128
 optim_weight_decay: 0.000
 
 ### Learning rate scheduling - (lr *= gamma) if answer accuracy plateaus
-optim_lr_initial: 0.0004
+optim_lr_initial: 0.0001
 optim_lr_gamma: 0.9
-optim_lr_patience: 5
+optim_lr_patience: 10000
+### No LR scheduling here.
 
 # Arguments for the constructor of ProgramGenerator model
 pg_checkpoint: "data/program_generator_best_checkpoint.pth"

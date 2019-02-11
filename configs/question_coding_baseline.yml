@@ -30,8 +30,6 @@ qc_delta: 1.0
 ### Optimization objective, "baseline": just train a program generator on examples with
 ### supervision. "ours": optimize the whole question coding objective.
 qc_objective: "baseline"
-qc_average_loss_across_timesteps: true
-qc_average_logprobs_across_timesteps: true
 
 
 # Arguments for the constructor of ProgramPrior model

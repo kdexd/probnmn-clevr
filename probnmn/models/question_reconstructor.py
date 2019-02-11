@@ -16,9 +16,7 @@ class QuestionReconstructor(Seq2SeqBase):
                  input_size: int = 256,
                  hidden_size: int = 256,
                  num_layers: int = 2,
-                 dropout: float = 0.0,
-                 average_loss_across_timesteps: bool = True,
-                 average_logprobs_across_timesteps: bool = False):
+                 dropout: float = 0.0):
         # 45 is max_program_length in CLEVR v1.0 train
         __max_decoding_steps = 45
 
@@ -30,8 +28,6 @@ class QuestionReconstructor(Seq2SeqBase):
             hidden_size=hidden_size,
             num_layers=num_layers,
             dropout=dropout,
-            average_loss_across_timesteps=average_loss_across_timesteps,
-            average_logprobs_across_timesteps=average_logprobs_across_timesteps,
             max_decoding_steps=__max_decoding_steps
         )
 

@@ -24,12 +24,6 @@ class ProgramPrior(nn.Module):
     hidden_size: int
     num_layers: int
     dropout: float
-    average_loss_across_timesteps: bool, optional (default = True)
-        Whether to average cross entropy loss (teacher forcing) across time-steps. If `False`,
-        it will be summed across time-steps.
-    average_logprobs_across_timesteps: bool, optional (default = False)
-        Whether to average sampled sequence log-probabilities across time-steps. If ``False``,
-        they will be summed across time-steps.
     """
 
     def __init__(self,
@@ -37,9 +31,7 @@ class ProgramPrior(nn.Module):
                  input_size: int = 256,
                  hidden_size: int = 128,
                  num_layers: int = 2,
-                 dropout: float = 0.0,
-                 average_loss_across_timesteps: bool = True,
-                 average_logprobs_across_timesteps: bool = False):
+                 dropout: float = 0.0):
         super().__init__()
         self._vocabulary = vocabulary
 
@@ -60,10 +52,6 @@ class ProgramPrior(nn.Module):
         self._projection_layer = nn.Linear(hidden_size, input_size, bias=False)
         self._output_layer = nn.Linear(input_size, vocab_size, bias=False)
         self._output_layer.weight = embedder_inner.weight
-
-        # Flags for averaging loss and log-probabilities across time-step.
-        self._average_loss_across_timesteps = average_loss_across_timesteps
-        self._average_logprobs_across_timesteps = average_logprobs_across_timesteps
 
         # Record average log2 (perplexity) for calculating final perplexity.
         self._log2_perplexity = Average()
@@ -142,26 +130,13 @@ class ProgramPrior(nn.Module):
             weights=program_tokens_mask[:, 1:],
             average=None
         )
-        # We typically always do teacher forcing for our usage.
-        sequence_logprobs = -sequence_cross_entropy
 
-        if not self._average_logprobs_across_timesteps:
-            # Sum of log-probabilities of every token (similar to what beam search outputs)
-            # We need this other than `loss` to compute REINFORCE reward in question coding.
-            sequence_logprobs *= program_lengths
-
-        if not self._average_loss_across_timesteps:
-            sequence_cross_entropy *= program_tokens_mask
-
-        # "loss" is averaged sequence negative log-probability across sequences in the batch.
-        output_dict = {
-            "predicted_tokens": next_timestep,
-            "loss": sequence_cross_entropy,
-            "sequence_logprobs": sequence_logprobs
-        }
         if not self.training:
             self._log2_perplexity(sequence_cross_entropy.mean().item())
-        return output_dict
+        return {
+            "predicted_tokens": next_timestep,
+            "loss": sequence_cross_entropy,
+        }
 
     def get_metrics(self) -> Dict[str, float]:
         """Return perplexity using the accumulated loss (mainly during validation)."""

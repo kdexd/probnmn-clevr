@@ -51,7 +51,7 @@ class CheckpointManager(object):
     ...     ckpt_manager.step(val_loss)
     """
 
-    def __init__(self, model, optimizer, checkpoint_dirpath, mode="min",
+    def __init__(self, model, optimizer, checkpoint_dirpath, mode="max",
                  step_size=1, last_epoch=-1, filename_prefix="model", **kwargs):
 
         if not isinstance(model, nn.Module):
@@ -184,4 +184,8 @@ def load_checkpoint(checkpoint_pthpath):
                 " are different. This might affect reproducibility."
             )
     components = torch.load(checkpoint_pthpath)
-    return components["model"], components.get("optimizer", None)
+
+    if "model" in components:
+        return components["model"], components["optimizer"]
+    else:
+        return components, None

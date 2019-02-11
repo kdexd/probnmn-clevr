@@ -6,7 +6,7 @@ model_dropout: 0.0
 
 
 # Optimization arguments (adam optimizer by default)
-optim_num_iterations: 18000
+optim_num_iterations: 35000
 optim_weight_decay: 0.000
 optim_batch_size: 256
 
@@ -29,8 +29,6 @@ qc_delta: 0.99
 ### Optimization objective, "baseline": just train a program generator on examples with
 ### supervision. "ours": optimize the whole question coding objective.
 qc_objective: "ours"
-qc_average_loss_across_timesteps: true
-qc_average_logprobs_across_timesteps: true
 
 
 # Arguments for the constructor of ProgramPrior model
