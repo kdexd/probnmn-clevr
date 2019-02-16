@@ -15,7 +15,7 @@ import yaml
 from probnmn.data import QuestionCodingDataset
 from probnmn.data.sampler import SupervisionWeightedRandomSampler
 from probnmn.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
-from probnmn.modules.elbo import ElboWithReinforce
+from probnmn.modules.elbo import QuestionCodingElbo
 
 import probnmn.utils.checkpointing as checkpointing_utils
 import probnmn.utils.common as common_utils
@@ -45,7 +45,7 @@ def do_iteration(config: Dict[str, Any],
                  program_generator: ProgramGenerator,
                  question_reconstructor: QuestionReconstructor,
                  program_prior: Optional[ProgramPrior] = None,
-                 elbo: Optional[ElboWithReinforce] = None,
+                 elbo: Optional[QuestionCodingElbo] = None,
                  optimizer: Optional[optim.Optimizer] = None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
 
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     program_prior.load_state_dict(prior_model)
     program_prior.eval()
 
-    elbo = ElboWithReinforce(
+    elbo = QuestionCodingElbo(
         program_generator, question_reconstructor, program_prior,
         beta=config["qc_beta"],
         baseline_decay=config["qc_delta"]
