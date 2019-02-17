@@ -12,15 +12,17 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from probnmn.modules import ResidualLstm
+
 
 class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
     """
     A wrapper over AllenNLP's SimpleSeq2Seq class. This serves as a base class for the
-    ProgramGenerator and QuestionReconstructor. The key differences from super class are:
-        1. This class doesn't use BeamSearch, it performs categorical sampling while training
-           and greedy decoding while validation / inference.
-        2. This class records three metrics, perplexity, sequence_accuracy and BLEU score.
-        3. Has sensible defaults for embedder, encoder and attention mechanism.
+    ``ProgramGenerator`` and ``QuestionReconstructor``. The key differences from super class are:
+        1. This class doesn't use BeamSearch, it performs ancestral sampling during training
+           and greedy decoding during validation.
+        2. This class records three metrics: perplexity, sequence_accuracy and BLEU score.
+        3. Has sensible defaults for super class (dot-product attention, embedding etc.).
 
     Parameters
     ----------
@@ -38,44 +40,42 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
                  vocabulary: Vocabulary,
                  source_namespace: str,
                  target_namespace: str,
-                 embedding_size: int = 128,
+                 input_size: int = 128,
                  hidden_size: int = 64,
+                 num_layers: int = 2,
                  dropout: float = 0.0,
                  max_decoding_steps: int = 30):
-        # Short-hand notations (source: programs, target: questions)
+
+        # @@PADDING@@, @@UNKNOWN@@, @start@, @end@ have same indices in all namespaces
+        self._pad_index = vocabulary.get_token_index("@@PADDING@@", namespace=source_namespace)
+        self._unk_index = vocabulary.get_token_index("@@UNKNOWN@@", namespace=source_namespace)
+        self._end_index = vocabulary.get_token_index("@end@", namespace=source_namespace)
+        self._start_index = vocabulary.get_token_index("@start@", namespace=source_namespace)
+
+        # Short-hand notations.
         __source_vocab_size = vocabulary.get_vocab_size(namespace=source_namespace)
         __target_vocab_size = vocabulary.get_vocab_size(namespace=target_namespace)
 
-        # @@PADDING@@ and @@UNKNOWN@@ have same indices in all namespaces
-        self._pad_index = vocabulary.get_token_index("@@PADDING@@", namespace=source_namespace)
-        self._unk_index = vocabulary.get_token_index("@@UNKNOWN@@", namespace=source_namespace)
-
         # Source embedder converts tokenized source sequences to dense embeddings.
-        __source_embedder = Embedding(
-            __source_vocab_size, embedding_size, padding_index=self._pad_index
+        source_embedder = BasicTextFieldEmbedder(
+            {"tokens": Embedding(__source_vocab_size, input_size, padding_index=self._pad_index)}
         )
-        __source_embedder = BasicTextFieldEmbedder({"tokens": __source_embedder})
 
         # Encodes the sequence of source embeddings into a sequence of hidden states.
-        __encoder = PytorchSeq2SeqWrapper(
-            nn.LSTM(embedding_size, hidden_size, num_layers=2, dropout=dropout, batch_first=True)
-        )
+        __encoder = ResidualLstm(input_size, hidden_size, num_layers, dropout)
 
-        # attention mechanism between decoder context and encoder hidden states at each time step
+        # Attention mechanism between decoder context and encoder hidden states at each time step.
         __attention = DotProductAttention()
 
-        # We actually won't use BeamSearch
         super().__init__(
             vocabulary,
             source_embedder=__source_embedder,
             encoder=__encoder,
             max_decoding_steps=max_decoding_steps,
             attention=__attention,
-            beam_size=1,
             target_namespace=target_namespace,
             use_bleu=True
         )
-
         # Record three metrics - perplexity, sequence accuracy and BLEU score.
         # super().__init__() already declared "self._bleu", perplexity = 2 ** average_val_loss.
         self._average_loss = Average()
@@ -85,7 +85,8 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
                 source_tokens: torch.LongTensor,
                 target_tokens: Optional[torch.LongTensor] = None,
                 record_metrics: bool = True) -> Dict[str, torch.Tensor]:
-        """Override AllenNLP's forward, changing decoder logic. During training, it performs
+        """
+        Override AllenNLP's forward, changing decoder logic. During training, it performs
         categorical sampling, while during evaluation it performs greedy decoding. This means
         beam search with beam size 1 by default.
 
@@ -101,16 +102,11 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         target_tokens: torch.LongTensor, optional (default = None)
             Tokenized target sequences padded to maximum length. These are not padded with
             @start@ and @end@ sentence boundaries. Shape: (batch_size, max_target_length)
-        record_metrics: bool, optional (default = True)
-            A flag which can skip recording metrics for current forward pass, useful in two cases,
-            first in case of ``ProgramGenerator`` when teacher forcing using sampled programs, and
-            second when you need to record metrics for only a subset of train/val splits.
 
         Returns
         -------
         Dict[str, torch.Tensor]
         """
-
         # Add "@start@" and "@end@" tokens to source and target sequences.
         source_tokens, _ = add_sentence_boundary_token_ids(
             source_tokens, (source_tokens != self._pad_index),
@@ -126,7 +122,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         if target_tokens is not None:
             target_tokens = {"tokens": target_tokens}
 
-        # _encode and _init_decoder_state are super class methods, left untouched
+        # _encode and _init_decoder_state are super class methods, left untouched.
         # keys: {"encoder_outputs", "source_mask"}
         state = self._encode(source_tokens)
 
@@ -135,12 +131,14 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
 
         # The `_forward_loop` decodes the input sequence and computes the loss during training
         # and validation.
+        # keys: {"predictions", "loss", "sequence_logprobs"}
         output_dict = self._forward_loop(state, target_tokens)
+        # sequence_logprobs = (-loss) * (sequence length)
 
         # Record BLEU, perplexity and sequence accuracy during validation.
-        if target_tokens and record_metrics:
+        if target_tokens:
             self._bleu(output_dict["predictions"], target_tokens["tokens"])
-            self._average_loss(torch.mean(output_dict["loss"]).item())
+            self._average_loss(output_dict["loss"].mean().item())
 
             # Sequence accuracy expects top-k beams, so need to add beam dimension.
             # Compare generated sequences without "@start@" token.
@@ -221,23 +219,27 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
 
         # shape: (batch_size, num_decoding_steps)
         predictions = torch.cat(step_predictions, 1)
-        logprobs = torch.cat(step_logprobs, 1)
-        output_dict = {"predictions": predictions, "loss": -logprobs}
-
         # Trim predictions after first "@end@" token.
         if not self.training:
-            output_dict["predictions"] = self._trim_predictions(output_dict["predictions"])
+            predictions = self._trim_predictions(predictions)
+
+        # Sum of log-probabilities of every token (similar to what beam search outputs)
+        # We need this other than `loss` to compute REINFORCE reward in question coding.
+        logprobs = torch.cat(step_logprobs, 1)
+        logprobs *= (predictions != self._pad_index).float()
+        # shape: (batch_size, )
+        logprobs = logprobs.sum(-1)
+
+        output_dict = {"predictions": predictions, "sequence_logprobs": logprobs}
 
         if target_tokens:
-            # Update loss as teacher forcing loss with target tokens.
             # shape: (batch_size, num_decoding_steps, num_classes)
             logits = torch.cat(step_logits, 1)
+            # shape: (batch_size, max_sequence_length)
             target_mask = (targets != self._pad_index)
+            # shape: (batch_size, )
             loss = self._get_loss(logits, targets, target_mask)
             output_dict["loss"] = loss
-        else:
-            output_dict["loss"] *= (output_dict["predictions"] != self._pad_index).float()
-            output_dict["loss"] = output_dict["loss"].sum(-1)
 
         return output_dict
 
@@ -246,7 +248,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         Trim output predictions at first "@end@" and pad the rest of sequence.
         This includes "@end@" as last token in trimmed sequence.
         """
-
         # shape: (batch_size, num_decoding_steps)
         trimmed_predictions = torch.zeros_like(predictions)
         for i, prediction in enumerate(predictions):
@@ -263,7 +264,8 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
     def _get_loss(logits: torch.LongTensor,
                   targets: torch.LongTensor,
                   target_mask: torch.LongTensor) -> torch.Tensor:
-        """Override AllenNLP Seq2Seq model's provided `_get_loss` method, which returns sequence
+        """
+        Override AllenNLP Seq2Seq model's provided `_get_loss` method, which returns sequence
         cross entropy averaged over batch by default. Instead, provide sequence cross entropy of
         each sequence in a batch separately.
 
@@ -298,14 +300,9 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         # shape: (batch_size, num_decoding_steps)
         relevant_mask = target_mask[:, 1:].contiguous()
 
-        # shape: (batch_size, )
-        relevant_lengths = relevant_mask.sum(-1)
-
-        sequence_negative_logprobs = sequence_cross_entropy_with_logits(
+        return sequence_cross_entropy_with_logits(
             logits, relevant_targets, relevant_mask, average=None
         )
-        # Sum of cross entropy loss for each token (we're multiplying with length here).
-        return sequence_negative_logprobs * relevant_lengths.float()
 
     def get_metrics(self) -> Dict[str, float]:
         """Override AllenNLP's get_metric and return perplexity, along with BLEU."""
@@ -314,7 +311,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             all_metrics.update(self._bleu.get_metric(reset=True))
             all_metrics.update(
                 {
-                    "negative_logprobs": self._average_loss.get_metric(reset=True),
+                    "perplexity": 2 ** self._average_loss.get_metric(reset=True),
                     "sequence_accuracy": self._sequence_accuracy.get_metric(reset=True)
                 }
             )

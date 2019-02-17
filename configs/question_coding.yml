@@ -31,8 +31,9 @@ elbo_delta: 0.99
 ### Set this greater than number of iterations to train only a baseline.
 elbo_turnon_step: 3000
 
-### question coding: prior checkpoint
-prior_checkpoint: "data/program_prior_best_checkpoint.pth"  # ppl: 2.6068
-prior_embedding_size: 128
-prior_rnn_hidden_size: 64
-prior_rnn_dropout: 0.0
+# Arguments for the constructor of ProgramPrior model
+prior_checkpoint: "data/program_prior_best_checkpoint.pth"  # ppl: 2.596
+prior_input_size: 256
+prior_hidden_size: 128
+prior_num_layers: 4
+prior_dropout: 0.0
