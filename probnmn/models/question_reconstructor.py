@@ -17,6 +17,7 @@ class QuestionReconstructor(Seq2SeqBase):
                  hidden_size: int = 128,
                  num_layers: int = 2,
                  dropout: float = 0.0,
+                 average_across_timesteps: bool = False,
                  max_decoding_steps: int = 45):  # 45 is max_question_length in CLEVR v1.0 train
         super().__init__(
             vocabulary,
@@ -26,6 +27,7 @@ class QuestionReconstructor(Seq2SeqBase):
             hidden_size=hidden_size,
             num_layers=num_layers,
             dropout=dropout,
+            average_across_timesteps=average_across_timesteps,
             max_decoding_steps=max_decoding_steps
         )
 
