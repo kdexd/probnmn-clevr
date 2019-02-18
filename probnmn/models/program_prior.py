@@ -24,6 +24,12 @@ class ProgramPrior(nn.Module):
     hidden_size: int
     num_layers: int
     dropout: float
+    average_loss_across_timesteps: bool, optional (default = True)
+        Whether to average cross entropy loss (teacher forcing) across time-steps. If `False`,
+        it will be summed across time-steps.
+    average_logprobs_across_timesteps: bool, optional (default = False)
+        Whether to average sampled sequence log-probabilities across time-steps. If ``False``,
+        they will be summed across time-steps.
     """
 
     def __init__(self,
@@ -31,7 +37,9 @@ class ProgramPrior(nn.Module):
                  input_size: int = 256,
                  hidden_size: int = 128,
                  num_layers: int = 2,
-                 dropout: float = 0.0):
+                 dropout: float = 0.0,
+                 average_loss_across_timesteps: bool = True,
+                 average_logprobs_across_timesteps: bool = False):
         super().__init__()
         self._vocabulary = vocabulary
 
@@ -53,8 +61,12 @@ class ProgramPrior(nn.Module):
         self._output_layer = nn.Linear(input_size, vocab_size, bias=False)
         self._output_layer.weight = embedder_inner.weight
 
-        # Record average val loss for reporting perplexity.
-        self._average_loss = Average()
+        # Flags for averaging loss and log-probabilities across time-step.
+        self._average_loss_across_timesteps = average_loss_across_timesteps
+        self._average_logprobs_across_timesteps = average_logprobs_across_timesteps
+
+        # Record average log2 (perplexity) for calculating final perplexity.
+        self._log2_perplexity = Average()
 
     def forward(self, program_tokens: torch.LongTensor):
         """
@@ -90,6 +102,9 @@ class ProgramPrior(nn.Module):
             self._start_index, self._end_index
         )
         program_tokens_mask = (program_tokens != self._pad_index).long()
+        # Excluding @start@ token, because this is used with output of LSTM (next time-step).
+        program_lengths = program_tokens_mask[:, 1:].sum(-1).float()
+
         # shape: (batch_size, max_sequence_length, input_size)
         embedded_programs = self._embedder({"programs": program_tokens})
 
@@ -127,11 +142,16 @@ class ProgramPrior(nn.Module):
             weights=program_tokens_mask[:, 1:],
             average=None
         )
-        # Sum of log-probabilities of every token (similar to what beam search outputs)
-        # We need this other than `loss` to compute REINFORCE reward in question coding.
-        # shape: (batch_size, )
-        program_lengths = program_tokens_mask[:, 1:].sum(-1).float()
-        sequence_logprobs = -sequence_cross_entropy * program_lengths
+        # We typically always do teacher forcing for our usage.
+        sequence_logprobs = -sequence_cross_entropy
+
+        if not self._average_logprobs_across_timesteps:
+            # Sum of log-probabilities of every token (similar to what beam search outputs)
+            # We need this other than `loss` to compute REINFORCE reward in question coding.
+            sequence_logprobs *= program_lengths
+
+        if not self._average_loss_across_timesteps:
+            sequence_cross_entropy *= program_tokens_mask
 
         # "loss" is averaged sequence negative log-probability across sequences in the batch.
         output_dict = {
@@ -140,7 +160,7 @@ class ProgramPrior(nn.Module):
             "sequence_logprobs": sequence_logprobs
         }
         if not self.training:
-            self._average_loss(sequence_cross_entropy.mean().item())
+            self._log2_perplexity(sequence_cross_entropy.mean().item())
         return output_dict
 
     def get_metrics(self) -> Dict[str, float]:
@@ -148,6 +168,6 @@ class ProgramPrior(nn.Module):
         all_metrics: Dict[str, float] = {}
         if not self.training:
             all_metrics.update({
-                "perplexity": 2 ** self._average_loss.get_metric(reset=True),
+                "perplexity": 2 ** self._log2_perplexity.get_metric(reset=True),
             })
         return all_metrics

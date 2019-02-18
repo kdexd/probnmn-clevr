@@ -27,7 +27,7 @@ MANIFEST
 
 # Datasets and preprocessed files
 data/
-!tbd/data/
+!probnmn/data/
 
 # Checkpoints directory
 checkpoints/
