@@ -1,5 +1,6 @@
 import argparse
 import itertools
+import json
 import os
 from typing import Dict, Optional, Union
 
@@ -271,12 +272,13 @@ if __name__ == "__main__":
         filename_prefix="question_reconstructor",
         mode="min",
     )
-    summary_writer = SummaryWriter(log_dir=os.path.join(args.save_dirpath))
+    summary_writer = SummaryWriter(log_dir=args.save_dirpath)
 
     # make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
     train_dataloader = probnmn_utils.cycle(train_dataloader)
 
     moving_average_baseline = torch.tensor(0.0)
+    all_results = {}
 
     # ============================================================================================
     #   TRAINING LOOP
@@ -356,6 +358,10 @@ if __name__ == "__main__":
                 __pg_metrics = program_generator.get_metrics()
                 __qr_metrics = question_reconstructor.get_metrics()
 
+            all_results[iteration] = {}
+            all_results[iteration]["program_generation"] = __pg_metrics
+            all_results[iteration]["question_reconstruction"] = __qr_metrics
+
             # Log three metrics to tensorboard.
             # keys: {"BLEU", "perplexity", "sequence_accuracy"}
             for metric_name in __pg_metrics:
@@ -366,7 +372,6 @@ if __name__ == "__main__":
                     },
                     iteration
                 )
-
             # Learning rate scheduling.
             lr_scheduler.step(__pg_metrics["sequence_accuracy"])
 
@@ -382,3 +387,6 @@ if __name__ == "__main__":
     program_generator_checkpoint_manager.save_best()
     question_reconstructor_checkpoint_manager.save_best()
     summary_writer.close()
+
+    # Dump all metrics as a json file.
+    json.dump(all_results, open(os.path.join(args.save_dirpath, "results.json"), "w"))
