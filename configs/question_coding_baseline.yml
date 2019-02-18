@@ -4,8 +4,9 @@ model_hidden_size: 256
 model_num_layers: 2
 model_dropout: 0.0
 
+
 # Optimization arguments (adam optimizer by default)
-optim_num_iterations: 30000
+optim_num_iterations: 20000
 optim_weight_decay: 0.000
 optim_batch_size: 256
 
@@ -14,8 +15,13 @@ optim_lr_initial: 0.001
 optim_lr_gamma: 0.5
 optim_lr_patience: 3
 
-### Question coding hyper parameters
-qc_num_supervision: 600
+
+# Question coding hyper parameters
+qc_num_supervision: 1000
+
+### Question length in CLEVR can be upto 45 - too much variance in lengths for less supervision.
+qc_supervision_question_max_length: 40
+
 # These don't mean anything when training a baseline.
 qc_alpha: 1.0
 qc_beta: 1.0
@@ -25,7 +31,8 @@ qc_delta: 1.0
 ### supervision. "ours": optimize the whole question coding objective.
 qc_objective: "baseline"
 qc_average_loss_across_timesteps: true
-qc_average_logprobs_across_timesteps: false
+qc_average_logprobs_across_timesteps: true
+
 
 # Arguments for the constructor of ProgramPrior model
 prior_checkpoint: "data/program_prior_best_checkpoint.pth"  # ppl: 2.600
