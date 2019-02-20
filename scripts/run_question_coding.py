@@ -1,5 +1,4 @@
 import argparse
-import itertools
 import json
 import os
 from typing import Dict, Optional, Union
@@ -50,12 +49,6 @@ def do_iteration(iteration: int,
                  optimizer: Optional[optim.Optimizer] = None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
 
-    # Notations in comments: x', z' are questions and programs observed in dataset.
-    # z are sampled programs given x' from the dataset.
-    # In other words x' = batch["questions"] and z' = batch["programs"]
-    if program_generator.training and question_reconstructor.training:
-        optimizer.zero_grad()
-
     # Separate out examples with supervision and without supervision, these two maskes will be
     # mutually exclusive. Shape: (batch_size, 1)
     gt_supervision_mask = batch["supervision"]
@@ -63,7 +56,7 @@ def do_iteration(iteration: int,
 
     # --------------------------------------------------------------------------------------------
     # Supervision loss: \alpha * ( \log{q_\phi (z'|x')} + \log{p_\theta (x'|z')} ) 
-    # keys: {"predictions", "loss", "sequence_logprobs"}
+    # keys: {"predictions", "loss"}
     __pg_output_dict_gt_supervision = program_generator(batch["question"], batch["program"])
     __qr_output_dict_gt_supervision = question_reconstructor(batch["program"], batch["question"])
     # Zero out loss contribution from examples having no program supervision.
@@ -75,83 +68,88 @@ def do_iteration(iteration: int,
     )
     # --------------------------------------------------------------------------------------------
 
-    if config["qc_objective"] == "baseline":
-        loss_objective = program_generation_loss_gt_supervision + \
-                         question_reconstruction_loss_gt_supervision
-
-        # Zero value variables for returning them to log on tensorboard.
-        question_reconstruction_loss_no_gt_supervision = 0
-        full_monte_carlo_kl = 0
-        reward = 0
-        moving_average_baseline = 0
-    elif config["qc_objective"] == "ours":
-        # ----------------------------------------------------------------------------------------
-        # Full monte carlo gradient estimator
-        # \log{p_\theta (x'|z)} - \beta * KL (\log{q_\phi(z|x')} || \log{p(z)})
-
-        # Everything here will be calculated for examples with no (GT) supervision, examples with
-        # GT supervision only need to maximize evidence.
-
-        # Sample programs, for the questions of examples with no GT (program) supervision.
-        # Sample z ~ q_\phi(z|x'), shape: (batch_size, max_program_length)
-
-        # keys: {"predictions", "loss", "sequence_logprobs"}
-        __pg_output_dict_no_gt_supervision = program_generator(batch["question"])
-        sampled_programs = __pg_output_dict_no_gt_supervision["predictions"]
-
-        # keys: {"predictions", "loss", "sequence_logprobs"}
-        __qr_output_dict_no_gt_supervision = question_reconstructor(
-            sampled_programs, batch["question"], record_metrics=False
-        )
-
-        question_reconstruction_loss_no_gt_supervision = allennlp_util.masked_mean(
-            __qr_output_dict_no_gt_supervision["loss"],
-            no_gt_supervision_mask, dim=-1
-        )
-
-        # Mask all of these while computing net REINFORCE loss.
-        # shape: (batch_size, )
-        logprobs_reconstruction = __qr_output_dict_no_gt_supervision["sequence_logprobs"]
-        logprobs_generation = __pg_output_dict_no_gt_supervision["sequence_logprobs"]
-        logprobs_prior = program_prior(sampled_programs)["sequence_logprobs"]
-
-        # REINFORCE reward (R): ( \log{ (p_\theta (x'|z) * p(z) ^ \beta) / (q_\phi (z|x') ) })
-        # shape: (batch_size, )
-        reinforce_reward = logprobs_reconstruction + \
-                           config["qc_beta"] * (logprobs_prior - logprobs_generation)
-
-        # Detach the reward term, we don't want gradients to flow to through that and get counted
-        # twice, once already counted through path derivative loss.
-        reinforce_reward = reinforce_reward.detach()
-        # Zero out the net reward for examples with GT (program) supervision.
-        centered_reward = (reinforce_reward - moving_average_baseline) * \
-                          no_gt_supervision_mask.float()
-
-        # Set reward for examples with GT (program) supervision to zero.
-        reinforce_loss = - allennlp_util.masked_mean(
-            centered_reward * logprobs_generation,
-            no_gt_supervision_mask,
-            dim=-1
-        )
-        path_derivative_generation_loss = - allennlp_util.masked_mean(
-            logprobs_generation, no_gt_supervision_mask, dim=-1
-        )
-        full_monte_carlo_kl = question_reconstruction_loss_no_gt_supervision + \
-                              config["qc_beta"] * path_derivative_generation_loss + \
-                              reinforce_loss
-
-        # B := B + (1 - \delta * (R - B))
-        moving_average_baseline += config["qc_delta"] * allennlp_util.masked_mean(
-            centered_reward, no_gt_supervision_mask, dim=-1
-        )
-        reward = allennlp_util.masked_mean(reinforce_reward, no_gt_supervision_mask, dim=-1)
-        # ----------------------------------------------------------------------------------------
-
-        loss_objective = config["qc_alpha"] * question_reconstruction_loss_gt_supervision + \
-                         config["qc_alpha"] * program_generation_loss_gt_supervision + \
-                         full_monte_carlo_kl
-
+    # Notations in comments: x', z' are questions and programs observed in dataset.
+    # z are sampled programs given x' from the dataset.
+    # In other words x' = batch["questions"] and z' = batch["programs"]
     if program_generator.training and question_reconstructor.training:
+        optimizer.zero_grad()
+
+        if config["qc_objective"] == "baseline":
+            loss_objective = program_generation_loss_gt_supervision + \
+                             question_reconstruction_loss_gt_supervision
+
+            # Zero value variables for returning them to log on tensorboard.
+            question_reconstruction_loss_no_gt_supervision = 0
+            full_monte_carlo_kl = 0
+            reward = 0
+            moving_average_baseline = 0
+        elif config["qc_objective"] == "ours":
+            # ------------------------------------------------------------------------------------
+            # Full monte carlo gradient estimator
+            # \log{p_\theta (x'|z)} - \beta * KL (\log{q_\phi(z|x')} || \log{p(z)})
+
+            # Everything here will be calculated for examples with no (GT) supervision, examples
+            # with GT supervision only need to maximize evidence.
+
+            # Sample programs, for the questions of examples with no GT (program) supervision.
+            # Sample z ~ q_\phi(z|x'), shape: (batch_size, max_program_length)
+
+            # keys: {"predictions", "loss"}
+            __pg_output_dict_no_gt_supervision = program_generator(batch["question"])
+            sampled_programs = __pg_output_dict_no_gt_supervision["predictions"]
+
+            # keys: {"predictions", "loss"}
+            __qr_output_dict_no_gt_supervision = question_reconstructor(
+                sampled_programs, batch["question"]
+            )
+            question_reconstruction_loss_no_gt_supervision = allennlp_util.masked_mean(
+                __qr_output_dict_no_gt_supervision["loss"],
+                no_gt_supervision_mask, dim=-1
+            )
+
+            # Mask all of these while computing net REINFORCE loss.
+            # Note that reward is made of log-probabilities, not loss (negative log-probabilities)
+            # shape: (batch_size, )
+            logprobs_reconstruction = - __qr_output_dict_no_gt_supervision["loss"]
+            logprobs_generation = - __pg_output_dict_no_gt_supervision["loss"]
+            logprobs_prior = - program_prior(sampled_programs)["loss"]
+
+            # REINFORCE reward (R): ( \log{ (p_\theta (x'|z) * p(z) ^ \beta) / (q_\phi (z|x') ) })
+            # shape: (batch_size, )
+            reinforce_reward = logprobs_reconstruction + \
+                               config["qc_beta"] * (logprobs_prior - logprobs_generation)
+
+            # Detach the reward term, we don't want gradients to flow to through that and get
+            # counted twice, once already counted through path derivative loss.
+            reinforce_reward = reinforce_reward.detach()
+            # Zero out the net reward for examples with GT (program) supervision.
+            centered_reward = (reinforce_reward - moving_average_baseline) * \
+                              no_gt_supervision_mask.float()
+
+            # Set reward for examples with GT (program) supervision to zero.
+            reinforce_loss = - allennlp_util.masked_mean(
+                centered_reward * logprobs_generation,
+                no_gt_supervision_mask,
+                dim=-1
+            )
+            path_derivative_generation_loss = - allennlp_util.masked_mean(
+                logprobs_generation, no_gt_supervision_mask, dim=-1
+            )
+            full_monte_carlo_kl = question_reconstruction_loss_no_gt_supervision + \
+                                  config["qc_beta"] * path_derivative_generation_loss + \
+                                  reinforce_loss
+
+            # B := B + (1 - \delta * (R - B))
+            moving_average_baseline += config["qc_delta"] * allennlp_util.masked_mean(
+                centered_reward, no_gt_supervision_mask, dim=-1
+            )
+            reward = allennlp_util.masked_mean(reinforce_reward, no_gt_supervision_mask, dim=-1)
+            # ------------------------------------------------------------------------------------
+
+            loss_objective = config["qc_alpha"] * question_reconstruction_loss_gt_supervision + \
+                             config["qc_alpha"] * program_generation_loss_gt_supervision + \
+                             full_monte_carlo_kl
+
         loss_objective.backward()
         # Clamp all gradients between (-5, 5)
         for parameter in program_generator.parameters():
@@ -162,22 +160,26 @@ def do_iteration(iteration: int,
                 parameter.grad.clamp_(min=-5, max=5)
         optimizer.step()
 
-    return {
+    iteration_output_dict = {
         "predictions": {
             # These only matter during validation.
             "__pg": __pg_output_dict_gt_supervision["predictions"],
             "__qr": __qr_output_dict_gt_supervision["predictions"]
         },
-        "loss": {
-            "question_reconstruction_no_gt": question_reconstruction_loss_no_gt_supervision,
-            "question_reconstruction_gt": question_reconstruction_loss_gt_supervision,
-            "full_monte_carlo_kl": full_monte_carlo_kl,
-            "program_generation_gt": program_generation_loss_gt_supervision,
-            "objective": loss_objective
-        },
-        "reward": reward,
-        "baseline": moving_average_baseline
     }
+    if program_generator.training and question_reconstructor.training:
+        iteration_output_dict = {
+            "loss": {
+                "question_reconstruction_no_gt": question_reconstruction_loss_no_gt_supervision,
+                "question_reconstruction_gt": question_reconstruction_loss_gt_supervision,
+                "full_monte_carlo_kl": full_monte_carlo_kl,
+                "program_generation_gt": program_generation_loss_gt_supervision,
+                "objective": loss_objective
+            },
+            "reward": reward,
+            "baseline": moving_average_baseline
+        }
+    return iteration_output_dict
 
 
 if __name__ == "__main__":
@@ -214,8 +216,6 @@ if __name__ == "__main__":
         hidden_size=config["prior_hidden_size"],
         num_layers=config["prior_num_layers"],
         dropout=config["prior_dropout"],
-        average_loss_across_timesteps=config["qc_average_loss_across_timesteps"],
-        average_logprobs_across_timesteps=config["qc_average_logprobs_across_timesteps"],
     ).to(device)
     prior_model, prior_optimizer = checkpointing_utils.load_checkpoint(config["prior_checkpoint"])
     program_prior.load_state_dict(prior_model)
@@ -227,8 +227,6 @@ if __name__ == "__main__":
         hidden_size=config["model_hidden_size"],
         num_layers=config["model_num_layers"],
         dropout=config["model_dropout"],
-        average_loss_across_timesteps=config["qc_average_loss_across_timesteps"],
-        average_logprobs_across_timesteps=config["qc_average_logprobs_across_timesteps"],
     ).to(device)
 
     question_reconstructor = QuestionReconstructor(
@@ -237,12 +235,10 @@ if __name__ == "__main__":
         hidden_size=config["model_hidden_size"],
         num_layers=config["model_num_layers"],
         dropout=config["model_dropout"],
-        average_loss_across_timesteps=config["qc_average_loss_across_timesteps"],
-        average_logprobs_across_timesteps=config["qc_average_logprobs_across_timesteps"],
     ).to(device)
 
     optimizer = optim.Adam(
-        itertools.chain(program_generator.parameters(), question_reconstructor.parameters()),
+        list(program_generator.parameters()) + list(question_reconstructor.parameters()),
         lr=config["optim_lr_initial"], weight_decay=config["optim_weight_decay"]
     )
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -265,7 +261,6 @@ if __name__ == "__main__":
         model=program_generator,
         optimizer=optimizer,
         filename_prefix="program_generator",
-        mode="min",
     )
     question_reconstructor_checkpoint_manager = checkpointing_utils.CheckpointManager(
         checkpoint_dirpath=args.save_dirpath,
@@ -273,7 +268,6 @@ if __name__ == "__main__":
         model=question_reconstructor,
         optimizer=optimizer,
         filename_prefix="question_reconstructor",
-        mode="min",
     )
     summary_writer = SummaryWriter(log_dir=args.save_dirpath)
     # Log a histogram of question lengths, for examples with (GT) program supervision.
@@ -359,8 +353,8 @@ if __name__ == "__main__":
             # Learning rate scheduling (drop lr if sequence accuracy plateaus).
             lr_scheduler.step(__pg_metrics["sequence_accuracy"])
 
-            program_generator_checkpoint_manager.step(__pg_metrics["perplexity"], iteration)
-            question_reconstructor_checkpoint_manager.step(__qr_metrics["perplexity"], iteration)
+            program_generator_checkpoint_manager.step(__pg_metrics["sequence_accuracy"], iteration)
+            question_reconstructor_checkpoint_manager.step(__qr_metrics["sequence_accuracy"], iteration)
             print("\n")
             program_generator.train()
             question_reconstructor.train()

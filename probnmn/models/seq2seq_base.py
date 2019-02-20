@@ -39,12 +39,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         The dimension of the outputs of the LSTM.
     num_layers: int, optional (default = 2)
         Number of recurrent layers of the LSTM.
-    average_loss_across_timesteps: bool, optional (default = True)
-        Whether to average cross entropy loss (teacher forcing) across time-steps. If `False`,
-        it will be summed across time-steps.
-    average_logprobs_across_timesteps: bool, optional (default = False)
-        Whether to average sampled sequence log-probabilities across time-steps. If ``False``,
-        they will be summed across time-steps.
     """
     def __init__(self,
                  vocabulary: Vocabulary,
@@ -54,8 +48,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
                  hidden_size: int = 256,
                  num_layers: int = 2,
                  dropout: float = 0.0,
-                 average_loss_across_timesteps: bool = True,
-                 average_logprobs_across_timesteps: bool = False,
                  max_decoding_steps: int = 30):
 
         # @@PADDING@@, @@UNKNOWN@@, @start@, @end@ have same indices in all namespaces
@@ -90,11 +82,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             target_namespace=target_namespace,
             use_bleu=True
         )
-
-        # Flags for averaging loss and log-probabilities across time-step.
-        self._average_loss_across_timesteps = average_loss_across_timesteps
-        self._average_logprobs_across_timesteps = average_logprobs_across_timesteps
-
         # Record three metrics - perplexity, sequence accuracy and BLEU score.
         # super().__init__() already declared "self._bleu", perplexity = 2 ** average_val_loss.
         self._log2_perplexity = Average()
@@ -102,8 +89,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
 
     def forward(self,
                 source_tokens: torch.LongTensor,
-                target_tokens: Optional[torch.LongTensor] = None,
-                record_metrics: bool = True) -> Dict[str, torch.Tensor]:
+                target_tokens: Optional[torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
         """
         Override AllenNLP's forward, changing decoder logic. During training, it performs
         categorical sampling, while during evaluation it performs greedy decoding. This means
@@ -121,9 +107,6 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         target_tokens: torch.LongTensor, optional (default = None)
             Tokenized target sequences padded to maximum length. These are not padded with
             @start@ and @end@ sentence boundaries. Shape: (batch_size, max_target_length)
-        record_metrics: bool, optional (default = True)
-            Whether to record metrics with this current batch, can be useful to stop recording
-            metrics during question reconstruction with sampled programs.
 
         Returns
         -------
@@ -153,15 +136,15 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
 
         # The `_forward_loop` decodes the input sequence and computes the loss during training
         # and validation.
-        # keys: {"predictions", "loss", "sequence_logprobs"}
-        output_dict = self._forward_loop(state, target_tokens, record_metrics)
+        # keys: {"predictions", "loss"}
+        output_dict = self._forward_loop(state, target_tokens)
 
         return output_dict
 
     def _forward_loop(self,
                       state: Dict[str, torch.Tensor],
-                      target_tokens: Dict[str, torch.LongTensor] = None,
-                      record_metrics: bool = True) -> Dict[str, torch.Tensor]:
+                      target_tokens: Dict[str, torch.LongTensor] = None
+                      ) -> Dict[str, torch.Tensor]:
         # shape: (batch_size, max_input_sequence_length)
         source_mask = state["source_mask"]
         batch_size = source_mask.size()[0]
@@ -206,7 +189,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
 
             # NOTE -------------------------------------------------------------------------------
             # This differs from super()._forward_loop(...)
-            if not self.training and record_metrics:
+            if not self.training:
                 # perform greedy decoding during evaluation
                 _, predicted_classes = torch.max(class_probabilities, 1)
             else:
@@ -232,19 +215,21 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         if not self.training:
             predictions = self._trim_predictions(predictions)
 
-        # Sum/average of log-probabilities of every token (without teacher forcing).
-        # We need this other than `loss` to compute REINFORCE reward in question coding.
+        # Log-probabilities at each time-step (without teacher forcing).
+        # This will be `loss`, to compute REINFORCE reward in question coding.
+        # In presence of target tokens, we replace this as cross entropy loss (teacher forcing).
         logprobs = torch.cat(step_logprobs, 1)
         prediction_mask = (predictions != self._pad_index).float()
+
+        # Average the sequence logprob across time-steps. Hence our REINFORCE reward will be
+        # length-normalized sequence log-probability. This ensures equal importance of all
+        # sequences irrespective of their lengths.
         sequence_logprobs = logprobs.mul(prediction_mask).sum(-1)
+        prediction_lengths = prediction_mask.sum(-1)
+        # shape: (batch_size, )
+        sequence_logprobs /= (prediction_lengths + 1e-12)
 
-        if self._average_logprobs_across_timesteps:
-            prediction_lengths = prediction_mask.sum(-1)
-            # shape: (batch_size, )
-            sequence_logprobs /= (prediction_lengths + 1e-12)
-
-        output_dict = {"predictions": predictions, "sequence_logprobs": sequence_logprobs}
-
+        output_dict = {"predictions": predictions, "loss": -sequence_logprobs}
         if target_tokens:
             # shape: (batch_size, num_decoding_steps, num_classes)
             logits = torch.cat(step_logits, 1)
@@ -252,6 +237,8 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             target_mask = (targets != self._pad_index)
             # shape: (batch_size, )
             sequence_cross_entropy = self._get_loss(logits, targets, target_mask)
+            output_dict["loss"] = sequence_cross_entropy
+
             relevant_targets = targets[:, 1:]
 
             if not self.training:
@@ -266,11 +253,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
                     relevant_targets,
                     (relevant_targets != self._pad_index).long()
                 )
-            if not self._average_loss_across_timesteps:
-                # Scale sequence loss according to the length of sequence (this means it is no
-                # longer an average cross entropy loss across time-steps)
-                sequence_cross_entropy *= (relevant_targets != self._pad_index).float().sum(-1)
-            output_dict["loss"] = sequence_cross_entropy
+
         return output_dict
 
     def _trim_predictions(self, predictions: torch.LongTensor):
