@@ -172,8 +172,7 @@ class JointTrainingDataset(Dataset):
                  features_hdfpath: str,
                  num_supervision: int = 699989,
                  supervision_question_max_length: int = 30,
-                 in_memory: bool = True,
-                 overfit: bool = False):
+                 in_memory: bool = True):
 
         self._tokens = ClevrTokensReader(tokens_hdfpath)
         self._features = ClevrFeaturesReader(features_hdfpath, in_memory)
@@ -197,10 +196,6 @@ class JointTrainingDataset(Dataset):
             self._supervision_list += 1
 
         self._supervision_list = torch.tensor(self._supervision_list).long()
-
-        if overfit:
-            self._tokens = self._tokens[:5]
-            self._supervision_list = self._supervision_list[:5]
 
     def __len__(self):
         return len(self._tokens)
