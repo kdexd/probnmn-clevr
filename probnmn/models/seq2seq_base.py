@@ -212,8 +212,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         # shape: (batch_size, num_decoding_steps)
         predictions = torch.cat(step_predictions, 1)
         # Trim predictions after first "@end@" token.
-        if not self.training:
-            predictions = self._trim_predictions(predictions)
+        predictions = self._trim_predictions(predictions)
 
         # Log-probabilities at each time-step (without teacher forcing).
         # This will be `loss`, to compute REINFORCE reward in question coding.

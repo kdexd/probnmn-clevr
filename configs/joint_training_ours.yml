@@ -1,0 +1,50 @@
+# Arguments for the constructor of NeuralModuleNetwork model
+mt_model_image_feature_size: [1024, 14, 14]
+mt_model_module_channels: 128
+mt_model_class_projection_channels: 1024
+mt_model_classifier_linear_size: 1024
+
+# Arguments for the constructor of ProgramGenerator and QuestionReconstructor model
+qc_model_input_size: 256
+qc_model_hidden_size: 256
+qc_model_num_layers: 2
+qc_model_dropout: 0.0
+
+# Arguments for the constructor of ProgramPrior model
+prior_checkpoint: "data/program_prior_best_checkpoint.pth"  # ppl: 2.600
+prior_input_size: 256
+prior_hidden_size: 256
+prior_num_layers: 2
+prior_dropout: 0.0
+
+# Optimization arguments (adam optimizer by default)
+optim_num_iterations: 20000
+optim_batch_size: 256
+optim_weight_decay: 0.000
+
+### Learning rate scheduling - (lr *= gamma) if answer accuracy plateaus
+optim_lr_initial: 0.00002
+optim_lr_gamma: 0.9
+optim_lr_patience: 10000
+### No LR scheduling here.
+
+# Question coding hyper parameters
+qc_num_supervision: 1000
+
+### Question length in CLEVR can be upto 45 - too much variance in lengths for less supervision.
+qc_supervision_question_max_length: 40
+
+# These don't mean anything when training a baseline.
+qc_alpha: 100.0
+qc_beta: 0.1
+qc_delta: 0.99
+
+jt_gamma: 1.0
+
+### Optimization objective.
+jt_objective: "ours"
+
+# Arguments for the constructor of ProgramGenerator model
+pg_checkpoint: "data/program_generator_best_checkpoint.pth"
+qr_checkpoint: "data/question_reconstructor_best_checkpoint.pth"
+nmn_checkpoint: "data/nmn_best_checkpoint.pth"

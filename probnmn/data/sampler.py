@@ -5,14 +5,14 @@ from torch.utils.data import Dataset, WeightedRandomSampler
 class SupervisionWeightedRandomSampler(WeightedRandomSampler):
     """
     A ``WeightedRandomSampler`` to form a mini-batch with nearly equal number of examples
-    with/without program supervision during question coding.
+    with/without program supervision during question coding and joint training.
     """
 
-    def __init__(self, question_coding_dataset: Dataset):
+    def __init__(self, dataset: Dataset):
 
-        self._supervision_list = question_coding_dataset.get_supervision_list().float()
+        self._supervision_list = dataset.get_supervision_list().float()
         num_supervision = torch.sum(self._supervision_list)
-        num_no_supervision = len(question_coding_dataset) - num_supervision
+        num_no_supervision = len(dataset) - num_supervision
 
         # Set weights of indices for weighted random sampler.
         weights = torch.zeros_like(self._supervision_list)
@@ -21,6 +21,6 @@ class SupervisionWeightedRandomSampler(WeightedRandomSampler):
 
         super().__init__(
             weights=weights,
-            num_samples=len(question_coding_dataset),
+            num_samples=len(dataset),
             replacement=True,
         )
