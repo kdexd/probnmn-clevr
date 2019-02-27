@@ -25,6 +25,13 @@ wheels/
 *.egg
 MANIFEST
 
+# Code Editors
+.vscode
+.idea
+
+# Code linters
+.mypy_cache
+
 # Datasets and preprocessed files
 data/
 !probnmn/data/
@@ -38,4 +45,3 @@ checkpoints/
 # virtualenv
 venv/
 ENV/
-
