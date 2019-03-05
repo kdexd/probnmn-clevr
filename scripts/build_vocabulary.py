@@ -72,7 +72,7 @@ def build_question_vocabulary(clevr_json: List[ClevrExample]) -> List[str]:
         for punctuation in PUNCTUATIONS:
             sequence = sequence.replace(punctuation, f" {punctuation}")
 
-        sequence_tokens = [token for token in sequence.split(" ") if token not in {"?", ".", ""}]
+        sequence_tokens = [token for token in sequence.split(" ") if token not in {"?", "."}]
         question_tokens = question_tokens.union(set(sequence_tokens))
 
     question_vocabulary: List[str] = sorted(list(question_tokens))
