@@ -140,13 +140,13 @@ if __name__ == "__main__":
                     output_dict = do_iteration(batch, program_prior)
 
             if isinstance(program_prior, nn.DataParallel):
-                program_prior_metrics = program_prior.module.get_metrics()
+                metrics = program_prior.module.get_metrics()
             else:
-                program_prior_metrics = program_prior.get_metrics()
+                metrics = program_prior.get_metrics()
 
-            print("\nPerplexity:", program_prior_metrics["perplexity"])
-            checkpoint_manager.step(program_prior_metrics["perplexity"])
-            summary_writer.add_scalars("val", program_prior_metrics, iteration)
+            print("\nPerplexity:", metrics["perplexity"])
+            checkpoint_manager.step(metrics["perplexity"])
+            summary_writer.add_scalars("val", metrics, iteration)
 
             # Print five programs and their predicted next time-step
             print("Some predicted examples by the language program_prior (greedy decoding):")
@@ -166,9 +166,3 @@ if __name__ == "__main__":
                       "...")
                 print("- " * 30)  # separator for neatness
             program_prior.train()
-
-    # ============================================================================================
-    #   AFTER TRAINING ENDS
-    # ============================================================================================
-    checkpoint_manager.save_best()
-    print(f"Saved best checkpoint with {checkpoint_manager.metric.item()} perplexity.")

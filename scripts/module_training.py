@@ -210,9 +210,3 @@ if __name__ == "__main__":
             summary_writer.add_scalar("val/average_invalid", average_invalid, iteration)
             checkpoint_manager.step(answer_accuracy, iteration)
             nmn.train()
-
-    # ============================================================================================
-    #   AFTER TRAINING END
-    # ============================================================================================
-    checkpoint_manager.save_best()
-    summary_writer.close()

@@ -288,10 +288,3 @@ if __name__ == "__main__":
             print("\n")
             program_generator.train()
             question_reconstructor.train()
-
-    # ============================================================================================
-    #   AFTER TRAINING END
-    # ============================================================================================
-    program_generator_checkpoint_manager.save_best()
-    question_reconstructor_checkpoint_manager.save_best()
-    summary_writer.close()
