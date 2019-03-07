@@ -2,12 +2,15 @@ import argparse
 import warnings
 
 from allennlp.data import Vocabulary
+import numpy as np
 from tensorboardX import SummaryWriter
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import yaml
 
+from probnmn.config import get_config_defaults
 from probnmn.data import ProgramPriorDataset
 from probnmn.models import ProgramPrior
 from probnmn.utils.checkpointing import CheckpointManager
@@ -22,20 +25,13 @@ parser.add_argument(
 )
 # Data file paths, gpu ids, checkpoint args etc.
 probnmn_utils.add_common_args(parser)
-args = parser.parse_args()
-
-# For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-torch.manual_seed(args.random_seed)
-torch.cuda.manual_seed_all(args.random_seed)
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
 
 
 def do_iteration(batch, program_prior, optimizer=None):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
     if program_prior.training:
         optimizer.zero_grad()
-    # keys: {"predicted_tokens", "loss"}
+    # keys: {"predictions", "loss"}
     output_dict = program_prior(batch["program"])
     batch_loss = output_dict["loss"].mean()
 
@@ -46,6 +42,7 @@ def do_iteration(batch, program_prior, optimizer=None):
             if parameter.grad is not None:
                 parameter.grad.clamp_(min=-5, max=5)
         optimizer.step()
+
     return output_dict
 
 
@@ -53,61 +50,80 @@ if __name__ == "__main__":
     # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
     # ============================================================================================
-    config = probnmn_utils.read_config(args.config_yml)
-    config = probnmn_utils.override_config_from_opts(config, args.config_override)
-    probnmn_utils.print_config_and_args(config, args)
+    _A = parser.parse_args()
 
-    device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
-    if len(args.gpu_ids) > 0:
-        warnings.warn(f"Multi-GPU execution not supported for Question Coding because it is an"
-                      f"overkill, only GPU {args.gpu_ids[0]} will be used.")
+    # Get default config, then override values from config file and args.
+    _C = get_config_defaults()
+    _C.merge_from_file(_A.config_yml)
+    _C.merge_from_list(_A.config_override)
+    probnmn_utils.print_config_and_args(_C, _A)
+
+    # Make config immutable, nothing can be changed in this anymore.
+    _C.freeze()
+
+    # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
+    # These five lines control all the major sources of randomness.
+    np.random.seed(_C.RANDOM_SEED)
+    torch.manual_seed(_C.RANDOM_SEED)
+    torch.cuda.manual_seed_all(_C.RANDOM_SEED)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+    # Set device according to specified GPU ids.
+    device = torch.device("cuda", _A.gpu_ids[0]) if _A.gpu_ids[0] >= 0 else torch.device("cpu")
+    if len(_A.gpu_ids) > 0:
+        warnings.warn(
+            f"Multi-GPU execution not supported for Question Coding because it is an"
+            f"overkill, only GPU {_A.gpu_ids[0]} will be used."
+        )
 
     # ============================================================================================
     #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL, OPTIMIZER
     # ============================================================================================
-    vocabulary = Vocabulary.from_files(args.vocab_dirpath)
-    train_dataset = ProgramPriorDataset(args.tokens_train_h5)
-    val_dataset = ProgramPriorDataset(args.tokens_val_h5)
+    vocabulary = Vocabulary.from_files(_A.vocab_dirpath)
+    train_dataset = ProgramPriorDataset(_A.tokens_train_h5)
+    val_dataset = ProgramPriorDataset(_A.tokens_val_h5)
 
-    batch_size = config["optim_batch_size"]
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
+    train_dataloader = DataLoader(train_dataset, batch_size=_C.OPTIM.BATCH_SIZE, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=_C.OPTIM.BATCH_SIZE)
+
+    # Make train_dataloader cyclical to sample batches perpetually.
+    train_dataloader = probnmn_utils.cycle(train_dataloader)
 
     program_prior = ProgramPrior(
         vocabulary,
-        input_size=config["model_input_size"],
-        hidden_size=config["model_hidden_size"],
-        num_layers=config["model_num_layers"],
-        dropout=config["model_dropout"],
-    ).to(device)
+        input_size=_C.PROGRAM_PRIOR.INPUT_SIZE,
+        hidden_size=_C.PROGRAM_PRIOR.HIDDEN_SIZE,
+        num_layers=_C.PROGRAM_PRIOR.NUM_LAYERS,
+        dropout=_C.PROGRAM_PRIOR.DROPOUT,
+    )
+    program_prior = program_prior.to(device)
+
     optimizer = optim.Adam(
-        program_prior.parameters(),
-        lr=config["optim_lr_initial"],
-        weight_decay=config["optim_weight_decay"]
+        program_prior.parameters(), lr=_C.OPTIM.LR_INITIAL, weight_decay=_C.OPTIM.WEIGHT_DECAY
     )
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=config["optim_lr_gamma"],
-        patience=config["optim_lr_patience"], threshold=1e-2
+        optimizer,
+        mode="min",
+        factor=_C.OPTIM.LR_GAMMA,
+        patience=_C.OPTIM.LR_PATIENCE,
+        threshold=1e-2,
     )
 
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
-    summary_writer = SummaryWriter(log_dir=args.save_dirpath)
+    summary_writer = SummaryWriter(log_dir=_A.save_dirpath)
     checkpoint_manager = CheckpointManager(
-        serialization_dir=args.save_dirpath,
-        models={
-            "program_prior": program_prior
-        },
+        serialization_dir=_A.save_dirpath,
+        models={"program_prior": program_prior},
         optimizer=optimizer,
         mode="min",
-        filename_prefix="program_prior"
+        filename_prefix=_C.PHASE,
     )
-    checkpoint_manager.init_directory(config)
-    train_dataloader = probnmn_utils.cycle(train_dataloader)
+    checkpoint_manager.init_directory(_C)
 
-    print(f"Training for {config['optim_num_iterations']}:")
-    for iteration in tqdm(range(config["optim_num_iterations"])):
+    for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
@@ -115,51 +131,52 @@ if __name__ == "__main__":
 
         # Log loss and schedulers to tensorboard.
         summary_writer.add_scalar("train/loss", output_dict["loss"].mean(), iteration)
-        summary_writer.add_scalar("optim/learning_rate", optimizer.param_groups[0]["lr"], iteration)
-        summary_writer.add_scalar("optim/batch_size", batch_size, iteration)
 
         # ========================================================================================
         #   VALIDATE AND PRINT FEW EXAMPLES
         # ========================================================================================
-        if iteration % args.checkpoint_every == 0:
-            print(f"Validation after iteration {iteration}:")
+        if iteration % _A.checkpoint_every == 0:
             program_prior.eval()
-            for i, batch in enumerate(tqdm(val_dataloader)):
+            for i, batch in enumerate(tqdm(val_dataloader, desc="validation")):
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
                     output_dict = do_iteration(batch, program_prior)
 
-            val_metrics = {
-                "program_prior": program_prior.get_metrics(),
-            }
+            val_metrics = {"program_prior": program_prior.get_metrics()}
             # Log all metrics to tensorboard.
             # For program prior, keys: {"perplexity"}
             for model in val_metrics:
-                for name in model:
+                for name in val_metrics[model]:
                     summary_writer.add_scalar(
-                        f"val/metrics/{model}/{name}", val_metrics[model][name],
-                        iteration
+                        f"val/metrics/{model}/{name}", val_metrics[model][name], iteration
                     )
-            lr_scheduler.step(val_metrics["program_prior"]["perplexity"])
             checkpoint_manager.step(val_metrics["program_prior"]["perplexity"], iteration)
+
+            # Perform learning rate scheduling (and logging) based on validation perplexity.
+            lr_scheduler.step(val_metrics["program_prior"]["perplexity"])
+            summary_writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], iteration)
 
             # Print five programs and their predicted next time-step
             print("Some predicted examples by the language program_prior (greedy decoding):")
             print("- " * 30)  # separator for neatness
 
             input_programs = batch["program"][:5].cpu().numpy()
-            output_programs = output_dict["predicted_tokens"][:5].cpu().numpy()
+            output_programs = output_dict["predictions"][:5].cpu().numpy()
             for inp, out in zip(input_programs, output_programs):
                 # Print only first five time-steps, these sequences can be really long
-                print("INPUT PROGRAM: ",
-                      " ".join(vocabulary.get_token_from_index(i, "programs") for i in inp[:6]),
-                      "...")
+                print(
+                    "INPUT PROGRAM: ",
+                    " ".join(vocabulary.get_token_from_index(i, "programs") for i in inp[:6]),
+                    "...",
+                )
                 # Output is one time-step shifted, but input also has a @start@ token, so the
                 # shift gets cancelled.
-                print("OUTPUT PROGRAM: ",
-                      " ".join(vocabulary.get_token_from_index(o, "programs") for o in out[:6]),
-                      "...")
+                print(
+                    "OUTPUT PROGRAM: ",
+                    " ".join(vocabulary.get_token_from_index(o, "programs") for o in out[:6]),
+                    "...",
+                )
                 print("- " * 30)  # separator for neatness
 
             program_prior.train()

@@ -1,14 +1,20 @@
+PHASE: PROGRAM_PRIOR
+RANDOM_SEED: 0
+
 # Arguments for the constructor of ProgramPrior model
-model_input_size: 256
-model_hidden_size: 128
-model_num_layers: 2
-model_dropout: 0.0
+PROGRAM_PRIOR:
+  INPUT_SIZE: 256
+  HIDDEN_SIZE: 256
+  NUM_LAYERS: 2
+  DROPOUT: 0.0
 
-# Optimization arguments (adam optimizer by default)
-optim_num_iterations: 15000
-optim_weight_decay: 0.000
+# Optimzation arguments, we use Adam optimizer and ReduceLROnPlateau scheduler.
+OPTIM:
+  BATCH_SIZE: 256
+  NUM_ITERATIONS: 10000
+  WEIGHT_DECAY: 0.0
 
-### Learning rate scheduling - (lr *= gamma) if perplexity plateaus
-optim_lr_initial: 0.01
-optim_lr_gamma: 0.5
-optim_lr_patience: 3
+  # Learning rate scheduling: (lr *= gamma) if perplexity plateaus.
+  LR_INITIAL: 0.01
+  LR_GAMMA: 0.5
+  LR_PATIENCE: 3

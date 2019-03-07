@@ -54,7 +54,7 @@ class CheckpointManager(object):
         filename_prefix: str = "checkpoint",
     ):
         for key in models:
-            if not isinstance(models, nn.Module):
+            if not isinstance(models[key], nn.Module):
                 raise TypeError("{} is not a Module".format(type(models).__name__))
 
         if not isinstance(optimizer, optim.Optimizer):

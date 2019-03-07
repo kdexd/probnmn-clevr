@@ -7,12 +7,11 @@ import yaml
 def add_common_args(parser):
     parser.add_argument(
         "--config-override",
-        type=str,
-        default="{}",
-        help="A string following python dict syntax, specifying certain config arguments to "
-             "override, useful for launching batch jobs through shel lscripts. The actual config "
-             "will be updated and recorded in the checkpoint saving directory. Only argument "
-             "names already present in config will be overriden, rest ignored."
+        default=[],
+        nargs="*",
+        help="A sequence of key-value pairs specifying certain config arguments (with dict-like "
+             "nesting) using a dot operator. The actual config will be updated and recorded in "
+             "the serialization directory."
     )
     parser.add_argument(
         "--random-seed",
@@ -55,6 +54,7 @@ def add_common_args(parser):
     parser.add_argument_group("Compute resource controlling arguments.")
     parser.add_argument(
         "--gpu-ids",
+        default=[0],
         nargs="+",
         type=int,
         help="List of ids of GPUs to use (-1 for CPU)."
