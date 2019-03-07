@@ -16,7 +16,8 @@ optim_lr_patience: 10000
 ### No LR scheduling here.
 
 # Arguments for the constructor of ProgramGenerator model
-pg_checkpoint: "data/program_generator_best_checkpoint.pth"
+# Best checkpoint from previous phases of training.
+qc_checkpoint: "data/question_coding_best.pth"
 pg_input_size: 256
 pg_hidden_size: 256
 pg_num_layers: 2

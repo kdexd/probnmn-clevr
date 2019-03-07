@@ -8,12 +8,7 @@ model_dropout: 0.0
 optim_num_iterations: 15000
 optim_weight_decay: 0.000
 
-### Batch size scheduling - (bs *= gamma) at specified iterations
-optim_bs_initial: 256
-optim_bs_gamma: 2
-optim_bs_steps: [1000, 2000, 4000, 8000]  # batch size reachs 4096
-
-### Learning rate scheduling - (lr *= gamma) at specified iterations
+### Learning rate scheduling - (lr *= gamma) if perplexity plateaus
 optim_lr_initial: 0.01
 optim_lr_gamma: 0.5
-optim_lr_steps: [1000, 2000, 4000, 8000]
+optim_lr_patience: 3

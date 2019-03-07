@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from typing import Any, Dict, Optional
+import warnings
 
 from allennlp.data import Vocabulary
 import numpy as np
@@ -131,6 +132,9 @@ if __name__ == "__main__":
     common_utils.print_config_and_args(config, args)
 
     device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+    if len(args.gpu_ids) > 0:
+        warnings.warn(f"Multi-GPU execution not supported for Question Coding because it is an"
+                      f"overkill, only GPU {args.gpu_ids[0]} will be used.")
 
     # ============================================================================================
     #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL, OPTIMIZER
@@ -173,8 +177,7 @@ if __name__ == "__main__":
         num_layers=config["prior_num_layers"],
         dropout=config["prior_dropout"],
     ).to(device)
-    prior_model, prior_optimizer = checkpointing_utils.load_checkpoint(config["prior_checkpoint"])
-    program_prior.load_state_dict(prior_model)
+    program_prior.load_state_dict(torch.load(config["prior_checkpoint"])["program_prior"])
     program_prior.eval()
 
     elbo = QuestionCodingElbo(
@@ -192,30 +195,22 @@ if __name__ == "__main__":
         patience=config["optim_lr_patience"], threshold=1e-2
     )
 
-    if -1 not in args.gpu_ids:
-        # Don't wrap to DataParallel for CPU-mode.
-        program_prior = nn.DataParallel(program_prior, args.gpu_ids)
-        program_generator = nn.DataParallel(program_generator, args.gpu_ids)
-        question_reconstructor = nn.DataParallel(question_reconstructor, args.gpu_ids)
-
     # ============================================================================================
     #   BEFORE TRAINING LOOP
     # ============================================================================================
-    program_generator_checkpoint_manager = checkpointing_utils.CheckpointManager(
-        checkpoint_dirpath=args.save_dirpath,
-        config=config,
-        model=program_generator,
+    checkpoint_manager = checkpointing_utils.CheckpointManager(
+        serialization_dir=args.save_dirpath,
+        models={
+            "program_generator": program_generator,
+            "question_reconstructor": question_reconstructor,
+        },
         optimizer=optimizer,
-        filename_prefix="program_generator",
+        mode="max",
+        filename_prefix="question_coding",
     )
-    question_reconstructor_checkpoint_manager = checkpointing_utils.CheckpointManager(
-        checkpoint_dirpath=args.save_dirpath,
-        config=config,
-        model=question_reconstructor,
-        optimizer=optimizer,
-        filename_prefix="question_reconstructor",
-    )
+    checkpoint_manager.init_directory(config)
     summary_writer = SummaryWriter(log_dir=args.save_dirpath)
+
     # Log a histogram of question lengths, for examples with (GT) program supervision.
     logging_utils.log_question_length_histogram(train_dataset, summary_writer)
 
@@ -262,29 +257,23 @@ if __name__ == "__main__":
                 batch, iteration_output_dict, vocabulary, num=10
             )
 
-            if isinstance(program_generator, nn.DataParallel):
-                __pg_metrics = program_generator.module.get_metrics()
-                __qr_metrics = question_reconstructor.module.get_metrics()
-            else:
-                __pg_metrics = program_generator.get_metrics()
-                __qr_metrics = question_reconstructor.get_metrics()
+            val_metrics = {
+                "program_generator": program_generator.get_metrics(),
+                "question_reconstructor": question_reconstructor.get_metrics(),
+            }
 
-            # Log three metrics to tensorboard.
-            # keys: {"BLEU", "perplexity", "sequence_accuracy"}
-            for metric_name in __pg_metrics:
-                summary_writer.add_scalars(
-                    "metrics/" + metric_name, {
-                        "program_generation": __pg_metrics[metric_name],
-                        "question_reconstruction": __qr_metrics[metric_name]
-                    },
-                    iteration
-                )
-
-            # Learning rate scheduling (drop lr if sequence accuracy plateaus).
-            lr_scheduler.step(__pg_metrics["sequence_accuracy"])
-
-            program_generator_checkpoint_manager.step(__pg_metrics["sequence_accuracy"], iteration)
-            question_reconstructor_checkpoint_manager.step(__qr_metrics["sequence_accuracy"], iteration)
-            print("\n")
+            # Log all metrics to tensorboard.
+            # For program generator, keys: {"BLEU", "perplexity", "sequence_accuracy"}
+            # For question reconstructor, keys: {"BLEU", "perplexity", "sequence_accuracy"}
+            for model in val_metrics:
+                for name in model:
+                    summary_writer.add_scalar(
+                        f"val/metrics/{model}/{name}", val_metrics[model][name],
+                        iteration
+                    )
+            lr_scheduler.step(val_metrics["program_generator"]["sequence_accuracy"])
+            checkpoint_manager.step(
+                val_metrics["program_generator"]["sequence_accuracy"], iteration
+            )
             program_generator.train()
             question_reconstructor.train()

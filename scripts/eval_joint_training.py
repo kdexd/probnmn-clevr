@@ -69,8 +69,6 @@ if __name__ == "__main__":
         num_layers=config["qc_model_num_layers"],
         dropout=config["qc_model_dropout"],
     ).to(device)
-    __pg_model, _ = checkpointing_utils.load_checkpoint(config["pg_checkpoint"])
-    program_generator.load_state_dict(__pg_model)
 
     nmn = NeuralModuleNetwork(
         vocabulary=vocabulary,
@@ -79,8 +77,9 @@ if __name__ == "__main__":
         class_projection_channels=config["mt_model_class_projection_channels"],
         classifier_linear_size=config["mt_model_classifier_linear_size"]
     ).to(device)
-    __nmn_model, _ = checkpointing_utils.load_checkpoint(config["nmn_checkpoint"])
-    nmn.load_state_dict(__nmn_model)
+
+    program_generator.load_state_dict(torch.load(config["qc_checkpoint"])["program_generator"])
+    nmn.load_state_dict(torch.load(config["mt_checkpoint"])["nmn"])
 
     # ============================================================================================
     #   TRAINING LOOP
