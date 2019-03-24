@@ -1,7 +1,9 @@
 import argparse
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 import warnings
 import yaml
+
+from probnmn.config import Config
 
 
 def add_common_args(parser):
@@ -89,10 +91,10 @@ def read_config(config_ymlpath: str):
     return config
 
 
-def override_config_from_opts(config: Dict[str, Union[int, float, str, List[int], List[float]]],
-                              config_override: str):
+def override_config_from_opts(config: Union[Config, Dict[str, Any]],
+                              config_override_str: str):
     # Convert string to a python dict.
-    config_override = eval(config_override)
+    config_override: Dict[str, Any] = eval(config_override_str)
 
     for config_key in config_override:
         if config_key in config:
@@ -102,9 +104,9 @@ def override_config_from_opts(config: Dict[str, Union[int, float, str, List[int]
     return config
 
 
-def print_config_and_args(config: Dict[str, Union[int, float, str, List[int], List[float]]],
+def print_config_and_args(config: Union[Config, Dict[str, Any]],
                           args: argparse.Namespace):
-    print(yaml.dump(config, default_flow_style=False))
+    print(config)
     for arg in vars(args):
         print("{:<20}: {}".format(arg, getattr(args, arg)))
 
