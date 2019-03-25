@@ -1,6 +1,5 @@
 RANDOM_SEED: 0
-PHASE:
-  NAME: program_prior
+PHASE: program_prior
 
 # Arguments for the constructor of ProgramPrior model.
 PROGRAM_PRIOR:

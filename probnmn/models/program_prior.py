@@ -36,14 +36,12 @@ class ProgramPrior(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
-        self._vocabulary = vocabulary
-
         self._start_index = vocabulary.get_token_index("@start@", namespace="programs")
         self._end_index = vocabulary.get_token_index("@end@", namespace="programs")
         self._pad_index = vocabulary.get_token_index("@@PADDING@@", namespace="programs")
         self._unk_index = vocabulary.get_token_index("@@UNKNOWN@@", namespace="programs")
 
-        vocab_size = self._vocabulary.get_vocab_size(namespace="programs")
+        vocab_size = vocabulary.get_vocab_size(namespace="programs")
         embedder_inner = Embedding(vocab_size, input_size, padding_index=self._pad_index)
         self._embedder = BasicTextFieldEmbedder({"programs": embedder_inner})
 

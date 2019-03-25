@@ -6,16 +6,15 @@ from allennlp.data import Vocabulary
 import numpy as np
 from tensorboardX import SummaryWriter
 import torch
-from torch import nn, optim
+from torch import optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import yaml
 
 from probnmn.config import Config
 from probnmn.data import ProgramPriorDataset
 from probnmn.models import ProgramPrior
 from probnmn.utils.checkpointing import CheckpointManager
-import probnmn.utils.common as probnmn_utils
+import probnmn.utils.common as common_utils
 
 
 parser = argparse.ArgumentParser("Train program prior over CLEVR v1.0 training split programs.")
@@ -25,9 +24,9 @@ parser.add_argument(
     help="Path to a config file listing model and optimization arguments and hyperparameters.",
 )
 # Data file paths, gpu ids, checkpoint args etc.
-probnmn_utils.add_common_args(parser)
+common_utils.add_common_args(parser)
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def do_iteration(batch, program_prior, optimizer=None):
@@ -35,8 +34,8 @@ def do_iteration(batch, program_prior, optimizer=None):
     if program_prior.training:
         optimizer.zero_grad()
     # keys: {"predictions", "loss"}
-    output_dict = program_prior(batch["program"])
-    batch_loss = output_dict["loss"].mean()
+    iteration_output_dict = program_prior(batch["program"])
+    batch_loss = iteration_output_dict["loss"].mean()
 
     if program_prior.training:
         batch_loss.backward()
@@ -46,7 +45,7 @@ def do_iteration(batch, program_prior, optimizer=None):
                 parameter.grad.clamp_(min=-5, max=5)
         optimizer.step()
 
-    return output_dict
+    return iteration_output_dict
 
 
 if __name__ == "__main__":
@@ -58,7 +57,7 @@ if __name__ == "__main__":
     # Create a config with default values, then override from config file, and args.
     # This config object is immutable, nothing can be changed in this anymore.
     _C = Config(_A.config_yml, _A.config_override)
-    probnmn_utils.print_config_and_args(_C, _A)
+    common_utils.print_config_and_args(_C, _A)
 
     # Create serialization directory and save config in it.
     os.makedirs(_A.save_dirpath, exist_ok=True)
@@ -74,8 +73,8 @@ if __name__ == "__main__":
 
     # Set device according to specified GPU ids.
     device = torch.device("cuda", _A.gpu_ids[0]) if _A.gpu_ids[0] >= 0 else torch.device("cpu")
-    if len(_A.gpu_ids) > 0:
-        logger.warn(
+    if len(_A.gpu_ids) > 1:
+        logger.warning(
             f"Multi-GPU execution not supported for training ProgramPrior because it is an "
             f"overkill, only GPU {_A.gpu_ids[0]} will be used."
         )
@@ -91,16 +90,15 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(val_dataset, batch_size=_C.OPTIM.BATCH_SIZE)
 
     # Make train_dataloader cyclical to sample batches perpetually.
-    train_dataloader = probnmn_utils.cycle(train_dataloader)
+    train_dataloader = common_utils.cycle(train_dataloader)
 
     program_prior = ProgramPrior(
-        vocabulary,
+        vocabulary=vocabulary,
         input_size=_C.PROGRAM_PRIOR.INPUT_SIZE,
         hidden_size=_C.PROGRAM_PRIOR.HIDDEN_SIZE,
         num_layers=_C.PROGRAM_PRIOR.NUM_LAYERS,
         dropout=_C.PROGRAM_PRIOR.DROPOUT,
-    )
-    program_prior = program_prior.to(device)
+    ).to(device)
 
     optimizer = optim.Adam(
         program_prior.parameters(), lr=_C.OPTIM.LR_INITIAL, weight_decay=_C.OPTIM.WEIGHT_DECAY
@@ -114,7 +112,7 @@ if __name__ == "__main__":
     )
 
     # ============================================================================================
-    #   TRAINING LOOP
+    #   BEFORE TRAINING LOOP
     # ============================================================================================
     summary_writer = SummaryWriter(log_dir=_A.save_dirpath)
     checkpoint_manager = CheckpointManager(
@@ -122,17 +120,20 @@ if __name__ == "__main__":
         models={"program_prior": program_prior},
         optimizer=optimizer,
         mode="min",
-        filename_prefix=_C.PHASE.NAME,
+        filename_prefix=_C.PHASE,
     )
 
+    # ============================================================================================
+    #   TRAINING LOOP
+    # ============================================================================================
     for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
-        output_dict = do_iteration(batch, program_prior, optimizer)
+        iteration_output_dict = do_iteration(batch, program_prior, optimizer)
 
         # Log loss and schedulers to tensorboard.
-        summary_writer.add_scalar("train/loss", output_dict["loss"].mean(), iteration)
+        summary_writer.add_scalar("train/loss", iteration_output_dict["loss"].mean(), iteration)
 
         # ========================================================================================
         #   VALIDATE AND PRINT FEW EXAMPLES
@@ -143,7 +144,7 @@ if __name__ == "__main__":
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
-                    output_dict = do_iteration(batch, program_prior)
+                    iteration_output_dict = do_iteration(batch, program_prior)
 
             val_metrics = {"program_prior": program_prior.get_metrics()}
             # Log all metrics to tensorboard.
@@ -164,7 +165,7 @@ if __name__ == "__main__":
             logger.info("-" * 60)
 
             input_programs = batch["program"][:5].cpu().numpy()
-            output_programs = output_dict["predictions"][:5].cpu().numpy()
+            output_programs = iteration_output_dict["predictions"][:5].cpu().numpy()
             for inp, out in zip(input_programs, output_programs):
                 # Print only first five time-steps, these sequences can be really long.
                 input_program = " ".join(
