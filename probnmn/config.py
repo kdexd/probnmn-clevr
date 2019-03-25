@@ -1,7 +1,6 @@
 from typing import Any, List
 
 from yacs.config import CfgNode as CN
-import yaml
 
 
 class Config(object):
@@ -10,8 +9,10 @@ class Config(object):
         self._C = CN()
         self._C.RANDOM_SEED = 0
 
-        self._C.PHASE = CN()
-        self._C.PHASE.NAME = "program_prior"
+        self._C.PHASE = "question_coding"
+        self._C.OBJECTIVE = "ours"
+        self._C.SUPERVISION = 1000
+        self._C.SUPERVISION_QUESTION_MAX_LENGTH = 40
 
         self._C.PROGRAM_PRIOR = CN()
         self._C.PROGRAM_PRIOR.INPUT_SIZE = 256
@@ -19,14 +20,33 @@ class Config(object):
         self._C.PROGRAM_PRIOR.NUM_LAYERS = 2
         self._C.PROGRAM_PRIOR.DROPOUT = 0.0
 
+        self._C.PROGRAM_GENERATOR = CN()
+        self._C.PROGRAM_GENERATOR.INPUT_SIZE = 256
+        self._C.PROGRAM_GENERATOR.HIDDEN_SIZE = 256
+        self._C.PROGRAM_GENERATOR.NUM_LAYERS = 2
+        self._C.PROGRAM_GENERATOR.DROPOUT = 0.0
+
+        self._C.QUESTION_RECONSTRUCTOR = CN()
+        self._C.QUESTION_RECONSTRUCTOR.INPUT_SIZE = 256
+        self._C.QUESTION_RECONSTRUCTOR.HIDDEN_SIZE = 256
+        self._C.QUESTION_RECONSTRUCTOR.NUM_LAYERS = 2
+        self._C.QUESTION_RECONSTRUCTOR.DROPOUT = 0.0
+
+        self._C.ALPHA = 100.0
+        self._C.BETA = 0.1
+        self._C.DELTA = 0.99
+
         self._C.OPTIM = CN()
         self._C.OPTIM.BATCH_SIZE = 256
-        self._C.OPTIM.NUM_ITERATIONS = 10000
+        self._C.OPTIM.NUM_ITERATIONS = 60000
         self._C.OPTIM.WEIGHT_DECAY = 0.0
 
-        self._C.OPTIM.LR_INITIAL = 0.01
+        self._C.OPTIM.LR_INITIAL = 0.001
         self._C.OPTIM.LR_GAMMA = 0.5
         self._C.OPTIM.LR_PATIENCE = 3
+
+        self._C.CHECKPOINTS = CN()
+        self._C.CHECKPOINTS.PROGRAM_PRIOR = "checkpoints/program_prior_best.pth"
 
         self._C.merge_from_file(config_yaml)
         self._C.merge_from_list(config_override)

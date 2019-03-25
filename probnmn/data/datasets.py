@@ -55,7 +55,7 @@ class QuestionCodingDataset(Dataset):
     def __init__(self,
                  tokens_hdfpath: str,
                  num_supervision: int = 699989,
-                 supervision_question_max_length: int = 30):
+                 supervision_question_max_length: int = 40):
         self._tokens = ClevrTokensReader(tokens_hdfpath)
 
         self._supervision_list = np.zeros(len(self._tokens))
