@@ -9,7 +9,7 @@ class Config(object):
         self._C = CN()
         self._C.RANDOM_SEED = 0
 
-        self._C.PHASE = "question_coding"
+        self._C.PHASE = "joint_training"
         self._C.OBJECTIVE = "ours"
         self._C.SUPERVISION = 1000
         self._C.SUPERVISION_QUESTION_MAX_LENGTH = 40
@@ -40,20 +40,22 @@ class Config(object):
 
         self._C.ALPHA = 100.0
         self._C.BETA = 0.1
+        self._C.GAMMA = 1.0
         self._C.DELTA = 0.99
 
         self._C.OPTIM = CN()
         self._C.OPTIM.BATCH_SIZE = 256
-        self._C.OPTIM.NUM_ITERATIONS = 60000
+        self._C.OPTIM.NUM_ITERATIONS = 20000
         self._C.OPTIM.WEIGHT_DECAY = 0.0
 
-        self._C.OPTIM.LR_INITIAL = 0.001
+        self._C.OPTIM.LR_INITIAL = 0.00001
         self._C.OPTIM.LR_GAMMA = 0.5
         self._C.OPTIM.LR_PATIENCE = 3
 
         self._C.CHECKPOINTS = CN()
         self._C.CHECKPOINTS.PROGRAM_PRIOR = "checkpoints/program_prior_best.pth"
         self._C.CHECKPOINTS.QUESTION_CODING = "checkpoints/question_coding_1000_ours_best.pth"
+        self._C.CHECKPOINTS.MODULE_TRAINING = "checkpoints/module_training_1000_ours_best.pth"
 
         self._C.merge_from_file(config_yaml)
         self._C.merge_from_list(config_override)

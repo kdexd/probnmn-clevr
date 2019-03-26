@@ -1,18 +1,14 @@
 import argparse
-import itertools
 
 from allennlp.data import Vocabulary
+import numpy as np
 import torch
-from torch import nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from probnmn.config import Config
 from probnmn.data import JointTrainingDataset
-from probnmn.data.sampler import SupervisionWeightedRandomSampler
-from probnmn.models import ProgramGenerator
-from probnmn.models.nmn import NeuralModuleNetwork
-
-import probnmn.utils.checkpointing as checkpointing_utils
+from probnmn.models import ProgramGenerator, NeuralModuleNetwork
 import probnmn.utils.common as common_utils
 
 
@@ -23,102 +19,90 @@ parser.add_argument(
     help="Path to a config file listing model and solver parameters.",
 )
 parser.add_argument(
-    "--cpu-workers",
-    type=int,
-    default=0,
-    help="Number of CPU workers to use for data loading."
+    "--checkpoint-pthpath",
+    default="data/joint_training_1000_ours_best.pth",
+    help="Path to joint training pre-trained checkpoint."
 )
-# data file paths, gpu ids, checkpoint args etc.
+# Data file paths, gpu ids, checkpoint args etc.
 common_utils.add_common_args(parser)
-args = parser.parse_args()
-
-# for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-torch.manual_seed(args.random_seed)
-torch.cuda.manual_seed_all(args.random_seed)
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
 
 
 if __name__ == "__main__":
     # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
     # ============================================================================================
-    config = common_utils.read_config(args.config_yml)
-    config = common_utils.override_config_from_opts(config, args.config_override)
-    common_utils.print_config_and_args(config, args)
+    _A = parser.parse_args()
 
-    device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+    # Create a config with default values, then override from config file, and _A.
+    # This config object is immutable, nothing can be changed in this anymore.
+    _C = Config(_A.config_yml, _A.config_override)
+    common_utils.print_config_and_args(_C, _A)
+
+    # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
+    # These five lines control all the major sources of randomness.
+    np.random.seed(_C.RANDOM_SEED)
+    torch.manual_seed(_C.RANDOM_SEED)
+    torch.cuda.manual_seed_all(_C.RANDOM_SEED)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+    # Set device according to specified GPU ids.
+    device = torch.device("cuda", _A.gpu_ids[0]) if _A.gpu_ids[0] >= 0 else torch.device("cpu")
 
     # ============================================================================================
     #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL, OPTIMIZER
     # ============================================================================================
-    vocabulary = Vocabulary.from_files(args.vocab_dirpath)
-    val_dataset = JointTrainingDataset(
-        args.tokens_val_h5, args.features_val_h5
-    )
+    vocabulary = Vocabulary.from_files(_A.vocab_dirpath)
+    val_dataset = JointTrainingDataset(_A.tokens_val_h5, _A.features_val_h5)
 
     val_dataloader = DataLoader(
         val_dataset,
-        batch_size=config["optim_batch_size"],
-        num_workers=args.cpu_workers
+        batch_size=_C.OPTIM.BATCH_SIZE,
+        num_workers=_A.cpu_workers
     )
     program_generator = ProgramGenerator(
         vocabulary=vocabulary,
-        input_size=config["qc_model_input_size"],
-        hidden_size=config["qc_model_hidden_size"],
-        num_layers=config["qc_model_num_layers"],
-        dropout=config["qc_model_dropout"],
+        input_size=_C.PROGRAM_GENERATOR.INPUT_SIZE,
+        hidden_size=_C.PROGRAM_GENERATOR.HIDDEN_SIZE,
+        num_layers=_C.PROGRAM_GENERATOR.NUM_LAYERS,
+        dropout=_C.PROGRAM_GENERATOR.DROPOUT,
     ).to(device)
 
     nmn = NeuralModuleNetwork(
         vocabulary=vocabulary,
-        image_feature_size=tuple(config["mt_model_image_feature_size"]),
-        module_channels=config["mt_model_module_channels"],
-        class_projection_channels=config["mt_model_class_projection_channels"],
-        classifier_linear_size=config["mt_model_classifier_linear_size"]
+        image_feature_size=tuple(_C.NMN.IMAGE_FEATURE_SIZE),
+        module_channels=_C.NMN.MODULE_CHANNELS,
+        class_projection_channels=_C.NMN.CLASS_PROJECTION_CHANNELS,
+        classifier_linear_size=_C.NMN.CLASSIFIER_LINEAR_SIZE,
     ).to(device)
 
-    program_generator.load_state_dict(torch.load(config["qc_checkpoint"])["program_generator"])
-    nmn.load_state_dict(torch.load(config["mt_checkpoint"])["nmn"])
+    # Load checkpoints from joint training phase.
+    joint_training_checkpoint = torch.load(_A.checkpoint_pthpath)
+    program_generator.load_state_dict(joint_training_checkpoint["program_generator"])
+    nmn.load_state_dict(joint_training_checkpoint["nmn"])
 
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
     nmn.eval()
 
-    from allennlp.training.metrics import BooleanAccuracy
-    from scipy.stats import mode
-    answer_accuracy = BooleanAccuracy()
-
-    for i, batch in enumerate(tqdm(val_dataloader)):
-        if not (i + 1) * len(batch["question"]) < args.num_val_examples:
+    for i, batch in enumerate(tqdm(val_dataloader, desc="validation")):
+        if not (i + 1) * len(batch["question"]) < _A.num_val_examples:
             for key in batch:
                 batch[key] = batch[key].to(device)
-
-            batch_predictions = []
 
             for sample in range(1):
                 # Just accumulate metrics across batches, in these models, by a forward pass.
                 with torch.no_grad():
-                    # sampled_programs = program_generator(
-                        # batch["question"], batch["program"])["predictions"]
+                    sampled_programs = program_generator(
+                        batch["question"], batch["program"])["predictions"]
                     sampled_programs = program_generator(batch["question"])["predictions"]
                     output_dict = nmn(batch["image"], sampled_programs, batch["answer"])
 
-                    batch_predictions.append(output_dict["predictions"])
+    pg_metrics = program_generator.get_metrics()
+    for metric_name in pg_metrics:
+        print("ProgramGenerator:", metric_name, pg_metrics[metric_name])
 
-            batch_predictions = torch.stack(batch_predictions, 0).cpu().numpy()
-
-            batch_predictions = torch.tensor(mode(batch_predictions, 0)[0]).long().squeeze()
-            answer_accuracy(batch_predictions, batch["answer"])
-
-    # __pg_metrics = program_generator.get_metrics()
-    # __nmn_metrics = nmn.get_metrics()
-
-    # for metric_name in __pg_metrics:
-        # print("ProgramGenerator:", metric_name, __pg_metrics[metric_name])
-
-    # for metric_name in __nmn_metrics:
-    #     print("NMN:", metric_name, __nmn_metrics[metric_name])
-
-    print(answer_accuracy.get_metric())
+    nmn_metrics = nmn.get_metrics()
+    for metric_name in nmn_metrics:
+        print("NMN:", metric_name, nmn_metrics[metric_name])

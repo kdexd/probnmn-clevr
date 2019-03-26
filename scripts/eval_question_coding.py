@@ -1,5 +1,4 @@
 import argparse
-import os
 
 from allennlp.data import Vocabulary
 import numpy as np
@@ -44,10 +43,6 @@ if __name__ == "__main__":
     # This config object is immutable, nothing can be changed in this anymore.
     _C = Config(_A.config_yml, _A.config_override)
     common_utils.print_config_and_args(_C, _A)
-
-    # Create serialization directory and save config in it.
-    os.makedirs(_A.save_dirpath, exist_ok=True)
-    _C.dump(os.path.join(_A.save_dirpath, "config.yml"))
 
     # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
     # These five lines control all the major sources of randomness.
