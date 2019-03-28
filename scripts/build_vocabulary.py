@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 
-from typing import Any, Dict, List, Set, Union
+from typing import List, Set
 from mypy_extensions import TypedDict
 
 

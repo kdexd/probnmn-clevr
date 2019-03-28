@@ -38,17 +38,17 @@ def add_common_args(parser):
     )
     parser.add_argument(
         "--features-train-h5",
-        default="data/features_train.h5",
+        default="data/clevr_features_train.h5",
         help="Path to HDF file containing pre-extracted features from CLEVR v1.0 train images."
     )
     parser.add_argument(
         "--features-val-h5",
-        default="data/features_val.h5",
+        default="data/clevr_features_val.h5",
         help="Path to HDF file containing pre-extracted features from CLEVR v1.0 val images."
     )
     parser.add_argument(
         "--vocab-dirpath",
-        default="data/clevr_vocab",
+        default="data/vocabulary",
         help="Path to directory containing vocabulary for programs, questions and"
              " answers."
     )
