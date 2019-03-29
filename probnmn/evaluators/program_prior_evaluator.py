@@ -74,6 +74,7 @@ class ProgramPriorEvaluator(_Evaluator):
             logger.info("-" * 60)
 
         self._program_prior.train()
+        # ----------------------------------------------------------------------------------------
 
         return eval_metrics
 
