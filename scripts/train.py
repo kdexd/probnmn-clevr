@@ -8,8 +8,12 @@ import torch
 from tqdm import tqdm
 
 from probnmn.config import Config
-from probnmn.evaluators import ProgramPriorEvaluator, QuestionCodingEvaluator
-from probnmn.trainers import ProgramPriorTrainer, QuestionCodingTrainer
+from probnmn.evaluators import (
+    ProgramPriorEvaluator,
+    ModuleTrainingEvaluator,
+    QuestionCodingEvaluator,
+)
+from probnmn.trainers import ProgramPriorTrainer, ModuleTrainingTrainer, QuestionCodingTrainer
 import probnmn.utils.common as common_utils
 
 
@@ -22,6 +26,12 @@ parser.add_argument(
 )
 parser.add_argument(
     "--config-yml", required=True, help="Path to a config file for specified phase."
+)
+parser.add_argument(
+    "--cpu-workers", type=int, default=0, help="Number of CPU workers to use for data loading."
+)
+parser.add_argument(
+    "--checkpoint-pthpath", default="", help="Path to load checkpoint and continue training."
 )
 # Data file paths, gpu ids, checkpoint args etc.
 common_utils.add_common_args(parser)
@@ -63,7 +73,7 @@ if __name__ == "__main__":
             f"Multi-GPU support unavailable for phase {_C.PHASE}, using only GPU {_A.gpu_ids[0]}."
         )
 
-    # Initiliaze trainer and evaluator according to training phase.
+    # Initialize trainer and evaluator according to training phase.
     # TODO (kd): do something better here, this looks weird.
     trainer: Any = None
     evaluator: Any = None
@@ -74,6 +84,9 @@ if __name__ == "__main__":
     elif _C.PHASE == "question_coding":
         trainer = QuestionCodingTrainer(_C, _A, device)
         evaluator = QuestionCodingEvaluator(_C, _A, trainer.models, device)
+    elif _C.PHASE == "module_training":
+        trainer = ModuleTrainingTrainer(_C, _A, device)
+        evaluator = ModuleTrainingEvaluator(_C, _A, trainer.models, device)
 
     for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
         trainer.step()

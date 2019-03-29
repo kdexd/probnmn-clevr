@@ -48,13 +48,14 @@ class _Evaluator(object):
         for model_name in self._models:
             self._models[model_name].eval()
 
-        for iteration, batch in enumerate(tqdm(self._dataloader, desc="validation")):
-            for key in batch:
-                batch[key] = batch[key].to(self._device)
+        with torch.no_grad():
+            for iteration, batch in enumerate(tqdm(self._dataloader, desc="validation")):
+                for key in batch:
+                    batch[key] = batch[key].to(self._device)
 
-            _ = self._do_iteration(batch)
-            if num_batches is not None and iteration > num_batches:
-                break
+                _ = self._do_iteration(batch)
+                if num_batches is not None and iteration > num_batches:
+                    break
 
         # keys: `self._models.keys()`
         eval_metrics: Dict[str, Dict[str, Any]] = {}
@@ -66,6 +67,9 @@ class _Evaluator(object):
             if hasattr(self._models[model_name], "get_metrics"):
                 # keys: names of metrics recorded by corresponding model.
                 eval_metrics[model_name] = self._models[model_name].get_metrics()
+            elif isinstance(self._models[model_name], nn.DataParallel):
+                if hasattr(self._models[model_name].module, "get_metrics"):
+                    eval_metrics[model_name] = self._models[model_name].module.get_metrics()
 
         # Switch all models back to "train" mode.
         for model_name in self._models:
