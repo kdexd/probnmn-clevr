@@ -119,8 +119,9 @@ if __name__ == "__main__":
     print(f"Program vocabulary size (with special tokens): {len(program_vocabulary)}")
 
     print("Building answer vocabulary...")
-    # No special tokens for answer vocabulary, because answers are not a "sequence".
+    # Only @@UNKNOWN@@ for answer vocabulary, because answers are not a "sequence".
     answer_vocabulary: List[str] = sorted(list(set([item["answer"] for item in clevr_json])))
+    answer_vocabulary = answer_vocabulary + ["@@UNKNOWN@@"]
     print(f"Answer vocabulary size: {len(answer_vocabulary)}")
 
     # Write the vocabulary to separate namespace files in directory.

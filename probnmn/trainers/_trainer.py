@@ -75,7 +75,7 @@ class _Trainer(object):
             mode="max",
             factor=self._C.OPTIM.LR_GAMMA,
             patience=self._C.OPTIM.LR_PATIENCE,
-            threshold=1e-2,
+            threshold=1e-3,
         )
 
         # Initialize a counter to keep track of the iteration number.

@@ -29,10 +29,10 @@ class ModuleTrainingTrainer(_Trainer):
         # TODO (kd): absorb args into Config.
         self._A = args
 
-        if self._C.PHASE != "question_coding":
+        if self._C.PHASE != "module_training":
             raise ValueError(
-                f"Trying to initialize a QuestionCodingTrainer, expected config PHASE to be "
-                f"question_coding, found {self._C.PHASE}"
+                f"Trying to initialize a ModuleTrainingTrainer, expected config PHASE to be "
+                f"module_training, found {self._C.PHASE}"
             )
 
         # Initialize dataloader and model.
