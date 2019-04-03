@@ -19,14 +19,14 @@ class ClevrTokensReader(object):
 
     Parameters
     ----------
-    tokens_hdfpath: str
+    tokens_h5path: str
         Path to an HDF file containing tokenized programs, questions, answers and corresponding
         image indices.
     """
 
-    def __init__(self, tokens_hdfpath: str):
+    def __init__(self, tokens_h5path: str):
         # questions, image indices, programs, and answers are small enough to load into memory
-        with h5py.File(tokens_hdfpath, "r") as clevr_tokens:
+        with h5py.File(tokens_h5path, "r") as clevr_tokens:
             self.programs = clevr_tokens["programs"][:]
             self.questions = clevr_tokens["questions"][:]
             self.answers = clevr_tokens["answers"][:]
@@ -44,14 +44,16 @@ class ClevrTokensReader(object):
 
         if isinstance(index, slice):
             # return list of single instances if a slice
-            return [{"program": p, "question": q, "answer": a, "image_index": ii}
-                    for (p, q, a, ii) in zip(program, question, answer, image_index)]
+            return [
+                {"program": p, "question": q, "answer": a, "image_index": ii}
+                for (p, q, a, ii) in zip(program, question, answer, image_index)
+            ]
         else:
             return {
                 "program": program,
                 "question": question,
                 "answer": answer,
-                "image_index": image_index
+                "image_index": image_index,
             }
 
     @property
@@ -59,7 +61,7 @@ class ClevrTokensReader(object):
         return self._split
 
 
-class ClevrFeaturesReader(object):
+class ClevrImageFeaturesReader(object):
     """
     A Reader for retrieving pre-extracted image features from CLEVR images. We typically use
     features extracted using ResNet-101.
@@ -72,18 +74,18 @@ class ClevrFeaturesReader(object):
 
     Parameters
     ----------
-    features_hdfpath: str
+    features_h5path: str
         Path to an HDF file containing a 'dataset' of pre-extracted image features.
     in_memory: bool, optional (default = True)
         Whether to load all image features in memory.
     """
 
-    def __init__(self, features_hdfpath: str, in_memory: bool = True):
-        self.features_hdfpath = features_hdfpath
+    def __init__(self, features_h5path: str, in_memory: bool = True):
+        self.features_h5path = features_h5path
         self._in_memory = in_memory
 
         # Image feature files are typically 50-100 GB in size, careful when loading in memory.
-        with h5py.File(self.features_hdfpath, "r") as features_hdf:
+        with h5py.File(self.features_h5path, "r") as features_hdf:
             self._split = features_hdf.attrs["split"]
             if self._in_memory:
                 self.features = features_hdf["features"][:]
@@ -98,7 +100,7 @@ class ClevrFeaturesReader(object):
             features = self.features[index]
         else:
             # read chunk from file everytime if not loaded in memory
-            with h5py.File(self.features_hdfpath, "r") as features_hdf:
+            with h5py.File(self.features_h5path, "r") as features_hdf:
                 features = features_hdf["features"][index]
         return features
 

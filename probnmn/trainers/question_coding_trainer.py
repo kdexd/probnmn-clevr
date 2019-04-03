@@ -1,4 +1,3 @@
-import argparse
 import logging
 from typing import Any, Dict, Optional
 
@@ -18,17 +17,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class QuestionCodingTrainer(_Trainer):
-    def __init__(
-        self,
-        config: Config,
-        args: argparse.Namespace,
-        device: torch.device,
-        start_iteration: Optional[int] = 0,
-    ):
+    def __init__(self, config: Config, device: torch.device, serialization_dir: str):
         self._C = config
-
-        # TODO (kd): absorb args into Config.
-        self._A = args
 
         if self._C.PHASE != "question_coding":
             raise ValueError(
@@ -37,10 +27,8 @@ class QuestionCodingTrainer(_Trainer):
             )
 
         # Initialize dataloader and model.
-        self._vocabulary = Vocabulary.from_files(self._A.vocab_dirpath)
-
         dataset = QuestionCodingDataset(
-            self._A.tokens_train_h5,
+            self._C.DATA.TRAIN.TOKENS,
             num_supervision=self._C.SUPERVISION,
             supervision_question_max_length=self._C.SUPERVISION_QUESTION_MAX_LENGTH,
         )
@@ -48,7 +36,7 @@ class QuestionCodingTrainer(_Trainer):
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE, sampler=sampler)
 
         # Vocabulary is needed to instantiate the models.
-        vocabulary = Vocabulary.from_files(self._A.vocab_dirpath)
+        vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
         # These will be a part of `self._models`, keep these handles for convenience.
         self._program_generator = ProgramGenerator(
             vocabulary=vocabulary,
@@ -74,8 +62,7 @@ class QuestionCodingTrainer(_Trainer):
                 "question_reconstructor": self._question_reconstructor,
             },
             device=device,
-            serialization_dir=self._A.save_dirpath,
-            start_iteration=start_iteration,
+            serialization_dir=serialization_dir,
         )
 
         # Program Prior checkpoint, this will be frozen during question coding.

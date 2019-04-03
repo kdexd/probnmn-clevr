@@ -1,4 +1,3 @@
-import argparse
 import logging
 from typing import Any, Dict, Type
 
@@ -15,17 +14,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ModuleTrainingEvaluator(_Evaluator):
-    def __init__(
-        self,
-        config: Config,
-        args: argparse.Namespace,
-        models: Dict[str, Type[nn.Module]],
-        device: torch.device,
-    ):
+    def __init__(self, config: Config, models: Dict[str, Type[nn.Module]], device: torch.device):
         self._C = config
-
-        # TODO (kd): absorb args into Config.
-        self._A = args
 
         if self._C.PHASE != "module_training":
             raise ValueError(
@@ -35,10 +25,12 @@ class ModuleTrainingEvaluator(_Evaluator):
 
         # Initialize dataloader and model.
         dataset = ModuleTrainingDataset(
-            self._A.tokens_val_h5, self._A.features_val_h5, in_memory=False
+            self._C.DATA.VAL.TOKENS, self._C.DATA.VAL.IMAGE_FEATURES, in_memory=False
         )
         dataloader = DataLoader(
-            dataset, batch_size=self._C.OPTIM.BATCH_SIZE, num_workers=self._A.cpu_workers
+            dataset,
+            batch_size=self._C.OPTIM.BATCH_SIZE,
+            # num_workers=self._A.cpu_workers
         )
 
         super().__init__(config=config, dataloader=dataloader, models=models, device=device)

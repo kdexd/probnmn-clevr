@@ -1,4 +1,3 @@
-import argparse
 import logging
 from typing import Any, Dict, Optional
 
@@ -16,17 +15,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ProgramPriorTrainer(_Trainer):
-    def __init__(
-        self,
-        config: Config,
-        args: argparse.Namespace,
-        device: torch.device,
-        start_iteration: Optional[int] = 0,
-    ):
+    def __init__(self, config: Config, device: torch.device, serialization_dir: str):
         self._C = config
-
-        # TODO (kd): absorb args into Config.
-        self._A = args
 
         if self._C.PHASE != "program_prior":
             raise ValueError(
@@ -35,12 +25,12 @@ class ProgramPriorTrainer(_Trainer):
             )
 
         # Initialize dataloader and model.
-        dataset = ProgramPriorDataset(self._A.tokens_train_h5)
+        dataset = ProgramPriorDataset(self._C.DATA.TRAIN.TOKENS)
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE, shuffle=True)
 
         # This will be a part of `self._models`, keep this handle for convenience.
         self._program_prior = ProgramPrior(
-            vocabulary=Vocabulary.from_files(self._A.vocab_dirpath),
+            vocabulary=Vocabulary.from_files(self._C.DATA.VOCABULARY),
             input_size=self._C.PROGRAM_PRIOR.INPUT_SIZE,
             hidden_size=self._C.PROGRAM_PRIOR.HIDDEN_SIZE,
             num_layers=self._C.PROGRAM_PRIOR.NUM_LAYERS,
@@ -52,8 +42,7 @@ class ProgramPriorTrainer(_Trainer):
             dataloader=dataloader,
             models={"program_prior": self._program_prior},
             device=device,
-            serialization_dir=self._A.save_dirpath,
-            start_iteration=start_iteration,
+            serialization_dir=serialization_dir,
         )
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:

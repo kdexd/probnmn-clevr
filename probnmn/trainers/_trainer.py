@@ -49,7 +49,6 @@ class _Trainer(object):
         models: Dict[str, Type[nn.Module]],
         device: torch.device,
         serialization_dir: str,
-        start_iteration: Optional[int] = 0,
     ):
         self._C = config
 
@@ -80,7 +79,7 @@ class _Trainer(object):
 
         # Initialize a counter to keep track of the iteration number.
         # This increments everytime ``step`` is called.
-        self._iteration: int = start_iteration or 0
+        self._iteration: int = 0
 
         # Tensorboard summary writer for logging losses and metrics.
         self._tensorboard_writer = SummaryWriter(log_dir=serialization_dir)

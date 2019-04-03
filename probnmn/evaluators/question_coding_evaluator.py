@@ -1,4 +1,3 @@
-import argparse
 import logging
 from typing import Any, Dict, List, Optional, Type
 
@@ -19,14 +18,10 @@ class QuestionCodingEvaluator(_Evaluator):
     def __init__(
         self,
         config: Config,
-        args: argparse.Namespace,
         models: Dict[str, Type[nn.Module]],
         device: torch.device,
     ):
         self._C = config
-
-        # TODO (kd): absorb args into Config.
-        self._A = args
 
         if self._C.PHASE != "question_coding":
             raise ValueError(
@@ -35,10 +30,10 @@ class QuestionCodingEvaluator(_Evaluator):
             )
 
         # Initialize vocabulary, dataloader and model.
-        self._vocabulary = Vocabulary.from_files(self._A.vocab_dirpath)
+        self._vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
 
         # There is no notion of "supervision" during evaluation.
-        dataset = QuestionCodingDataset(self._A.tokens_val_h5)
+        dataset = QuestionCodingDataset(self._C.DATA.VAL.TOKENS)
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE)
 
         super().__init__(config=config, dataloader=dataloader, models=models, device=device)

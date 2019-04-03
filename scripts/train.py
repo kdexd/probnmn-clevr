@@ -20,7 +20,6 @@ from probnmn.trainers import (
     ModuleTrainingTrainer,
     QuestionCodingTrainer,
 )
-import probnmn.utils.common as common_utils
 
 
 parser = argparse.ArgumentParser("Run training for a particular phase.")
@@ -34,10 +33,46 @@ parser.add_argument(
     "--config-yml", required=True, help="Path to a config file for specified phase."
 )
 parser.add_argument(
-    "--checkpoint-pthpath", default="", help="Path to load checkpoint and continue training."
+    "--config-override",
+    default=[],
+    nargs="*",
+    help="A sequence of key-value pairs specifying certain config arguments (with dict-like "
+    "nesting) using a dot operator. The actual config will be updated and recorded in "
+    "the serialization directory.",
 )
-# Data file paths, gpu ids, checkpoint args etc.
-common_utils.add_common_args(parser)
+
+parser.add_argument_group("Compute resource management arguments.")
+parser.add_argument(
+    "--gpu-ids", required=True, nargs="+", type=int, help="List of ids of GPUs to use (-1 for CPU)."
+)
+parser.add_argument(
+    "--cpu-workers", type=int, default=0, help="Number of CPU workers to use for data loading."
+)
+
+parser.add_argument_group("Checkpointing related arguments.")
+parser.add_argument(
+    "--save-dirpath",
+    default="checkpoints/experiment",
+    help="Path to a (non-existent) directory for serializing checkpoints and tensorboard logs.",
+)
+parser.add_argument(
+    "--checkpoint-every",
+    default=500,
+    type=int,
+    help="Save a checkpoint after every this many epochs/iterations.",
+)
+parser.add_argument(
+    "--checkpoint-pthpath",
+    default="",
+    help="Path to load checkpoint and continue training [only supported for module_training].",
+)
+parser.add_argument(
+    "--num-val-batches",
+    default=256,
+    type=int,
+    help="Number of batches to validate on - can be used for fast validation, although might "
+    "provide a noisy estimate of performance.",
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -55,11 +90,14 @@ if __name__ == "__main__":
             f"Provided `--phase` as {_A.phase}, does not match config PHASE ({_C.PHASE})."
         )
 
-    common_utils.print_config_and_args(_C, _A)
+    # Print configs and args.
+    print(_C)
+    for arg in vars(_A):
+        print("{:<20}: {}".format(arg, getattr(_A, arg)))
 
     # Create serialization directory and save config in it.
-    os.makedirs(_A.save_dirpath, exist_ok=True)
-    _C.dump(os.path.join(_A.save_dirpath, "config.yml"))
+    os.makedirs(_A.serialization_dir, exist_ok=True)
+    _C.dump(os.path.join(_A.serialization_dir, "config.yml"))
 
     # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
     # These five lines control all the major sources of randomness.
@@ -98,7 +136,5 @@ if __name__ == "__main__":
         trainer.step()
 
         if iteration % _A.checkpoint_every == 0:
-            val_metrics = evaluator.evaluate(
-                num_batches=_A.num_val_examples // _C.OPTIM.BATCH_SIZE
-            )
+            val_metrics = evaluator.evaluate(num_batches=_A.num_val_batches)
             trainer.after_validation(val_metrics)

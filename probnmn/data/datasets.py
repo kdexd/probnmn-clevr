@@ -1,10 +1,8 @@
-from typing import Optional
-
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from probnmn.data.readers import ClevrFeaturesReader, ClevrTokensReader
+from probnmn.data.readers import ClevrImageFeaturesReader, ClevrTokensReader
 
 
 class ProgramPriorDataset(Dataset):
@@ -13,12 +11,12 @@ class ProgramPriorDataset(Dataset):
 
     Parameters
     ----------
-    tokens_hdfpath: str
+    tokens_h5path: str
         Path to an HDF file to initialize the underlying reader.
     """
 
-    def __init__(self, tokens_hdfpath: str):
-        self._reader = ClevrTokensReader(tokens_hdfpath)
+    def __init__(self, tokens_h5path: str):
+        self._reader = ClevrTokensReader(tokens_h5path)
 
     def __len__(self):
         return len(self._reader)
@@ -26,9 +24,7 @@ class ProgramPriorDataset(Dataset):
     def __getitem__(self, index):
         # only return programs, nothing else needed for training program prior
         # also, return a dict for the sake of uniformity in return type of several classes
-        return {
-            "program": torch.tensor(self._reader[index]["program"]).long()
-        }
+        return {"program": torch.tensor(self._reader[index]["program"]).long()}
 
     @property
     def split(self):
@@ -43,7 +39,7 @@ class QuestionCodingDataset(Dataset):
 
     Parameters
     ----------
-    tokens_hdfpath: str
+    tokens_h5path: str
         Path to an HDF file to initialize the underlying reader.
     num_supervision: int, optional (default = None)
         Number of examples where there would be a program supervision over questions, for
@@ -52,11 +48,13 @@ class QuestionCodingDataset(Dataset):
         Maximum length of question for picking examples with program supervision.
     """
 
-    def __init__(self,
-                 tokens_hdfpath: str,
-                 num_supervision: int = 699989,
-                 supervision_question_max_length: int = 40):
-        self._tokens = ClevrTokensReader(tokens_hdfpath)
+    def __init__(
+        self,
+        tokens_h5path: str,
+        num_supervision: int = 699989,
+        supervision_question_max_length: int = 40,
+    ):
+        self._tokens = ClevrTokensReader(tokens_h5path)
 
         self._supervision_list = np.zeros(len(self._tokens))
 
@@ -88,7 +86,7 @@ class QuestionCodingDataset(Dataset):
         return {
             "program": torch.tensor(item["program"]).long(),
             "question": torch.tensor(item["question"]).long(),
-            "supervision": supervision
+            "supervision": supervision,
         }
 
     @property
@@ -111,20 +109,17 @@ class ModuleTrainingDataset(Dataset):
 
     Parameters
     ----------
-    tokens_hdfpath: str
+    tokens_h5path: str
         Path to an HDF file to initialize the underlying reader.
-    features_hdfpath: str
+    features_h5path: str
         Path to an HDF file containing a 'dataset' of pre-extracted image features.
     in_memory: bool, optional (default = True)
         Whether to load all image features in memory.
     """
 
-    def __init__(self,
-                 tokens_hdfpath: str,
-                 features_hdfpath: str,
-                 in_memory: bool = True):
-        self._tokens = ClevrTokensReader(tokens_hdfpath)
-        self._features = ClevrFeaturesReader(features_hdfpath, in_memory)
+    def __init__(self, tokens_h5path: str, features_h5path: str, in_memory: bool = True):
+        self._tokens = ClevrTokensReader(tokens_h5path)
+        self._features = ClevrImageFeaturesReader(features_h5path, in_memory)
 
     def __len__(self):
         return len(self._tokens)
@@ -133,12 +128,12 @@ class ModuleTrainingDataset(Dataset):
         item = self._tokens[index]
         features = self._features[item["image_index"]]
 
-    	# We sample programs, but GT programs can give upper bound on performance.
+        # We sample programs, but GT programs can give upper bound on performance.
         return {
             "question": torch.tensor(item["question"]).long(),
             "answer": torch.tensor(item["answer"]).long(),
             "image": torch.tensor(features),
-            "program": torch.tensor(item["program"]).long()
+            "program": torch.tensor(item["program"]).long(),
         }
 
     @property
@@ -154,9 +149,9 @@ class JointTrainingDataset(Dataset):
 
     Parameters
     ----------
-    tokens_hdfpath: str
+    tokens_h5path: str
         Path to an HDF file to initialize the underlying reader.
-    features_hdfpath: str
+    features_h5path: str
         Path to an HDF file containing a 'dataset' of pre-extracted image features.
     num_supervision: int, optional (default = None)
         Number of examples where there would be a program supervision over questions, for
@@ -167,15 +162,17 @@ class JointTrainingDataset(Dataset):
         Whether to load all image features in memory.
     """
 
-    def __init__(self,
-                 tokens_hdfpath: str,
-                 features_hdfpath: str,
-                 num_supervision: int = 699989,
-                 supervision_question_max_length: int = 30,
-                 in_memory: bool = True):
+    def __init__(
+        self,
+        tokens_h5path: str,
+        features_h5path: str,
+        num_supervision: int = 699989,
+        supervision_question_max_length: int = 30,
+        in_memory: bool = True,
+    ):
 
-        self._tokens = ClevrTokensReader(tokens_hdfpath)
-        self._features = ClevrFeaturesReader(features_hdfpath, in_memory)
+        self._tokens = ClevrTokensReader(tokens_h5path)
+        self._features = ClevrImageFeaturesReader(features_h5path, in_memory)
 
         self._supervision_list = np.zeros(len(self._tokens))
 
@@ -210,7 +207,7 @@ class JointTrainingDataset(Dataset):
             "answer": torch.tensor(item["answer"]).long(),
             "program": torch.tensor(item["program"]).long(),
             "image": torch.tensor(features),
-            "supervision": supervision
+            "supervision": supervision,
         }
 
     @property

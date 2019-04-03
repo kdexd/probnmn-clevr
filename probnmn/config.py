@@ -14,6 +14,22 @@ class Config(object):
         self._C.SUPERVISION = 1000
         self._C.SUPERVISION_QUESTION_MAX_LENGTH = 40
 
+        self._C.DATA = CN()
+        self._C.DATA.VOCABULARY = "data/clevr_vocabulary"
+
+        self._C.DATA.TRAIN = CN()
+
+        # Path to HDF file containing tokenized CLEVR v1.0 train split programs, questions and
+        # answers, and corresponding image indices.
+        self._C.DATA.TRAIN.TOKENS = "data/clevr_train_tokens.h5"
+        self._C.DATA.TRAIN.IMAGE_FEATURES = "data/clevr_train_features.h5"
+
+        self._C.DATA.VAL = CN()
+        self._C.DATA.VAL.TOKENS = "data/clevr_val_tokens.h5"
+
+        # Path to HDF file containing pre-extracted features from CLEVR v1.0 val images.
+        self._C.DATA.VAL.IMAGE_FEATURES = "data/clevr_val_features.h5"
+
         self._C.PROGRAM_PRIOR = CN()
         self._C.PROGRAM_PRIOR.INPUT_SIZE = 256
         self._C.PROGRAM_PRIOR.HIDDEN_SIZE = 256
