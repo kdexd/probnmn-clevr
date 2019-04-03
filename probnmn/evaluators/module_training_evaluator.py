@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Type
+from typing import Any, Dict, List, Type
 
 import torch
 from torch import nn
@@ -14,7 +14,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ModuleTrainingEvaluator(_Evaluator):
-    def __init__(self, config: Config, models: Dict[str, Type[nn.Module]], device: torch.device):
+    def __init__(
+        self, config: Config, models: Dict[str, Type[nn.Module]], gpu_ids: List[int] = [0]
+    ):
         self._C = config
 
         if self._C.PHASE != "module_training":
@@ -33,7 +35,7 @@ class ModuleTrainingEvaluator(_Evaluator):
             # num_workers=self._A.cpu_workers
         )
 
-        super().__init__(config=config, dataloader=dataloader, models=models, device=device)
+        super().__init__(config=config, dataloader=dataloader, models=models, gpu_ids=gpu_ids)
 
         # These will be a part of `self._models`, keep these handles for convenience.
         self._program_generator = self._models["program_generator"]

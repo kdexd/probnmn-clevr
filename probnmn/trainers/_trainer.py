@@ -32,14 +32,9 @@ class _Trainer(object):
 
     Note
     ----
-    Few things to take care of:
-    1. Make sure the models are on an appropriate device(s) before being passed here. In other
-       words, call ``model.to(device)`` and/or wrap it in ``nn.DataParallel`` before passing
-       them to constructor.
-
-    2. All models are "passed by assignment", so they could be used seamlessly in a separate
-       ``_Evaluator``. Do not set any model like ``self._models[model_name] = ...`` anywhere
-       while overriding this class.
+    All models are "passed by assignment", so they could be used seamlessly in a separate
+    ``_Evaluator``. Do not set `self._models` attribute like `self._models = ...` anywhere while
+    overriding this class. Setting dict elements should be fine as `self._models` dict is mutable.
     """
 
     def __init__(
@@ -47,17 +42,25 @@ class _Trainer(object):
         config: Config,
         dataloader: DataLoader,
         models: Dict[str, Type[nn.Module]],
-        device: torch.device,
         serialization_dir: str,
+        gpu_ids: List[int] = [0],
     ):
         self._C = config
 
         # Make dataloader cyclic for sampling batches perpetually.
         self._dataloader = self._cycle(dataloader)
-
         self._models = models
-        self._device = device
-        self._tensorboard_writer = SummaryWriter(serialization_dir)
+
+        # Set device according to specified GPU ids.
+        self._device = torch.device(f"cuda:{gpu_ids[0]}" if gpu_ids[0] >= 0 else "cpu")
+
+        # Shift models to device, and wrap in DataParallel for Multi-GPU execution (if needed).
+        for model_name in self._models:
+            self._models[model_name] = self._models[model_name].to(self._device)
+
+            if len(gpu_ids) > 1 and -1 not in gpu_ids:
+                # Don't wrap to DataParallel if single GPU ID or -1 (CPU) is provided.
+                self._models[model_name] = nn.DataParallel(self._models[model_name], gpu_ids)
 
         # Accumulate parameters of all models to construct Adam Optimizer.
         all_parameters: List[Any] = []
@@ -77,10 +80,6 @@ class _Trainer(object):
             threshold=1e-3,
         )
 
-        # Initialize a counter to keep track of the iteration number.
-        # This increments everytime ``step`` is called.
-        self._iteration: int = 0
-
         # Tensorboard summary writer for logging losses and metrics.
         self._tensorboard_writer = SummaryWriter(log_dir=serialization_dir)
         self._checkpoint_manager = CheckpointManager(
@@ -90,6 +89,10 @@ class _Trainer(object):
             mode="max",
             filename_prefix=self._C.PHASE,
         )
+
+        # Initialize a counter to keep track of the iteration number.
+        # This increments everytime ``step`` is called.
+        self._iteration: int = 0
 
     @property
     def iteration(self):

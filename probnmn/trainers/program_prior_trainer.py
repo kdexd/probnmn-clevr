@@ -1,8 +1,7 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from allennlp.data import Vocabulary
-import torch
 from torch.utils.data import DataLoader
 
 from probnmn.config import Config
@@ -15,7 +14,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ProgramPriorTrainer(_Trainer):
-    def __init__(self, config: Config, device: torch.device, serialization_dir: str):
+    def __init__(self, config: Config, serialization_dir: str, gpu_ids: List[int] = [0]):
         self._C = config
 
         if self._C.PHASE != "program_prior":
@@ -35,14 +34,14 @@ class ProgramPriorTrainer(_Trainer):
             hidden_size=self._C.PROGRAM_PRIOR.HIDDEN_SIZE,
             num_layers=self._C.PROGRAM_PRIOR.NUM_LAYERS,
             dropout=self._C.PROGRAM_PRIOR.DROPOUT,
-        ).to(device)
+        )
 
         super().__init__(
             config=config,
             dataloader=dataloader,
             models={"program_prior": self._program_prior},
-            device=device,
             serialization_dir=serialization_dir,
+            gpu_ids=gpu_ids,
         )
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
@@ -54,15 +53,12 @@ class ProgramPriorTrainer(_Trainer):
         # keys: {"predictions", "loss"}
         iteration_output_dict = self._program_prior(batch["program"])
         batch_loss = iteration_output_dict["loss"].mean()
+        batch_loss.backward()
 
-        # `batch_loss` does not require grad only when printing qualitative examples.
-        if batch_loss.requires_grad:
-            batch_loss.backward()
-
-            # Clamp all gradients between (-5, 5).
-            for parameter in self._program_prior.parameters():
-                if parameter.grad is not None:
-                    parameter.grad.clamp_(min=-5, max=5)
+        # Clamp all gradients between (-5, 5).
+        for parameter in self._program_prior.parameters():
+            if parameter.grad is not None:
+                parameter.grad.clamp_(min=-5, max=5)
 
         return {"loss": batch_loss}
 

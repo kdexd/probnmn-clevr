@@ -43,7 +43,7 @@ parser.add_argument(
 
 parser.add_argument_group("Compute resource management arguments.")
 parser.add_argument(
-    "--gpu-ids", required=True, nargs="+", type=int, help="List of ids of GPUs to use (-1 for CPU)."
+    "--gpu-ids", required=True, nargs="+", type=int, help="List of GPU IDs to use (-1 for CPU)."
 )
 parser.add_argument(
     "--cpu-workers", type=int, default=0, help="Number of CPU workers to use for data loading."
@@ -120,17 +120,17 @@ if __name__ == "__main__":
     evaluator: Any = None
 
     if _C.PHASE == "program_prior":
-        trainer = ProgramPriorTrainer(_C, _A, device)
-        evaluator = ProgramPriorEvaluator(_C, _A, trainer.models, device)
+        trainer = ProgramPriorTrainer(_C, _A.serialization_dir, _A.gpu_ids)
+        evaluator = ProgramPriorEvaluator(_C, trainer.models, device)
     elif _C.PHASE == "question_coding":
-        trainer = QuestionCodingTrainer(_C, _A, device)
-        evaluator = QuestionCodingEvaluator(_C, _A, trainer.models, device)
+        trainer = QuestionCodingTrainer(_C, _A.serialization_dir, _A.gpu_ids)
+        evaluator = QuestionCodingEvaluator(_C, trainer.models, _A.gpu_ids)
     elif _C.PHASE == "module_training":
-        trainer = ModuleTrainingTrainer(_C, _A, device)
-        evaluator = ModuleTrainingEvaluator(_C, _A, trainer.models, device)
+        trainer = ModuleTrainingTrainer(_C, _A.serialization_dir, _A.gpu_ids)
+        evaluator = ModuleTrainingEvaluator(_C, trainer.models, _A.gpu_ids)
     elif _C.PHASE == "joint_training":
-        trainer = JointTrainingTrainer(_C, _A, device)
-        evaluator = JointTrainingEvaluator(_C, _A, trainer.models, device)
+        trainer = JointTrainingTrainer(_C, _A.serialization_dir, _A.gpu_ids)
+        evaluator = JointTrainingEvaluator(_C, trainer.models, _A.gpu_ids)
 
     for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
         trainer.step()

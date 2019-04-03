@@ -1,9 +1,8 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from allennlp.data import Vocabulary
 import torch
-from torch import nn
 from torch.utils.data import DataLoader
 
 from probnmn.config import Config
@@ -23,7 +22,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class JointTrainingTrainer(_Trainer):
-    def __init__(self, config: Config, device: torch.device, serialization_dir: str):
+    def __init__(self, config: Config, serialization_dir: str, gpu_ids: List[int] = [0]):
         self._C = config
 
         if self._C.PHASE != "joint_training":
@@ -57,7 +56,7 @@ class JointTrainingTrainer(_Trainer):
             hidden_size=self._C.PROGRAM_GENERATOR.HIDDEN_SIZE,
             num_layers=self._C.PROGRAM_GENERATOR.NUM_LAYERS,
             dropout=self._C.PROGRAM_GENERATOR.DROPOUT,
-        ).to(device)
+        )
 
         self._question_reconstructor = QuestionReconstructor(
             vocabulary=vocabulary,
@@ -65,7 +64,21 @@ class JointTrainingTrainer(_Trainer):
             hidden_size=self._C.QUESTION_RECONSTRUCTOR.HIDDEN_SIZE,
             num_layers=self._C.QUESTION_RECONSTRUCTOR.NUM_LAYERS,
             dropout=self._C.QUESTION_RECONSTRUCTOR.DROPOUT,
-        ).to(device)
+        )
+
+        self._program_prior = ProgramPrior(
+            vocabulary=vocabulary,
+            input_size=self._C.PROGRAM_PRIOR.INPUT_SIZE,
+            hidden_size=self._C.PROGRAM_PRIOR.HIDDEN_SIZE,
+            num_layers=self._C.PROGRAM_PRIOR.NUM_LAYERS,
+            dropout=self._C.PROGRAM_PRIOR.DROPOUT,
+        )
+
+        # Load program prior from checkpoint, this will be frozen during joint training.
+        self._program_prior.load_state_dict(
+            torch.load(self._C.CHECKPOINTS.PROGRAM_PRIOR)["program_prior"]
+        )
+        self._program_prior.eval()
 
         self._nmn = NeuralModuleNetwork(
             vocabulary=vocabulary,
@@ -73,7 +86,7 @@ class JointTrainingTrainer(_Trainer):
             module_channels=self._C.NMN.MODULE_CHANNELS,
             class_projection_channels=self._C.NMN.CLASS_PROJECTION_CHANNELS,
             classifier_linear_size=self._C.NMN.CLASSIFIER_LINEAR_SIZE,
-        ).to(device)
+        )
 
         # Load checkpoints from question coding and module training phases.
         question_coding_checkpoint = torch.load(self._C.CHECKPOINTS.QUESTION_CODING)
@@ -83,35 +96,18 @@ class JointTrainingTrainer(_Trainer):
         )
         self._nmn.load_state_dict(torch.load(self._C.CHECKPOINTS.NMN)["nmn"])
 
-        # if -1 not in self._A.gpu_ids:
-        #     # Don't wrap to DataParallel for CPU-mode.
-        #     self._nmn = nn.DataParallel(self._nmn, self._A.gpu_ids)
-
         super().__init__(
             config=config,
             dataloader=dataloader,
             models={
                 "program_generator": self._program_generator,
                 "question_reconstructor": self._question_reconstructor,
+                "program_prior": self._program_prior,
                 "nmn": self._nmn,
             },
-            device=device,
             serialization_dir=serialization_dir,
+            gpu_ids=gpu_ids,
         )
-
-        # Program Prior checkpoint, this will be frozen during question coding.
-        self._program_prior = ProgramPrior(
-            vocabulary=vocabulary,
-            input_size=self._C.PROGRAM_PRIOR.INPUT_SIZE,
-            hidden_size=self._C.PROGRAM_PRIOR.HIDDEN_SIZE,
-            num_layers=self._C.PROGRAM_PRIOR.NUM_LAYERS,
-            dropout=self._C.PROGRAM_PRIOR.DROPOUT,
-        ).to(device)
-
-        self._program_prior.load_state_dict(
-            torch.load(self._C.CHECKPOINTS.PROGRAM_PRIOR)["program_prior"]
-        )
-        self._program_prior.eval()
 
         # Instantiate an elbo module to compute evidence lower bound during `_do_iteration`.
         self._elbo = JointTrainingNegativeElbo(

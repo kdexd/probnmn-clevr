@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 import torch
 from torch import nn
@@ -13,16 +13,6 @@ class _Evaluator(object):
     other. An implementation of a class extending this evaluator will contain the core evaluation
     loop logic. This base class offers full flexibility, with sensible defaults which may be
     changed or disabled while extending this class.
-
-    Note
-    ----
-    Few things to take care of:
-    1. Make sure the models are on an appropriate device(s) before being passed here. In other
-       words, call ``model.to(device)`` and/or wrap it in ``nn.DataParallel`` before passing
-       them to constructor.
-
-    2. All models are "passed by assignment", so they could be in sync with ``_Trainer``. Do not
-       set any model like ``self._models[model_name] = ...`` anywhere while overriding this class.
     """
 
     def __init__(
@@ -30,13 +20,15 @@ class _Evaluator(object):
         config: Config,
         dataloader: DataLoader,
         models: Dict[str, Type[nn.Module]],
-        device: torch.device,
+        gpu_ids: List[int] = [0],
     ):
         self._C = config
         self._dataloader = dataloader
-
         self._models = models
-        self._device = device
+
+        # Set device according to specified GPU ids. This device is only required for batches,
+        # models will already be on apropriate device already, if passed from trainer.
+        self._device = torch.device(f"cuda:{gpu_ids[0]}" if gpu_ids[0] >= 0 else "cpu")
 
     @property
     def models(self):
