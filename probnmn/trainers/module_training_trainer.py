@@ -68,13 +68,6 @@ class ModuleTrainingTrainer(_Trainer):
             gpu_ids=gpu_ids,
         )
 
-        # Load NMN from saved checkpoint if specified.
-        # if self._A.checkpoint_pthpath != "":
-        #     module_training_checkpoint = torch.load(self._A.checkpoint_pthpath)
-        #     self._nmn.load_state_dict(module_training_checkpoint["nmn"])
-        #     self._optimizer.load_state_dict(module_training_checkpoint["optimizer"])
-        #     self._iteration = int(self._A.checkpoint_pthpath.split("_")[-1][:-4])
-
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         """Perform one iteration, take a forward pass and compute loss. Return an output dict
         which would be passed to `after_iteration`.
