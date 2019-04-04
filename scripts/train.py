@@ -134,7 +134,7 @@ if __name__ == "__main__":
 
     # Load from a checkpoint if specified, and resume training from there.
     if _A.start_from_checkpoint != "":
-        trainer.start_from(_A.start_from_checkpoint)
+        trainer.load_iteration(_A.start_from_checkpoint)
 
     for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
         trainer.step()

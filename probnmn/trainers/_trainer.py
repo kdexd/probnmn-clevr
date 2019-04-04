@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generator, List, Optional, Type
+from typing import Any, Dict, Generator, List, Optional
 
 from tensorboardX import SummaryWriter
 import torch
@@ -41,7 +41,7 @@ class _Trainer(object):
         self,
         config: Config,
         dataloader: DataLoader,
-        models: Dict[str, Type[nn.Module]],
+        models: Dict[str, nn.Module],
         serialization_dir: str,
         gpu_ids: List[int] = [0],
     ):
@@ -169,7 +169,7 @@ class _Trainer(object):
                     self._iteration,
                 )
 
-    def start_from(self, checkpoint_path: str, iteration: Optional[int] = None):
+    def load_checkpoint(self, checkpoint_path: str, iteration: Optional[int] = None):
         training_checkpoint: Dict[str, Any] = torch.load(checkpoint_path)
         for key in training_checkpoint:
             if key == "optimizer":

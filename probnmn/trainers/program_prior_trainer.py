@@ -28,7 +28,7 @@ class ProgramPriorTrainer(_Trainer):
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE, shuffle=True)
 
         # This will be a part of `self._models`, keep this handle for convenience.
-        self._program_prior = ProgramPrior(
+        program_prior = ProgramPrior(
             vocabulary=Vocabulary.from_files(self._C.DATA.VOCABULARY),
             input_size=self._C.PROGRAM_PRIOR.INPUT_SIZE,
             hidden_size=self._C.PROGRAM_PRIOR.HIDDEN_SIZE,
@@ -39,10 +39,13 @@ class ProgramPriorTrainer(_Trainer):
         super().__init__(
             config=config,
             dataloader=dataloader,
-            models={"program_prior": self._program_prior},
+            models={"program_prior": program_prior},
             serialization_dir=serialization_dir,
             gpu_ids=gpu_ids,
         )
+
+        # This will be a part of `self._models`, keep this handle for convenience.
+        self._program_prior = self._models["program_prior"]
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         """Perform one iteration, take a forward pass and compute loss. Return an output dict
