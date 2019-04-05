@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from probnmn.config import Config
 from probnmn.data.datasets import QuestionCodingDataset
-from probnmn.data.sampler import SupervisionWeightedRandomSampler
+from probnmn.data.samplers import SupervisionWeightedRandomSampler
 from probnmn.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
 from probnmn.modules.elbo import QuestionCodingElbo
 from ._trainer import _Trainer

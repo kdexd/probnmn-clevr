@@ -29,7 +29,7 @@ class _ElboWithReinforce(nn.Module):
         self._beta = beta
         self._baseline_decay = baseline_decay
 
-    def forward(self, inference_likelihood, reconstruction_likelihood, reinforce_reward):
+    def _forward(self, inference_likelihood, reconstruction_likelihood, reinforce_reward):
         # Detach the reward term, we don't want gradients to flow to through that and get
         # counted twice, once already counted through path derivative.
         reinforce_reward = reinforce_reward.detach()
@@ -77,7 +77,7 @@ class QuestionCodingElbo(_ElboWithReinforce):
         self._question_reconstructor = question_reconstructor
         self._program_prior = program_prior
 
-    def forward(self, question_tokens: torch.LongTensor):  # type: ignore
+    def forward(self, question_tokens: torch.LongTensor):
 
         # Sample programs using the inference model (program generator).
         # Sample z ~ q_\phi(z|x'), shape: (batch_size, max_program_length)
@@ -106,7 +106,7 @@ class QuestionCodingElbo(_ElboWithReinforce):
             logprobs_prior - logprobs_generation
         )
 
-        return super().forward(logprobs_generation, logprobs_reconstruction, reinforce_reward)
+        return super()._forward(logprobs_generation, logprobs_reconstruction, reinforce_reward)
 
 
 class JointTrainingElbo(_ElboWithReinforce):
@@ -178,7 +178,7 @@ class JointTrainingElbo(_ElboWithReinforce):
             )
 
             # keys: {"reconstruction_likelihood", "kl_divergence", "elbo", "reinforce_reward"}
-            elbo_output_dict = super().forward(
+            elbo_output_dict = super()._forward(
                 logprobs_generation, logprobs_reconstruction, reinforce_reward
             )
 
