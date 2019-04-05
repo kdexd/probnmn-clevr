@@ -24,7 +24,7 @@ class ProgramPriorTrainer(_Trainer):
             )
 
         # Initialize dataloader and model.
-        dataset = ProgramPriorDataset(self._C.DATA.TRAIN.TOKENS)
+        dataset = ProgramPriorDataset(self._C.DATA.TRAIN_TOKENS)
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE, shuffle=True)
 
         # This will be a part of `self._models`, keep this handle for convenience.

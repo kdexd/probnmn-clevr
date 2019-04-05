@@ -33,8 +33,8 @@ class JointTrainingTrainer(_Trainer):
 
         # Initialize dataloader and model.
         dataset = JointTrainingDataset(
-            self._C.DATA.TRAIN.TOKENS,
-            self._C.DATA.TRAIN.IMAGE_FEATURES,
+            self._C.DATA.TRAIN_TOKENS,
+            self._C.DATA.TRAIN_FEATURES,
             num_supervision=self._C.SUPERVISION,
             supervision_question_max_length=self._C.SUPERVISION_QUESTION_MAX_LENGTH,
         )
