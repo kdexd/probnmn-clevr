@@ -51,7 +51,7 @@ parser.add_argument(
 
 parser.add_argument_group("Checkpointing related arguments.")
 parser.add_argument(
-    "--save-dirpath",
+    "--serialization-dir",
     default="checkpoints/experiment",
     help="Path to a (non-existent) directory for serializing checkpoints and tensorboard logs.",
 )
