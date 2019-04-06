@@ -1,26 +1,29 @@
-"""A checkpoint manager periodically serializes models and optimizer as .pth files during
-training, and keeps track of best performing checkpoint based on a particular metric.
-"""
 import copy
-from pathlib import Path
-from typing import Any, Dict, Type
+import os
+from typing import Any, Dict, Optional, Union
 
 import torch
 from torch import nn, optim
 
 
 class CheckpointManager(object):
-    """A checkpoint manager saves state dicts of models and optimizer as .pth files in a specified
-    directory. This class closely follows the API of PyTorch optimizers and learning rate
-    schedulers.
+    r"""
+    A :class:`CheckpointManager` periodically serializes models and optimizer as .pth files during
+    training, and keeps track of best performing checkpoint based on an observed metric.
 
-    Note
-    ----
-    For ``nn.DataParallel``, ``.module.state_dict()`` is called instead of ``.state_dict()``.
+    Extended Summary
+    ----------------
+    It saves state dicts of models and optimizer as ``.pth`` files in a specified directory. This
+    class closely follows the API of PyTorch optimizers and learning rate schedulers.
+
+    Notes
+    -----
+    For :class:`torch.nn.DataParallel` objects, ``.module.state_dict()`` is called instead of
+    ``.state_dict()``.
 
     Parameters
     ----------
-    models: Dict[str, Type[nn.Module]]
+    models: Dict[str, nn.Module]
         Models which need to be serialized as a checkpoint.
     optimizer: optim.Optimizer
         Optimizer which needs to be serialized as a checkpoint.
@@ -32,21 +35,22 @@ class CheckpointManager(object):
     filename_prefix: str, optional (default="checkpoint")
         Prefix of the to-be-saved checkpoint files.
 
-    Example
-    -------
+    Examples
+    --------
     >>> model = torch.nn.Linear(10, 2)
     >>> optimizer = torch.optim.Adam(model.parameters())
     >>> ckpt_manager = CheckpointManager({"model": model}, optimizer, "/tmp/ckpt", mode="min")
-    >>> for epoch in range(20):
-    ...     train(...)
-    ...     val_loss = validate(...)
-    ...     ckpt_manager.step(val_loss)
+    >>> num_epochs = 20
+    >>> for epoch in range(num_epochs):
+    ...     train(model)
+    ...     val_loss = validate(model)
+    ...     ckpt_manager.step(val_loss, epoch)
     """
 
     def __init__(
         self,
-        models: Dict[str, Type[nn.Module]],
-        optimizer: Type[optim.Optimizer],
+        models: Dict[str, nn.Module],
+        optimizer: optim.Optimizer,
         serialization_dir: str,
         mode: str = "max",
         filename_prefix: str = "checkpoint",
@@ -60,40 +64,22 @@ class CheckpointManager(object):
 
         self._models = models
         self._optimizer = optimizer
-        self._serialization_dir = Path(serialization_dir)
+        self._serialization_dir = serialization_dir
 
         self._mode = mode
         self._filename_prefix = filename_prefix
 
-        # Initialize members to hold best checkpoint and its performance.
-        self._best_metric = None
-        self._best_ckpt = copy.copy(self._models_state_dict())
+        # Initialize members to hold state dict of best checkpoint and its performance.
+        self._best_metric: Optional[Union[float, torch.Tensor]] = None
+        self._best_ckpt: Dict[str, Any] = {}
 
-    def step(self, metric, epoch_or_iteration):
-        """Save checkpoint if step size conditions meet, and update best checkpoint based
-        on metric and mode.
-        """
+    def step(self, metric: Union[float, torch.Tensor], epoch_or_iteration: int):
+        r"""Serialize checkpoint and update best checkpoint based on metric and mode."""
 
         # Update best checkpoint based on metric and metric mode.
         if not self._best_metric:
             self._best_metric = metric
 
-        if (self._mode == "min" and metric < self._best_metric) or (
-            self._mode == "max" and metric > self._best_metric
-        ):
-            self._best_metric = metric
-            self._best_ckpt = copy.copy(self._models_state_dict())
-
-        # Save checkpoint corresponding to current iteration.
-        torch.save(
-            {**self._models_state_dict(), "optimizer": self._optimizer.state_dict()},
-            self._serialization_dir / f"{self._filename_prefix}_{epoch_or_iteration}.pth",
-        )
-        # Save best performing checkpoint observed so far.
-        torch.save(self._best_ckpt, self._serialization_dir / f"{self._filename_prefix}_best.pth")
-
-    def _models_state_dict(self):
-        """Returns state dict of models, taking care of DataParallel case."""
         models_state_dict: Dict[str, Any] = {}
         for key in self._models:
             if isinstance(self._models[key], nn.DataParallel):
@@ -101,4 +87,21 @@ class CheckpointManager(object):
             else:
                 models_state_dict[key] = self._models[key].state_dict()
 
-        return models_state_dict
+        if (self._mode == "min" and metric < self._best_metric) or (
+            self._mode == "max" and metric > self._best_metric
+        ):
+            self._best_metric = metric
+            self._best_ckpt = copy.copy(models_state_dict)
+
+        # Serialize checkpoint corresponding to current epoch (or iteration).
+        torch.save(
+            {**models_state_dict, "optimizer": self._optimizer.state_dict()},
+            os.path.join(
+                self._serialization_dir, f"{self._filename_prefix}_{epoch_or_iteration}.pth"
+            ),
+        )
+        # Serialize best performing checkpoint observed so far.
+        torch.save(
+            self._best_ckpt,
+            os.path.join(self._serialization_dir, f"{self._filename_prefix}_best.pth"),
+        )

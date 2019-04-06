@@ -116,6 +116,11 @@ autodoc_default_options = {
     "show-inheritance": True,
 }
 
+
+# -- Intersphinx configuration --------------------------------------------
+
+intersphinx_mapping = {"torch": ("https://pytorch.org/docs/stable/", None)}
+
 # -- Miscellaneous Extra Tweaks -------------------------------------------
 
 # make github links resolve
@@ -140,19 +145,19 @@ def linkcode_resolve(domain, info):
     for part in fullname.split("."):
         try:
             obj = getattr(obj, part)
-        except:
+        except:  # noqa: E722
             return None
 
     try:
         fn = inspect.getsourcefile(obj)
-    except:
+    except:  # noqa: E722
         fn = None
     if not fn:
         return None
 
     try:
         source, lineno = inspect.getsourcelines(obj)
-    except:
+    except:  # noqa: E722
         lineno = None
 
     if lineno:

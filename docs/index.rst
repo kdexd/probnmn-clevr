@@ -13,7 +13,7 @@ Hello World!
     probnmn/modules
     probnmn/trainers
     probnmn/evaluators
-    probnmn/utils
+    probnmn/utils.checkpointing
 
 
 Indices and tables
