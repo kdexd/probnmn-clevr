@@ -1,6 +1,6 @@
 import copy
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, Type
 
 import torch
 from torch import nn, optim
@@ -18,20 +18,20 @@ class CheckpointManager(object):
 
     Notes
     -----
-    For :class:`torch.nn.DataParallel` objects, ``.module.state_dict()`` is called instead of
+    For :class:`~torch.nn.DataParallel` objects, ``.module.state_dict()`` is called instead of
     ``.state_dict()``.
 
     Parameters
     ----------
-    models: Dict[str, nn.Module]
+    models: Dict[str, torch.nn.Module]
         Models which need to be serialized as a checkpoint.
-    optimizer: optim.Optimizer
+    optimizer: torch.optim.Optimizer
         Optimizer which needs to be serialized as a checkpoint.
     serialization_dir: str
         Path to an empty or non-existent directory to save checkpoints.
     mode: str, optional (default="max")
-        One of `min`, `max`. In `min` mode, best checkpoint will be recorded when metric hits a
-        lower value; in `max` mode it will be recorded when metric hits a higher value.
+        One of ``min``, ``max``. In ``min`` mode, best checkpoint will be recorded when metric
+        hits a lower value; in `max` mode it will be recorded when metric hits a higher value.
     filename_prefix: str, optional (default="checkpoint")
         Prefix of the to-be-saved checkpoint files.
 
@@ -50,7 +50,7 @@ class CheckpointManager(object):
     def __init__(
         self,
         models: Dict[str, nn.Module],
-        optimizer: optim.Optimizer,
+        optimizer: Type[optim.Optimizer],
         serialization_dir: str,
         mode: str = "max",
         filename_prefix: str = "checkpoint",

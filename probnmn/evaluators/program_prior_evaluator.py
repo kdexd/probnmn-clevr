@@ -15,8 +15,37 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ProgramPriorEvaluator(_Evaluator):
+    r"""
+    Performs evaluation for ``program_prior`` phase, using batches of evaluation examples from
+    :class:`~probnmn.data.datasets.ProgramPriorDataset`.
+
+    Parameters
+    ----------
+    config: Config
+        A :class:`~probnmn.Config` object with all the relevant configuration parameters.
+    models: Dict[str, Type[nn.Module]]
+        All the models which interact with each other for evaluation. This should come from
+        :class:`~probnmn.trainers.program_prior_trainer.ProgramPriorTrainer`.
+    gpu_ids: List[int], optional (default=[0])
+        List of GPU IDs to use or evaluation, ``[-1]`` - use CPU.
+
+    Examples
+    --------
+    To evaluate a pre-trained checkpoint:
+
+    >>> config = Config("config.yaml")  # PHASE must be "program_prior"
+    >>> trainer = ProgramPriorTrainer(config, serialization_dir="/tmp")
+    >>> trainer.load_checkpoint("/path/to/program_prior_checkpoint.pth")
+    >>> evaluator = ProgramPriorEvaluator(config, trainer.models)
+    >>> eval_metrics = evaluator.evaluate(num_batches=50)
+    """
+
     def __init__(
-        self, config: Config, models: Dict[str, Type[nn.Module]], gpu_ids: List[int] = [0]
+        self,
+        config: Config,
+        models: Dict[str, Type[nn.Module]],
+        gpu_ids: List[int] = [0],
+        cpu_workers: int = 0,
     ):
         self._C = config
 
@@ -38,6 +67,22 @@ class ProgramPriorEvaluator(_Evaluator):
         self._program_prior = self._models["program_prior"]
 
     def evaluate(self, num_batches: Optional[int] = None):
+        r"""
+        Perform evaluation using first ``num_batches`` of dataloader and return all evaluation
+        metrics from the models. After evaluation, also print some qualitative examples.
+
+        Parameters
+        ----------
+        num_batches: int, optional (default=None)
+            Number of batches to use from dataloader. If ``None``, use all batches.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Final evaluation metrics for all the models. For ``program_prior`` phase, this dict
+            will have keys: ``{"perplexity"}``.
+        """
+
         eval_metrics = super().evaluate(num_batches)
 
         # ----------------------------------------------------------------------------------------
@@ -50,7 +95,7 @@ class ProgramPriorEvaluator(_Evaluator):
             break
 
         with torch.no_grad():
-            output_dict = self._do_iteration(batch)
+            output_dict = self._do_iteration(batch)["program_prior"]
 
         print("\n")
         for inp, out in zip(batch["program"][:5], output_dict["predictions"][:5]):
@@ -71,9 +116,25 @@ class ProgramPriorEvaluator(_Evaluator):
         return eval_metrics
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-        """Perform one iteration, take a forward pass to accumulate metrics in model objects."""
+        r"""
+        Perform one iteration, given a batch. Take a forward pass to accumulate metrics in
+        :class:`~probnmn.models.program_prior.ProgramPrior`.
 
-        # Forward pass through program_prior.
-        # keys: {"predictions", "loss"}
-        output_dict = self._program_prior(batch["program"])
-        return output_dict
+        Parameters
+        ----------
+        batch: Dict[str, Any]
+            A batch of evaluation examples sampled from dataloader.
+
+        Returns
+        -------
+        Dict[str, Any]
+            An output dictionary containing predictions of next-time step, and loss (by teacher
+            forcing). Nested dict structure::
+
+                {
+                    "program_prior": {"predictions", "loss"}
+                }
+
+        """
+
+        return {"program_prior": self._program_prior(batch["program"])}
