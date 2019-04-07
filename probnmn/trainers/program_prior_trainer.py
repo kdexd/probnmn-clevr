@@ -14,7 +14,41 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ProgramPriorTrainer(_Trainer):
-    def __init__(self, config: Config, serialization_dir: str, gpu_ids: List[int] = [0]):
+    r"""
+    Performs training for ``program_prior`` phase, using batches of training examples from
+    :class:`~probnmn.data.datasets.ProgramPriorDataset`.
+
+    Parameters
+    ----------
+    config: Config
+        A :class:`~probnmn.Config` object with all the relevant configuration parameters.
+    serialization_dir: str
+        Path to a directory for tensorboard logging and serializing checkpoints.
+    gpu_ids: List[int], optional (default=[0])
+        List of GPU IDs to use or evaluation, ``[-1]`` - use CPU.
+    cpu_workers: int, optional (default = 0)
+        Number of CPU workers to use for fetching batch examples in dataloader.
+
+    Examples
+    --------
+    >>> config = Config("config.yaml")  # PHASE must be "program_prior"
+    >>> trainer = ProgramPriorTrainer(config, serialization_dir="/tmp")
+    >>> evaluator = ProgramPriorEvaluator(config, trainer.models)
+    >>> for iteration in range(100):
+    >>>     trainer.step()
+    >>>     # validation every 100 steps
+    >>>     if iteration % 100 == 0:
+    >>>         val_metrics = evaluator.evaluate()
+    >>>         trainer.after_validation(val_metrics, iteration)
+    """
+
+    def __init__(
+        self,
+        config: Config,
+        serialization_dir: str,
+        gpu_ids: List[int] = [0],
+        cpu_workers: int = 0,
+    ):
         self._C = config
 
         if self._C.PHASE != "program_prior":
@@ -25,7 +59,9 @@ class ProgramPriorTrainer(_Trainer):
 
         # Initialize dataloader and model.
         dataset = ProgramPriorDataset(self._C.DATA.TRAIN_TOKENS)
-        dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE, shuffle=True)
+        dataloader = DataLoader(
+            dataset, batch_size=self._C.OPTIM.BATCH_SIZE, shuffle=True, num_workers=cpu_workers
+        )
 
         # This will be a part of `self._models`, keep this handle for convenience.
         program_prior = ProgramPrior(
@@ -48,11 +84,6 @@ class ProgramPriorTrainer(_Trainer):
         self._program_prior = self._models["program_prior"]
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-        """Perform one iteration, take a forward pass and compute loss. Return an output dict
-        which would be passed to `after_iteration`.
-        """
-
-        # Forward and backward passes through program_prior.
         # keys: {"predictions", "loss"}
         iteration_output_dict = self._program_prior(batch["program"])
         batch_loss = iteration_output_dict["loss"].mean()
@@ -66,12 +97,23 @@ class ProgramPriorTrainer(_Trainer):
         return {"loss": batch_loss}
 
     def after_validation(self, val_metrics: Dict[str, Any], iteration: Optional[int] = None):
+        r"""
+        Set ``"metric"`` key in ``val_metrics``, this governs learning rate scheduling and keeping
+        track of best checkpoint (in ``super`` method). This metric will be perplexity of
+        :class:`~probnmn.models.program_prior.ProgramPrior` (lower is better).
 
-        # Set "metric" key in `val_metrics`, this governs learning rate scheduling and keeping
-        # track of best checkpoint. For program prior, it will be perplexity (lower is better).
+        Super method will perform learning rate scheduling, serialize checkpoint, and log all
+        the validation metrics to tensorboard.
+
+        Parameters
+        ----------
+        val_metrics: Dict[str, Any]
+            Validation metrics of :class:`~probnmn.models.program_prior.ProgramPrior`.
+            Returned by ``evaluate`` method of
+            :class:`~probnmn.evaluators.program_prior_evaluator.ProgramPriorEvaluator`.
+        iteration: int, optional (default = None)
+            Iteration number. If ``None``, use the internal :attr:`self._iteration` counter.
+        """
         # Reciprocate perplexity to make it "higher is better".
         val_metrics["metric"] = 1.0 / val_metrics["program_prior"]["perplexity"]
-
-        # Super method will perform learning rate scheduling, serialize checkpoint, and log all
-        # the validation metrics to tensorboard.
         super().after_validation(val_metrics, iteration)

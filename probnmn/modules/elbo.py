@@ -10,6 +10,15 @@ from probnmn.models import (
 
 
 class Reinforce(nn.Module):
+    r"""
+    A PyTorch module which applies REINFORCE to inputs using a specified reward, and internally
+    keeps track of a decaying moving average baseline.
+
+    Parameters
+    ----------
+    baseline_decay: float, optional (default = 0.99)
+        Factor by which the moving average baseline decays on every call.
+    """
     def __init__(self, baseline_decay: float = 0.99):
         super().__init__()
         self._reinforce_baseline = 0.0

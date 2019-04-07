@@ -12,7 +12,8 @@ class _Evaluator(object):
     r"""
     A base class for generic evaluation of models. This class can have multiple models interacting
     with each other, rather than a single model, which is suitable to our use-case (for example,
-    ``module_training`` phase has two models: :class:`~probnmn.models.ProgramGenerator` and
+    ``module_training`` phase has two models:
+    :class:`~probnmn.models.program_generator.ProgramGenerator` and
     :class:`~probnmn.models.nmn.NeuralModuleNetwork`). It offers full flexibility, with sensible
     defaults which may be changed (or disabled) while extending this class.
 

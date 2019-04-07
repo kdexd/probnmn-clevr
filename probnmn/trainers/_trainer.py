@@ -10,31 +10,68 @@ from probnmn.utils.checkpointing import CheckpointManager
 
 
 class _Trainer(object):
-    """A base class for generic trainer which can have multiple models interacting with each
-    other. An implementation of a class extending this trainer will contain the core training
-    loop logic. This base class offers full flexibility, with sensible defaults which may be
-    changed or disabled while extending this class.
+    r"""
+    A base class for generic training of models. This class can have multiple models interacting
+    with each other, rather than a single model, which is suitable to our use-case (for example,
+    ``module_training`` phase has two models:
+    :class:`~probnmn.models.program_generator.ProgramGenerator` and
+    :class:`~probnmn.models.nmn.NeuralModuleNetwork`). It offers full flexibility, with sensible
+    defaults which may be changed (or disabled) while extending this class.
 
-    1. Default Adam Optimizer, this optimizer updates parameters of all models passed to this
-       trainer in constructor. Learning rate and weight decay for this optimizer are picked up
-       from the provided config.
+    Extended Summary
+    ----------------
+    1. Default :class:`~torch.optim.Adam` Optimizer, updates parameters of all models in this
+       trainer. Learning rate and weight decay for this optimizer are picked up from the provided
+       config.
 
-    2. Default `ReduceLROnPlateau` learning rate scheduler. Gamma and patience arguments
-       are picked up from the provided config. Threshold is 1e-2, and the observed metric is
-       assumed to be of type "higher is better". In opposite case (e.g. val loss), make sure to
-       reciprocate (or negate) the observed metric.
+    2. Default :class:`~torch.optim.lr_scheduler.ReduceLROnPlateau` learning rate scheduler. Gamma
+       and patience arguments are picked up from the provided config. Observed metric is assumed
+       to be of type "higher is better". For 'lower is better" metrics, make sure to reciprocate.
 
     3. Tensorboard logging of loss curves, metrics etc.
 
-    4. Serialization of `models` and `optimizers` as checkpoint (.pth) files, after validation.
+    4. Serialization of models and optimizer as checkpoint (.pth) files after every validation.
        The observed metric for keeping track of best checkpoint is of type "higher is better",
        follow (2) above if the observed metric is of type "lower is better".
 
-    Note
-    ----
-    All models are "passed by assignment", so they could be used seamlessly in a separate
-    ``_Evaluator``. Do not set `self._models` attribute like `self._models = ...` anywhere while
-    overriding this class. Setting dict elements should be fine as `self._models` dict is mutable.
+    Extend this class and override suitable methods as per requirements, some important ones are:
+
+    1. :meth:`step`, provides complete customization, this is the method which comprises of one
+       full training iteration, and internally calls (in order) - :meth:`_before_iteration`,
+       :meth:`_do_iteration` and :meth:`_after_iteration`. Most of the times you may not require
+       overriding this method, instead one of the mentioned three methods called by `:meth:`step`.
+
+    2. :meth:`_do_iteration`, with core training loop - what happens every iteration, given a
+       ``batch`` from the dataloader this class holds.
+
+    3. :meth:`_before_iteration` and :meth:`_after_iteration`, for any pre- or post-processing
+       steps. Default behaviour:
+
+        * :meth:`_before_iteration` - call ``optimizer.zero_grad()``
+        * :meth:`_after_iteration` - call ``optimizer.step()`` and do tensorboard logging.
+
+    4. :meth:`after_validation`, to specify any steps after evaluation. Default behaviour is to
+       do learning rate scheduling and log validation metrics on tensorboard.
+
+    Notes
+    -----
+    All models are `passed by assignment`, so they could be shared with an external evaluator.
+    Do not set ``self._models = ...`` anywhere while extending this class.
+
+    Parameters
+    ----------
+    config: Config
+        A :class:`~probnmn.Config` object with all the relevant configuration parameters.
+    dataloader: torch.utils.data.DataLoader
+        A :class:`~torch.utils.data.DataLoader` which provides batches of training examples. It
+        wraps one of :mod:`probnmn.data.datasets` depending on the evaluation phase.
+    models: Dict[str, Type[nn.Module]]
+        All the models which interact with each other during training. These are one or more from
+        :mod:`probnmn.models` depending on the training phase.
+    serialization_dir: str
+        Path to a directory for tensorboard logging and serializing checkpoints.
+    gpu_ids: List[int], optional (default=[0])
+        List of GPU IDs to use or evaluation, ``[-1]`` - use CPU.
     """
 
     def __init__(
@@ -94,15 +131,16 @@ class _Trainer(object):
         # This increments everytime ``step`` is called.
         self._iteration: int = -1
 
-    @property
-    def iteration(self):
-        return self._iteration
-
-    @property
-    def models(self):
-        return self._models
-
     def step(self, iteration: Optional[int] = None):
+        r"""
+        Perform one iteration of training.
+
+        Parameters
+        ----------
+        iteration: int, optional (default = None)
+            Iteration number (useful to hard set to any number when loading checkpoint).
+            If ``None``, use the internal :attr:`self._iteration` counter.
+        """
         self._before_iteration()
 
         batch = next(self._dataloader)
@@ -112,42 +150,86 @@ class _Trainer(object):
         self._iteration = iteration or self._iteration + 1
 
     def _before_iteration(self):
+        r"""
+        Steps to do before doing the forward pass of iteration. Default behavior is to simply
+        call :meth:`zero_grad` for optimizer. Called inside :meth:`step`.
+        """
         self._optimizer.zero_grad()
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
+        r"""
+        Forward and backward passes on models, given a batch sampled from dataloader.
+
+        Parameters
+        ----------
+        batch: Dict[str, Any]
+            A batch of training examples sampled from dataloader. See :func:`step` and
+            :meth:`_cycle` on how this batch is sampled.
+
+        Returns
+        -------
+        Dict[str, Any]
+            An output dictionary typically returned by the models. This would be passed to
+            :meth:`_after_iteration` for tensorboard logging.
+        """
         # What a single iteration usually would look like.
         iteration_output_dict = self._models["model"](batch)
         batch_loss = iteration_output_dict["loss"].mean()
         batch_loss.backward()
-
         return {"loss": batch_loss}
 
-    def _after_iteration(self, output_dict: Dict[str, Any], iteration: Optional[int] = None):
+    def _after_iteration(self, output_dict: Dict[str, Any]):
+        r"""
+        Steps to do after doing the forward pass of iteration. Default behavior is to simply
+        do gradient update through ``optimizer.step()``, and log metrics to tensorboard.
+
+        Parameters
+        ----------
+        output_dict: Dict[str, Any]
+            This is exactly the object returned by :meth:_do_iteration`, which would contain all
+            the required losses for tensorboard logging.
+        """
         self._optimizer.step()
 
         # keys: {"loss"} + ... {other keys such as "elbo"}
         for key in output_dict:
             if isinstance(output_dict[key], dict):
-                # Use `add_scalars` for dicts in a nested `output_dict`.
+                # Use ``add_scalars`` for dicts in a nested ``output_dict``.
                 self._tensorboard_writer.add_scalars(
                     f"train/{key}", output_dict[key], self._iteration
                 )
             else:
-                # Use `add_scalar` for floats / zero-dim tensors in `output_dict`.
+                # Use ``add_scalar`` for floats / zero-dim tensors in ``output_dict``.
                 self._tensorboard_writer.add_scalar(
                     f"train/{key}", output_dict[key], self._iteration
                 )
 
     def after_validation(self, val_metrics: Dict[str, Any], iteration: Optional[int] = None):
+        r"""
+        Steps to do after an external :class:`~probnmn.evaluators._evaluator._Evaluator` performs
+        evaluation. This is not called by :meth:`step`, call it from outside at appropriate time.
+        Default behavior is to perform learning rate scheduling, serializaing checkpoint and to
+        log validation metrics to tensorboard.
+
+        Since this implementation assumes a key ``"metric"`` in ``val_metrics``, it is convenient
+        to set this key while overriding this method, when there are multiple models and multiple
+        metrics and there is one metric which decides best checkpoint.
+
+        Parameters
+        ----------
+        val_metrics: Dict[str, Any]
+            Validation metrics for all the models. Returned by ``evaluate`` method of
+            :class:`~probnmn.evaluators._evaluator._Evaluator` (or its extended class).
+        iteration: int, optional (default = None)
+            Iteration number. If ``None``, use the internal :attr:`self._iteration` counter.
+        """
         if iteration is not None:
             self._iteration = iteration
 
         # Serialize model and optimizer and keep track of best checkpoint.
-        # Add negative sign with perplexity to make it "higher is better".
         self._checkpoint_manager.step(val_metrics["metric"], self._iteration)
 
         # Perform learning rate scheduling based on validation perplexity.
-        # Add negative sign with perplexity to make it "higher is better".
         self._lr_scheduler.step(val_metrics["metric"])
 
         # Log learning rate after scheduling.
@@ -155,11 +237,8 @@ class _Trainer(object):
             "train/lr", self._optimizer.param_groups[0]["lr"], self._iteration
         )
 
-        # Log all validation metrics to tensorboard.
-        # For `ProgramPrior`, keys: {"perplexity"}
-        # For `ProgramGenerator`, keys: {"BLEU", "perplexity", "sequence_accuracy"}
-        # For `QuestionReconstructor`, keys: {"BLEU", "perplexity", "sequence_accuracy"}
-        # For `NeuralModuleNetwork`, keys: {"answer_accuracy"}
+        # Log all validation metrics to tensorboard (pop the "metric" key, which was only relevant
+        # to learning rate scheduling and checkpointing).
         val_metrics.pop("metric")
         for model_name in val_metrics:
             for metric_name in val_metrics[model_name]:
@@ -170,6 +249,19 @@ class _Trainer(object):
                 )
 
     def load_checkpoint(self, checkpoint_path: str, iteration: Optional[int] = None):
+        r"""
+        Load a checkpoint to continue training from. The iteration when this checkpoint was
+        serialized, is inferred from its name (so do not rename after serialization).
+
+        Parameters
+        ----------
+        checkpoint_path: str
+            Path to a checkpoint containing models and optimizers of the phase which is being
+            trained on.
+
+        iteration: int, optional (default = None)
+            Iteration number. If ``None``, infer from name of checkpoint file.
+        """
         training_checkpoint: Dict[str, Any] = torch.load(checkpoint_path)
         for key in training_checkpoint:
             if key == "optimizer":
@@ -181,11 +273,14 @@ class _Trainer(object):
         self._iteration = iteration or int(checkpoint_path.split("_")[-1][:-4])
 
     def _cycle(self, dataloader: DataLoader) -> Generator[Dict[str, torch.Tensor], None, None]:
-        """A generator which yields a random batch from dataloader perpetually. This generator is
+        r"""
+        A generator which yields a random batch from dataloader perpetually. This generator is
         used in the constructor.
 
+        Extended Summary
+        ----------------
         This is done so because we train for a fixed number of iterations, and do not have the
-        notion of 'epochs'. Using itertools.cycle with dataloader is harmful and may cause
+        notion of 'epochs'. Using ``itertools.cycle`` with dataloader is harmful and may cause
         unexpeced memory leaks.
         """
         while True:
@@ -193,3 +288,11 @@ class _Trainer(object):
                 for key in batch:
                     batch[key] = batch[key].to(self._device)
                 yield batch
+
+    @property
+    def iteration(self):
+        return self._iteration
+
+    @property
+    def models(self):
+        return self._models

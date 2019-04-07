@@ -58,7 +58,7 @@ class NeuralModuleNetwork(nn.Module):
 
         # The stem takes features from ResNet (or another feature extractor) and projects down to
         # a lower-dimensional space for sending through the Neural Module Network.
-        self._stem = nn.Sequential(
+        self.stem = nn.Sequential(
             nn.Conv2d(image_feature_size[0], module_channels, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(module_channels, module_channels, kernel_size=3, padding=1),
@@ -66,7 +66,7 @@ class NeuralModuleNetwork(nn.Module):
         )
         # The classifier takes output of the last module (which will be a Query or Equal module)
         # and produces a distribution over answers.
-        self._classifier = nn.Sequential(
+        self.classifier = nn.Sequential(
             nn.Conv2d(module_channels, class_projection_channels, kernel_size=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
@@ -155,7 +155,7 @@ class NeuralModuleNetwork(nn.Module):
 
         # Forward all the features through the stem at once.
         # shape: (batch_size, module_channels, __height, __width)
-        feat_input_volume = self._stem(features)
+        feat_input_volume = self.stem(features)
         batch_size, module_channels, height, width = feat_input_volume.size()
 
         # We compose each module network individually since they are constructed on a per-question
@@ -216,7 +216,7 @@ class NeuralModuleNetwork(nn.Module):
         final_module_outputs = torch.cat(final_module_outputs, 0)
 
         # shape: (batch_size, __num_answers)
-        answer_logits = self._classifier(final_module_outputs)
+        answer_logits = self.classifier(final_module_outputs)
         _, answer_predictions = torch.max(answer_logits, dim=1)
 
         # Replace answers of examples with invalid programs as @@UNKNOWN@@.

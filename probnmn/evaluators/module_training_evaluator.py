@@ -26,6 +26,8 @@ class ModuleTrainingEvaluator(_Evaluator):
         :class:`~probnmn.trainers.module_training_trainer.ModuleTrainingTrainer`.
     gpu_ids: List[int], optional (default=[0])
         List of GPU IDs to use or evaluation, ``[-1]`` - use CPU.
+    cpu_workers: int, optional (default = 0)
+        Number of CPU workers to use for fetching batch examples in dataloader.
 
     Examples
     --------
