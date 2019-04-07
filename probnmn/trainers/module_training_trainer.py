@@ -83,10 +83,7 @@ class ModuleTrainingTrainer(_Trainer):
 
         return {
             "loss": batch_loss,
-            "metrics": {
-                "answer_accuracy": output_dict["answer_accuracy"],
-                "average_invalid": output_dict["average_invalid"],
-            },
+            "metrics": output_dict["metrics"],
         }
 
     def after_validation(self, val_metrics: Dict[str, Any], iteration: Optional[int] = None):
