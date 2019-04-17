@@ -44,7 +44,6 @@ jt_gamma: 1.0
 ### Optimization objective.
 jt_objective: "baseline"
 
-# Arguments for the constructor of ProgramGenerator model
-pg_checkpoint: "data/program_generator_best_checkpoint.pth"
-qr_checkpoint: "data/question_reconstructor_best_checkpoint.pth"
-nmn_checkpoint: "data/nmn_best_checkpoint.pth"
+# Best checkpoints from previous phases of training.
+qc_checkpoint: "data/question_coding_best.pth"
+mt_checkpoint: "data/module_training_best.pth"

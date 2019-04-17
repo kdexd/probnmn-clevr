@@ -1,4 +1,5 @@
 import argparse
+import warnings
 
 from allennlp.data import Vocabulary
 from tensorboardX import SummaryWriter
@@ -57,6 +58,9 @@ if __name__ == "__main__":
     probnmn_utils.print_config_and_args(config, args)
 
     device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+    if len(args.gpu_ids) > 0:
+        warnings.warn(f"Multi-GPU execution not supported for Question Coding because it is an"
+                      f"overkill, only GPU {args.gpu_ids[0]} will be used.")
 
     # ============================================================================================
     #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL, OPTIMIZER
@@ -65,8 +69,7 @@ if __name__ == "__main__":
     train_dataset = ProgramPriorDataset(args.tokens_train_h5)
     val_dataset = ProgramPriorDataset(args.tokens_val_h5)
 
-    # `train_dataloader` can be re-initialized later while doing batch size scheduling
-    batch_size = config["optim_bs_initial"]
+    batch_size = config["optim_batch_size"]
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size)
 
@@ -76,36 +79,31 @@ if __name__ == "__main__":
         hidden_size=config["model_hidden_size"],
         num_layers=config["model_num_layers"],
         dropout=config["model_dropout"],
-    )
+    ).to(device)
     optimizer = optim.Adam(
         program_prior.parameters(),
         lr=config["optim_lr_initial"],
         weight_decay=config["optim_weight_decay"]
     )
-    lr_scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer,
-        milestones=config["optim_lr_steps"],
-        gamma=config["optim_lr_gamma"],
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=config["optim_lr_gamma"],
+        patience=config["optim_lr_patience"], threshold=1e-2
     )
-
-    program_prior = program_prior.to(device)
-    if -1 not in args.gpu_ids:
-        # don't wrap to DataParallel for CPU-mode
-        program_prior = nn.DataParallel(program_prior, args.gpu_ids)
-
 
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
     summary_writer = SummaryWriter(log_dir=args.save_dirpath)
     checkpoint_manager = CheckpointManager(
-        checkpoint_dirpath=args.save_dirpath,
-        config=config,
-        model=program_prior,
+        serialization_dir=args.save_dirpath,
+        models={
+            "program_prior": program_prior
+        },
         optimizer=optimizer,
-        mode="min"
+        mode="min",
+        filename_prefix="program_prior"
     )
-    # Make train dataloader iteration cyclical (gets re-initialized for batch size scheduling)
+    checkpoint_manager.init_directory(config)
     train_dataloader = probnmn_utils.cycle(train_dataloader)
 
     print(f"Training for {config['optim_num_iterations']}:")
@@ -115,13 +113,6 @@ if __name__ == "__main__":
             batch[key] = batch[key].to(device)
         output_dict = do_iteration(batch, program_prior, optimizer)
 
-        # Batch size and learning rate scheduling
-        lr_scheduler.step()
-        if iteration in config["optim_bs_steps"]:
-            batch_size *= config["optim_bs_gamma"]
-            train_dataloader = probnmn_utils.cycle(
-                DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-            )
         # Log loss and schedulers to tensorboard.
         summary_writer.add_scalar("train/loss", output_dict["loss"].mean(), iteration)
         summary_writer.add_scalar("optim/learning_rate", optimizer.param_groups[0]["lr"], iteration)
@@ -139,14 +130,19 @@ if __name__ == "__main__":
                 with torch.no_grad():
                     output_dict = do_iteration(batch, program_prior)
 
-            if isinstance(program_prior, nn.DataParallel):
-                metrics = program_prior.module.get_metrics()
-            else:
-                metrics = program_prior.get_metrics()
-
-            print("\nPerplexity:", metrics["perplexity"])
-            checkpoint_manager.step(metrics["perplexity"])
-            summary_writer.add_scalars("val", metrics, iteration)
+            val_metrics = {
+                "program_prior": program_prior.get_metrics(),
+            }
+            # Log all metrics to tensorboard.
+            # For program prior, keys: {"perplexity"}
+            for model in val_metrics:
+                for name in model:
+                    summary_writer.add_scalar(
+                        f"val/metrics/{model}/{name}", val_metrics[model][name],
+                        iteration
+                    )
+            lr_scheduler.step(val_metrics["program_prior"]["perplexity"])
+            checkpoint_manager.step(val_metrics["program_prior"]["perplexity"], iteration)
 
             # Print five programs and their predicted next time-step
             print("Some predicted examples by the language program_prior (greedy decoding):")
@@ -165,4 +161,5 @@ if __name__ == "__main__":
                       " ".join(vocabulary.get_token_from_index(o, "programs") for o in out[:6]),
                       "...")
                 print("- " * 30)  # separator for neatness
+
             program_prior.train()

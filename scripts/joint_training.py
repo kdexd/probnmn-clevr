@@ -172,8 +172,7 @@ if __name__ == "__main__":
         num_layers=config["prior_num_layers"],
         dropout=config["prior_dropout"],
     ).to(device)
-    prior_model, _ = checkpointing_utils.load_checkpoint(config["prior_checkpoint"])
-    program_prior.load_state_dict(prior_model)
+    program_prior.load_state_dict(torch.load(config["prior_checkpoint"])["program_prior"])
     program_prior.eval()
 
     program_generator = ProgramGenerator(
@@ -183,9 +182,6 @@ if __name__ == "__main__":
         num_layers=config["qc_model_num_layers"],
         dropout=config["qc_model_dropout"],
     ).to(device)
-    __pg_model, _ = checkpointing_utils.load_checkpoint(config["pg_checkpoint"])
-    program_generator.load_state_dict(__pg_model)
-
     question_reconstructor = QuestionReconstructor(
         vocabulary=vocabulary,
         input_size=config["qc_model_input_size"],
@@ -193,9 +189,6 @@ if __name__ == "__main__":
         num_layers=config["qc_model_num_layers"],
         dropout=config["qc_model_dropout"],
     ).to(device)
-    __qr_model, _ = checkpointing_utils.load_checkpoint(config["qr_checkpoint"])
-    question_reconstructor.load_state_dict(__qr_model)
-
     nmn = NeuralModuleNetwork(
         vocabulary=vocabulary,
         image_feature_size=tuple(config["mt_model_image_feature_size"]),
@@ -203,8 +196,14 @@ if __name__ == "__main__":
         class_projection_channels=config["mt_model_class_projection_channels"],
         classifier_linear_size=config["mt_model_classifier_linear_size"]
     ).to(device)
-    __nmn_model, _ = checkpointing_utils.load_checkpoint(config["nmn_checkpoint"])
-    nmn.load_state_dict(__nmn_model)
+
+    # Load checkpoints from program prior, question coding and module training phases.
+    question_coding_checkpoint = torch.load(config["qc_checkpoint"])
+    program_generator.load_state_dict(question_coding_checkpoint["program_generator"])
+    question_reconstructor.load_state_dict(question_coding_checkpoint["question_reconstructor"])
+
+    program_prior.load_state_dict(torch.load(config["prior_checkpoint"])["program_prior"])
+    nmn.load_state_dict(torch.load(config["mt_checkpoint"])["nmn"])
 
     elbo = JointTrainingNegativeElbo(
         program_generator, question_reconstructor, program_prior, nmn,
@@ -229,27 +228,18 @@ if __name__ == "__main__":
     # ============================================================================================
     #   BEFORE TRAINING LOOP
     # ============================================================================================
-    __pg_checkpoint_manager = checkpointing_utils.CheckpointManager(
-        checkpoint_dirpath=args.save_dirpath,
-        config=config,
-        model=program_generator,
+    checkpoint_manager = checkpointing_utils.CheckpointManager(
+        serialization_dir=args.save_dirpath,
+        models={
+            "program_generator": program_generator,
+            "question_reconstructor": question_reconstructor,
+            "nmn": nmn,
+        },
         optimizer=optimizer,
-        filename_prefix="program_generator",
+        mode="max",
+        filename_prefix="joint_training",
     )
-    __qr_checkpoint_manager = checkpointing_utils.CheckpointManager(
-        checkpoint_dirpath=args.save_dirpath,
-        config=config,
-        model=question_reconstructor,
-        optimizer=optimizer,
-        filename_prefix="question_reconstructor",
-    )
-    __nmn_checkpoint_manager = checkpointing_utils.CheckpointManager(
-        checkpoint_dirpath=args.save_dirpath,
-        config=config,
-        model=nmn,
-        optimizer=optimizer,
-        filename_prefix="nmn",
-    )
+    checkpoint_manager.init_directory(config)
     summary_writer = SummaryWriter(log_dir=args.save_dirpath)
 
     # Make train dataloader iteration cyclical.
@@ -298,32 +288,26 @@ if __name__ == "__main__":
 
                 if (i + 1) * len(batch["question"]) > args.num_val_examples: break
 
-            __pg_metrics = program_generator.get_metrics()
-            __qr_metrics = question_reconstructor.get_metrics()
-            if isinstance(nmn, nn.DataParallel):
-                __nmn_metrics = nmn.module.get_metrics()
-            else:
-                __nmn_metrics = nmn.get_metrics()
+            val_metrics = {
+                "program_generator": program_generator.get_metrics(),
+                "question_reconstructor": question_reconstructor.get_metrics(),
+                "nmn": nmn.module.get_metrics() if isinstance(nmn, nn.DataParallel)
+                else nmn.get_metrics()
+            }
 
-            # Log three metrics to tensorboard.
-            # keys: {"BLEU", "perplexity", "sequence_accuracy"}
-            for metric_name in __pg_metrics:
-                summary_writer.add_scalars(
-                    "metrics/" + metric_name, {
-                        "program_generation": __pg_metrics[metric_name],
-                        "question_reconstruction": __qr_metrics[metric_name]
-                    },
-                    iteration
-                )
-            summary_writer.add_scalar(
-                "metrics/nmn_answer_accuracy", __nmn_metrics["answer_accuracy"], iteration
-            )
-            lr_scheduler.step(__nmn_metrics["answer_accuracy"])
+            # Log all metrics to tensorboard.
+            # For program generator, keys: {"BLEU", "perplexity", "sequence_accuracy"}
+            # For question reconstructor, keys: {"BLEU", "perplexity", "sequence_accuracy"}
+            # For nmn, keys: {"average_invalid", answer_accuracy"}
+            for model in val_metrics:
+                for name in model:
+                    summary_writer.add_scalar(
+                        f"val/metrics/{model}/{name}", val_metrics[model][name],
+                        iteration
+                    )
+            lr_scheduler.step(val_metrics["nmn"]["answer_accuracy"])
+            checkpoint_manager.step(val_metrics["nmn"]["sequence_accuracy"], iteration)
 
-            __pg_checkpoint_manager.step(__pg_metrics["sequence_accuracy"], iteration)
-            __qr_checkpoint_manager.step(__qr_metrics["sequence_accuracy"], iteration)
-            __nmn_checkpoint_manager.step(__nmn_metrics["answer_accuracy"], iteration)
-
-            nmn.train()
             program_generator.train()
             question_reconstructor.train()
+            nmn.train()

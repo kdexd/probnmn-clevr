@@ -26,14 +26,9 @@ parser.add_argument(
          "for better module training."
 )
 parser.add_argument(
-    "--pg-checkpoint-pthpath",
-    default="data/program_generator_best.pth",
-    help="Path to program generator pre-trained checkpoint."
-)
-parser.add_argument(
-    "--qr-checkpoint-pthpath",
-    default="data/question_reconstructor_best.pth",
-    help="Path to question reconstructor pre-trained checkpoint."
+    "--qc-checkpoint-pthpath",
+    default="data/question_coding_best.pth",
+    help="Path to question coding pre-trained checkpoint."
 )
 # Data file paths, gpu ids, checkpoint args etc.
 common_utils.add_common_args(parser)
@@ -77,9 +72,6 @@ if __name__ == "__main__":
         num_layers=config["model_num_layers"],
         dropout=config["model_dropout"],
     ).to(device)
-    program_generator_model, _ = checkpointing_utils.load_checkpoint(args.pg_checkpoint_pthpath)
-    program_generator.load_state_dict(program_generator_model)
-
     question_reconstructor = QuestionReconstructor(
         vocabulary=vocabulary,
         input_size=config["model_input_size"],
@@ -87,8 +79,10 @@ if __name__ == "__main__":
         num_layers=config["model_num_layers"],
         dropout=config["model_dropout"],
     ).to(device)
-    question_reconstructor_model, _ = checkpointing_utils.load_checkpoint(args.qr_checkpoint_pthpath)
-    question_reconstructor.load_state_dict(question_reconstructor_model)
+
+    question_coding_checkpoint = torch.load(args.qc_checkpoint_pthpath)
+    program_generator.load_state_dict(question_coding_checkpoint["program_generator"])
+    question_reconstructor.load_state_dict(question_coding_checkpoint["question_reconstructor"])
 
     program_generator.eval()
     question_reconstructor.eval()

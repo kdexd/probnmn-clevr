@@ -1,14 +1,11 @@
 from allennlp.data import Vocabulary
 
-from probnmn.models.seq2seq_base import Seq2SeqBase
+from probnmn.modules.seq2seq_base import Seq2SeqBase
 
 
 class QuestionReconstructor(Seq2SeqBase):
-    """
-    Convenience wrapper over ``probnmn.models.seq2seq_base.Seq2SeqBase``. This Seq2Seq model
+    """Convenience wrapper over ``probnmn.models.seq2seq_base.Seq2SeqBase``. This Seq2Seq model
     accepts tokenized and padded program sequences and converts them to question sequences.
-
-    # TODO (kd): can make a fancy encoder here and pass it to the super class.
     """
 
     def __init__(self,

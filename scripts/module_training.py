@@ -114,8 +114,7 @@ if __name__ == "__main__":
         num_layers=config["pg_num_layers"],
         dropout=config["pg_dropout"]
     ).to(device).eval()
-    program_generator_model, _ = checkpointing_utils.load_checkpoint(config["pg_checkpoint"])
-    program_generator.load_state_dict(program_generator_model)
+    program_generator.load_state_dict(torch.load(config["qc_checkpoint"])["program_generator"])
 
     nmn = NeuralModuleNetwork(
         vocabulary=vocabulary,
@@ -136,9 +135,9 @@ if __name__ == "__main__":
 
     # Load from saved checkpoint if specified.
     if args.checkpoint_pthpath != "":
-        nmn_model, nmn_optimizer = checkpointing_utils.load_checkpoint(args.checkpoint_pthpath)
-        nmn.load_state_dict(nmn_model)
-        optimizer.load_state_dict(nmn_optimizer)
+        module_training_checkpoint = torch.load(args.checkpoint_pthpath)
+        nmn.load_state_dict(module_training_checkpoint["nmn"])
+        optimizer.load_state_dict(module_training_checkpoint["optimizer"])
         start_iteration = int(args.checkpoint_pthpath.split("_")[-1][:-4]) + 1
     else:
         start_iteration = 1
@@ -152,13 +151,13 @@ if __name__ == "__main__":
     #   BEFORE TRAINING LOOP
     # ============================================================================================
     checkpoint_manager = checkpointing_utils.CheckpointManager(
-        checkpoint_dirpath=args.save_dirpath,
-        config=config,
-        model=nmn,
+        serialization_dir=args.save_dirpath,
+        models={"nmn": nmn},
         optimizer=optimizer,
         mode="max",
-        filename_prefix="nmn",
+        filename_prefix="module_training",
     )
+    checkpoint_manager.init_directory(config)
     summary_writer = SummaryWriter(log_dir=args.save_dirpath)
 
     # Make train dataloader iteration cyclical.
@@ -197,16 +196,20 @@ if __name__ == "__main__":
                     iteration_output_dict = do_iteration(batch, program_generator, nmn)
                 if (i + 1) * len(batch["question"]) > args.num_val_examples: break
 
+            val_metrics = {}
             if isinstance(program_generator, nn.DataParallel):
-                val_metrics = nmn.module.get_metrics()
+                val_metrics["nmn"] = nmn.module.get_metrics()
             else:
-                val_metrics = nmn.get_metrics()
-            answer_accuracy = val_metrics["answer_accuracy"]
-            average_invalid = val_metrics["average_invalid"]
-
-            lr_scheduler.step(val_metrics["answer_accuracy"])
-
-            summary_writer.add_scalar("val/answer_accuracy", answer_accuracy, iteration)
-            summary_writer.add_scalar("val/average_invalid", average_invalid, iteration)
-            checkpoint_manager.step(answer_accuracy, iteration)
+                val_metrics["nmn"] = nmn.get_metrics()
+            
+            # Log all metrics to tensorboard.
+            # For nmn, keys: {"average_invalid", answer_accuracy"}
+            for model in val_metrics:
+                for name in model:
+                    summary_writer.add_scalar(
+                        f"val/metrics/{model}/{name}", val_metrics[model][name],
+                        iteration
+                    )
+            lr_scheduler.step(val_metrics["nmn"]["answer_accuracy"])
+            checkpoint_manager.step(val_metrics["nmn"]["answer_accuracy"], iteration)
             nmn.train()
