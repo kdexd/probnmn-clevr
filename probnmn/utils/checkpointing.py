@@ -104,7 +104,7 @@ class CheckpointManager(object):
             epoch = self.last_epoch + 1
         self.last_epoch = epoch
 
-        # update best checkpoint based on metric and metric mode
+        # Update best checkpoint based on metric and metric mode.
         if not self.best_metric:
             self.best_metric = metric
 
@@ -122,8 +122,7 @@ class CheckpointManager(object):
                 self.ckpt_dirpath / f"{self.filename_prefix}_{self.last_epoch}.pth",
             )
 
-    def save_best(self):
-        """Save best performing checkpoint observed so far."""
+        # Save best performing checkpoint observed so far.
         torch.save(
             self.best_ckpt, self.ckpt_dirpath / f"{self.filename_prefix}_best.pth"
         )

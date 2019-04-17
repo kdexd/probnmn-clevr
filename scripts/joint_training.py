@@ -277,7 +277,7 @@ if __name__ == "__main__":
         summary_writer.add_scalars("schedule", {"lr": optimizer.param_groups[0]["lr"]}, iteration)
 
         # ========================================================================================
-        #   VALIDATE AND (TODO) PRINT FEW EXAMPLES
+        #   VALIDATION
         # ========================================================================================
         if iteration % args.checkpoint_every == 0:
             print(f"Validation after iteration {iteration}:")
@@ -327,11 +327,3 @@ if __name__ == "__main__":
             nmn.train()
             program_generator.train()
             question_reconstructor.train()
-
-    # ============================================================================================
-    #   AFTER TRAINING END
-    # ============================================================================================
-    __pg_checkpoint_manager.save_best()
-    __qr_checkpoint_manager.save_best()
-    __nmn_checkpoint_manager.save_best()
-    summary_writer.close()
