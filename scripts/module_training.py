@@ -205,7 +205,7 @@ if __name__ == "__main__":
             # Log all metrics to tensorboard.
             # For nmn, keys: {"average_invalid", answer_accuracy"}
             for model in val_metrics:
-                for name in model:
+                for name in val_metrics[model]:
                     summary_writer.add_scalar(
                         f"val/metrics/{model}/{name}", val_metrics[model][name],
                         iteration

@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from allennlp.data import Vocabulary
 from allennlp.models.encoder_decoders import SimpleSeq2Seq as AllenNlpSimpleSeq2Seq
