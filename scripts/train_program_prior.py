@@ -1,5 +1,6 @@
 import argparse
-import warnings
+import logging
+import os
 
 from allennlp.data import Vocabulary
 import numpy as np
@@ -10,7 +11,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
 
-from probnmn.config import get_config_defaults
+from probnmn.config import Config
 from probnmn.data import ProgramPriorDataset
 from probnmn.models import ProgramPrior
 from probnmn.utils.checkpointing import CheckpointManager
@@ -25,6 +26,8 @@ parser.add_argument(
 )
 # Data file paths, gpu ids, checkpoint args etc.
 probnmn_utils.add_common_args(parser)
+
+logger = logging.getLogger(__name__)
 
 
 def do_iteration(batch, program_prior, optimizer=None):
@@ -52,14 +55,14 @@ if __name__ == "__main__":
     # ============================================================================================
     _A = parser.parse_args()
 
-    # Get default config, then override values from config file and args.
-    _C = get_config_defaults()
-    _C.merge_from_file(_A.config_yml)
-    _C.merge_from_list(_A.config_override)
+    # Create a config with default values, then override from config file, and args.
+    # This config object is immutable, nothing can be changed in this anymore.
+    _C = Config(_A.config_yml, _A.config_override)
     probnmn_utils.print_config_and_args(_C, _A)
 
-    # Make config immutable, nothing can be changed in this anymore.
-    _C.freeze()
+    # Create serialization directory and save config in it.
+    os.makedirs(_A.save_dirpath, exist_ok=True)
+    _C.dump(os.path.join(_A.save_dirpath, "config.yml"))
 
     # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
     # These five lines control all the major sources of randomness.
@@ -72,8 +75,8 @@ if __name__ == "__main__":
     # Set device according to specified GPU ids.
     device = torch.device("cuda", _A.gpu_ids[0]) if _A.gpu_ids[0] >= 0 else torch.device("cpu")
     if len(_A.gpu_ids) > 0:
-        warnings.warn(
-            f"Multi-GPU execution not supported for Question Coding because it is an"
+        logger.warn(
+            f"Multi-GPU execution not supported for training ProgramPrior because it is an "
             f"overkill, only GPU {_A.gpu_ids[0]} will be used."
         )
 
@@ -119,9 +122,8 @@ if __name__ == "__main__":
         models={"program_prior": program_prior},
         optimizer=optimizer,
         mode="min",
-        filename_prefix=_C.PHASE,
+        filename_prefix=_C.PHASE.NAME,
     )
-    checkpoint_manager.init_directory(_C)
 
     for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
         batch = next(train_dataloader)
@@ -157,26 +159,22 @@ if __name__ == "__main__":
             lr_scheduler.step(val_metrics["program_prior"]["perplexity"])
             summary_writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], iteration)
 
-            # Print five programs and their predicted next time-step
-            print("Some predicted examples by the language program_prior (greedy decoding):")
-            print("- " * 30)  # separator for neatness
+            # Print five programs and their predicted next time-step.
+            logger.info(f"\nPredictions by program prior after iteration {iteration} (sampling):")
+            logger.info("-" * 60)
 
             input_programs = batch["program"][:5].cpu().numpy()
             output_programs = output_dict["predictions"][:5].cpu().numpy()
             for inp, out in zip(input_programs, output_programs):
-                # Print only first five time-steps, these sequences can be really long
-                print(
-                    "INPUT PROGRAM: ",
-                    " ".join(vocabulary.get_token_from_index(i, "programs") for i in inp[:6]),
-                    "...",
+                # Print only first five time-steps, these sequences can be really long.
+                input_program = " ".join(
+                    vocabulary.get_token_from_index(i, "programs") for i in inp[:6]
                 )
-                # Output is one time-step shifted, but input also has a @start@ token, so the
-                # shift gets cancelled.
-                print(
-                    "OUTPUT PROGRAM: ",
-                    " ".join(vocabulary.get_token_from_index(o, "programs") for o in out[:6]),
-                    "...",
+                output_program = " ".join(
+                    vocabulary.get_token_from_index(o, "programs") for o in out[:6]
                 )
-                print("- " * 30)  # separator for neatness
+                logger.info(f"INPUT PROGRAM: {input_program} ...")
+                logger.info(f"OUTPUT PROGRAM: {output_program} ...")
+                logger.info("-" * 60)
 
             program_prior.train()

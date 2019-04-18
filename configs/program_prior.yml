@@ -1,14 +1,15 @@
-PHASE: PROGRAM_PRIOR
 RANDOM_SEED: 0
+PHASE:
+  NAME: program_prior
 
-# Arguments for the constructor of ProgramPrior model
+# Arguments for the constructor of ProgramPrior model.
 PROGRAM_PRIOR:
   INPUT_SIZE: 256
   HIDDEN_SIZE: 256
   NUM_LAYERS: 2
   DROPOUT: 0.0
 
-# Optimzation arguments, we use Adam optimizer and ReduceLROnPlateau scheduler.
+# Optimization arguments, we use Adam optimizer and ReduceLROnPlateau scheduler.
 OPTIM:
   BATCH_SIZE: 256
   NUM_ITERATIONS: 10000
