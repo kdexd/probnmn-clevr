@@ -32,6 +32,12 @@ class Config(object):
         self._C.QUESTION_RECONSTRUCTOR.NUM_LAYERS = 2
         self._C.QUESTION_RECONSTRUCTOR.DROPOUT = 0.0
 
+        self._C.NMN = CN()
+        self._C.NMN.IMAGE_FEATURE_SIZE = [1024, 14, 14]
+        self._C.NMN.MODULE_CHANNELS = 128
+        self._C.NMN.CLASS_PROJECTION_CHANNELS = 1024
+        self._C.NMN.CLASSIFIER_LINEAR_SIZE = 1024
+
         self._C.ALPHA = 100.0
         self._C.BETA = 0.1
         self._C.DELTA = 0.99
@@ -47,6 +53,7 @@ class Config(object):
 
         self._C.CHECKPOINTS = CN()
         self._C.CHECKPOINTS.PROGRAM_PRIOR = "checkpoints/program_prior_best.pth"
+        self._C.CHECKPOINTS.QUESTION_CODING = "checkpoints/question_coding_1000_ours_best.pth"
 
         self._C.merge_from_file(config_yaml)
         self._C.merge_from_list(config_override)
