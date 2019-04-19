@@ -1,39 +1,48 @@
-# Arguments for the constructor of ProgramGenerator and QuestionReconstructor model
-model_input_size: 256
-model_hidden_size: 256
-model_num_layers: 2
-model_dropout: 0.0
+RANDOM_SEED: 0
+PHASE: question_coding
 
+# Training objective, "baseline": just train a program generator on examples with
+# supervision. "ours": optimize the whole question coding objective.
+OBJECTIVE: ours
+SUPERVISION: 1000
+SUPERVISION_QUESTION_MAX_LENGTH: 40
 
-# Optimization arguments (adam optimizer by default)
-optim_num_iterations: 35000
-optim_weight_decay: 0.000
-optim_batch_size: 256
+# Arguments for the constructor of ProgramGenerator model.
+PROGRAM_GENERATOR:
+  INPUT_SIZE: 256
+  HIDDEN_SIZE: 256
+  NUM_LAYERS: 2
+  DROPOUT: 0.0
 
-### Learning rate scheduling - (lr *= gamma) if program generation accuracy plateaus
-optim_lr_initial: 0.001
-optim_lr_gamma: 0.5
-optim_lr_patience: 3
+# Arguments for the constructor of QuestionReconstructor model.
+QUESTION_RECONSTRUCTOR:
+  INPUT_SIZE: 256
+  HIDDEN_SIZE: 256
+  NUM_LAYERS: 2
+  DROPOUT: 0.0
 
+ALPHA: 100.0
+BETA: 0.1
+DELTA: 0.99
 
-# Question coding hyper parameters
-qc_num_supervision: 1000
+# Optimization arguments, we use Adam optimizer and ReduceLROnPlateau scheduler.
+OPTIM:
+  BATCH_SIZE: 256
+  NUM_ITERATIONS: 60000
+  WEIGHT_DECAY: 0.0
 
-### Question length in CLEVR can be upto 45 - too much variance in lengths for less supervision.
-qc_supervision_question_max_length: 40
+  # Learning rate scheduling: (lr *= gamma) if program generation accuracy plateaus.
+  LR_INITIAL: 0.001
+  LR_GAMMA: 0.5
+  LR_PATIENCE: 3
 
-qc_alpha: 100.0
-qc_beta: 0.1
-qc_delta: 0.99
+# Path to pre-trained checkpoint of ProgramPrior.
+CHECKPOINTS:
+  PROGRAM_PRIOR: checkpoints/program_prior_best.pth
 
-### Optimization objective, "baseline": just train a program generator on examples with
-### supervision. "ours": optimize the whole question coding objective.
-qc_objective: "ours"
-
-
-# Arguments for the constructor of ProgramPrior model
-prior_checkpoint: "data/program_prior_best_checkpoint.pth"  # ppl: 2.600
-prior_input_size: 256
-prior_hidden_size: 256
-prior_num_layers: 2
-prior_dropout: 0.0
+# Arguments for the constructor of ProgramPrior model (loaded from checkpoint).
+PROGRAM_PRIOR:
+  INPUT_SIZE: 256
+  HIDDEN_SIZE: 256
+  NUM_LAYERS: 2
+  DROPOUT: 0.0

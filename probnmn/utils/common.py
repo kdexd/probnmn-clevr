@@ -1,18 +1,19 @@
 import argparse
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, Union
 import warnings
 import yaml
+
+from probnmn.config import Config
 
 
 def add_common_args(parser):
     parser.add_argument(
         "--config-override",
-        type=str,
-        default="{}",
-        help="A string following python dict syntax, specifying certain config arguments to "
-             "override, useful for launching batch jobs through shel lscripts. The actual config "
-             "will be updated and recorded in the checkpoint saving directory. Only argument "
-             "names already present in config will be overriden, rest ignored."
+        default=[],
+        nargs="*",
+        help="A sequence of key-value pairs specifying certain config arguments (with dict-like "
+             "nesting) using a dot operator. The actual config will be updated and recorded in "
+             "the serialization directory."
     )
     parser.add_argument(
         "--random-seed",
@@ -55,9 +56,16 @@ def add_common_args(parser):
     parser.add_argument_group("Compute resource controlling arguments.")
     parser.add_argument(
         "--gpu-ids",
+        default=[0],
         nargs="+",
         type=int,
         help="List of ids of GPUs to use (-1 for CPU)."
+    )
+    parser.add_argument(
+        "--cpu-workers",
+        type=int,
+        default=0,
+        help="Number of CPU workers to use for data loading."
     )
     parser.add_argument(
         "--num-val-examples",
@@ -89,10 +97,10 @@ def read_config(config_ymlpath: str):
     return config
 
 
-def override_config_from_opts(config: Dict[str, Union[int, float, str, List[int], List[float]]],
-                              config_override: str):
+def override_config_from_opts(config: Union[Config, Dict[str, Any]],
+                              config_override_str: str):
     # Convert string to a python dict.
-    config_override = eval(config_override)
+    config_override: Dict[str, Any] = eval(config_override_str)
 
     for config_key in config_override:
         if config_key in config:
@@ -102,9 +110,9 @@ def override_config_from_opts(config: Dict[str, Union[int, float, str, List[int]
     return config
 
 
-def print_config_and_args(config: Dict[str, Union[int, float, str, List[int], List[float]]],
+def print_config_and_args(config: Union[Config, Dict[str, Any]],
                           args: argparse.Namespace):
-    print(yaml.dump(config, default_flow_style=False))
+    print(config)
     for arg in vars(args):
         print("{:<20}: {}".format(arg, getattr(args, arg)))
 

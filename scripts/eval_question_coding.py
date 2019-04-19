@@ -1,5 +1,4 @@
 import argparse
-from typing import Any, Dict, Optional
 
 from allennlp.data import Vocabulary
 import numpy as np
@@ -7,9 +6,9 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from probnmn.config import Config
 from probnmn.data import QuestionCodingDataset
-from probnmn.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
-import probnmn.utils.checkpointing as checkpointing_utils
+from probnmn.models import ProgramGenerator, QuestionReconstructor
 import probnmn.utils.common as common_utils
 
 
@@ -32,55 +31,59 @@ parser.add_argument(
 )
 # Data file paths, gpu ids, checkpoint args etc.
 common_utils.add_common_args(parser)
-args = parser.parse_args()
-
-# For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-torch.manual_seed(args.random_seed)
-torch.cuda.manual_seed_all(args.random_seed)
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
-np.random.seed(args.random_seed)
 
 
 if __name__ == "__main__":
     # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
     # ============================================================================================
-    config = common_utils.read_config(args.config_yml)
-    config = common_utils.override_config_from_opts(config, args.config_override)
-    common_utils.print_config_and_args(config, args)
+    _A = parser.parse_args()
 
-    device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+    # Create a config with default values, then override from config file, and _A.
+    # This config object is immutable, nothing can be changed in this anymore.
+    _C = Config(_A.config_yml, _A.config_override)
+    common_utils.print_config_and_args(_C, _A)
+
+    # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
+    # These five lines control all the major sources of randomness.
+    np.random.seed(_C.RANDOM_SEED)
+    torch.manual_seed(_C.RANDOM_SEED)
+    torch.cuda.manual_seed_all(_C.RANDOM_SEED)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+    # Set device according to specified GPU ids.
+    device = torch.device("cuda", _A.gpu_ids[0]) if _A.gpu_ids[0] >= 0 else torch.device("cpu")
 
     # ============================================================================================
     #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL
     # ============================================================================================
 
-    vocabulary = Vocabulary.from_files(args.vocab_dirpath)
-    if args.split == "train":
-        eval_dataset = QuestionCodingDataset(args.tokens_train_h5)
+    vocabulary = Vocabulary.from_files(_A.vocab_dirpath)
+    if _A.split == "train":
+        eval_dataset = QuestionCodingDataset(_A.tokens_train_h5)
     else:
-        eval_dataset = QuestionCodingDataset(args.tokens_val_h5)
+        eval_dataset = QuestionCodingDataset(_A.tokens_val_h5)
 
-    batch_size = config["optim_batch_size"]
-    eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=_C.OPTIM.BATCH_SIZE)
 
     program_generator = ProgramGenerator(
         vocabulary=vocabulary,
-        input_size=config["model_input_size"],
-        hidden_size=config["model_hidden_size"],
-        num_layers=config["model_num_layers"],
-        dropout=config["model_dropout"],
-    ).to(device)
-    question_reconstructor = QuestionReconstructor(
-        vocabulary=vocabulary,
-        input_size=config["model_input_size"],
-        hidden_size=config["model_hidden_size"],
-        num_layers=config["model_num_layers"],
-        dropout=config["model_dropout"],
+        input_size=_C.PROGRAM_GENERATOR.INPUT_SIZE,
+        hidden_size=_C.PROGRAM_GENERATOR.HIDDEN_SIZE,
+        num_layers=_C.PROGRAM_GENERATOR.NUM_LAYERS,
+        dropout=_C.PROGRAM_GENERATOR.DROPOUT,
     ).to(device)
 
-    question_coding_checkpoint = torch.load(args.qc_checkpoint_pthpath)
+    question_reconstructor = QuestionReconstructor(
+        vocabulary=vocabulary,
+        input_size=_C.QUESTION_RECONSTRUCTOR.INPUT_SIZE,
+        hidden_size=_C.QUESTION_RECONSTRUCTOR.HIDDEN_SIZE,
+        num_layers=_C.QUESTION_RECONSTRUCTOR.NUM_LAYERS,
+        dropout=_C.QUESTION_RECONSTRUCTOR.DROPOUT,
+    ).to(device)
+
+    question_coding_checkpoint = torch.load(_A.qc_checkpoint_pthpath)
     program_generator.load_state_dict(question_coding_checkpoint["program_generator"])
     question_reconstructor.load_state_dict(question_coding_checkpoint["question_reconstructor"])
 
@@ -95,11 +98,11 @@ if __name__ == "__main__":
             _ = program_generator(batch["question"], batch["program"])
             _ = question_reconstructor(batch["program"], batch["question"])
 
-    __pg_metrics = program_generator.get_metrics()
-    __qr_metrics = question_reconstructor.get_metrics()
+    pg_metrics = program_generator.get_metrics()
+    qr_metrics = question_reconstructor.get_metrics()
 
     # keys: {"BLEU", "perplexity", "sequence_accuracy"}
-    for metric_name in __pg_metrics:
-        print(f"Program generator, {metric_name}:", __pg_metrics[metric_name])
-        print(f"Question reconstructor, {metric_name}:", __qr_metrics[metric_name])
+    for metric_name in pg_metrics:
+        print(f"Program generator, {metric_name}:", pg_metrics[metric_name])
+        print(f"Question reconstructor, {metric_name}:", qr_metrics[metric_name])
         print("\n")
