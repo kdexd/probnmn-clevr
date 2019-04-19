@@ -1,22 +1,23 @@
 import argparse
-import itertools
-from typing import Any, Dict
+import os
+from typing import Dict
 
 from allennlp.data import Vocabulary
-from allennlp.nn import util as allennlp_util
+import numpy as np
 from tensorboardX import SummaryWriter
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from probnmn.config import Config
 from probnmn.data import JointTrainingDataset
 from probnmn.data.sampler import SupervisionWeightedRandomSampler
 from probnmn.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
 from probnmn.models.nmn import NeuralModuleNetwork
-from probnmn.modules.elbo import JointTrainingNegativeElbo, Reinforce
+from probnmn.modules.elbo import JointTrainingNegativeElbo
 
-import probnmn.utils.checkpointing as checkpointing_utils
+from probnmn.utils.checkpointing import CheckpointManager
 import probnmn.utils.common as common_utils
 
 
@@ -27,24 +28,11 @@ parser.add_argument(
     default="configs/joint_training.yml",
     help="Path to a config file listing model and solver parameters.",
 )
-parser.add_argument(
-    "--cpu-workers",
-    type=int,
-    default=0,
-    help="Number of CPU workers to use for data loading."
-)
-# data file paths, gpu ids, checkpoint args etc.
+# Data file paths, gpu ids, checkpoint args etc.
 common_utils.add_common_args(parser)
-args = parser.parse_args()
-
-# for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
-torch.manual_seed(args.random_seed)
-torch.cuda.manual_seed_all(args.random_seed)
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
 
 
-def do_iteration(config: Dict[str, Any],
+def do_iteration(config: Config,
                  batch: Dict[str, torch.Tensor],
                  nmn: NeuralModuleNetwork,
                  program_generator: ProgramGenerator,
@@ -57,56 +45,57 @@ def do_iteration(config: Dict[str, Any],
 
     # Separate out examples with supervision and without supervision, these two lists will be
     # mutually exclusive.
-    gt_supervision_indices = batch["supervision"].nonzero().squeeze()
-    no_gt_supervision_indices = (1 - batch["supervision"]).nonzero().squeeze()
+    supervision_indices = batch["supervision"].nonzero().squeeze()
+    no_supervision_indices = (1 - batch["supervision"]).nonzero().squeeze()
 
     # Pick a subset of questions without (GT) program supervision, sample programs and pass
     # through the neural module network.
-    question_tokens_no_gt_supervision = batch["question"][no_gt_supervision_indices]
-    image_features_no_gt_supervision = batch["image"][no_gt_supervision_indices]
-    answer_tokens_no_gt_supervision = batch["answer"][no_gt_supervision_indices]
+    question_tokens_no_supervision = batch["question"][no_supervision_indices]
+    image_features_no_supervision = batch["image"][no_supervision_indices]
+    answer_tokens_no_supervision = batch["answer"][no_supervision_indices]
 
     # keys: {"nmn_loss", "negative_elbo_loss"}
     elbo_output_dict = elbo(
-        question_tokens_no_gt_supervision,
-        image_features_no_gt_supervision,
-        answer_tokens_no_gt_supervision
+        question_tokens_no_supervision,
+        image_features_no_supervision,
+        answer_tokens_no_supervision
     )
 
-    loss_objective = config["jt_gamma"] * elbo_output_dict["nmn_loss"] + \
-                     elbo_output_dict["negative_elbo_loss"]
+    loss_objective = _C.GAMMA * elbo_output_dict["nmn_loss"] + \
+        elbo_output_dict["negative_elbo_loss"]
 
-    if config["jt_objective"] == "ours":
+    if _C.OBJECTIVE == "ours":
         # ----------------------------------------------------------------------------------------
         # Supervision loss (program generator + question reconstructor):
         # Ignore question reconstructor for "baseline" objective, it's gradients don't interfere
         # with program generator anyway.
 
         # \alpha * ( \log{q_\phi (z'|x')} + \log{p_\theta (x'|z')} )
-        program_tokens_gt_supervision = batch["program"][gt_supervision_indices]
-        question_tokens_gt_supervision = batch["question"][gt_supervision_indices]
+        program_tokens_supervision = batch["program"][supervision_indices]
+        question_tokens_supervision = batch["question"][supervision_indices]
 
         # keys: {"predictions", "loss"}
-        __pg_output_dict_gt_supervision = program_generator(
-            question_tokens_gt_supervision, program_tokens_gt_supervision
+        __pg_output_dict_supervision = program_generator(
+            question_tokens_supervision, program_tokens_supervision
         )
-        __qr_output_dict_gt_supervision = question_reconstructor(
-            program_tokens_gt_supervision, question_tokens_gt_supervision
+        __qr_output_dict_supervision = question_reconstructor(
+            program_tokens_supervision, question_tokens_supervision
         )
-        program_generation_loss_gt_supervision = __pg_output_dict_gt_supervision["loss"].mean()
-        question_reconstruction_loss_gt_supervision = __qr_output_dict_gt_supervision["loss"].mean()
+        program_generation_loss_supervision = __pg_output_dict_supervision["loss"].mean()
+        question_reconstruction_loss_supervision = __qr_output_dict_supervision["loss"].mean()
         # ----------------------------------------------------------------------------------------
 
-        loss_objective += config["qc_alpha"] * program_generation_loss_gt_supervision + \
-                          config["qc_alpha"] * question_reconstruction_loss_gt_supervision
+        loss_objective += _C.ALPHA * (
+            program_generation_loss_supervision + question_reconstruction_loss_supervision
+        )
 
     nmn_metrics_output_dict = elbo_output_dict.pop("nmn_metrics")
     loss_objective.backward()
 
     # Clamp all gradients between (-5, 5)
-    for parameter in itertools.chain(program_generator.parameters(),
-                                     question_reconstructor.parameters(),
-                                     nmn.parameters()):
+    for parameter in list(program_generator.parameters()) + \
+            list(question_reconstructor.parameters()) + \
+            list(nmn.parameters()):
         if parameter.grad is not None:
             parameter.grad.clamp_(min=-5, max=5)
 
@@ -118,12 +107,12 @@ def do_iteration(config: Dict[str, Any],
         "elbo": {
             "elbo": -elbo_output_dict["negative_elbo_loss"]
         },
-        "nmn_metrics": nmn_metrics_output_dict
+        "metrics": nmn_metrics_output_dict
     }
-    if config["jt_objective"] == "ours":
+    if _C.OBJECTIVE == "ours":
         iteration_output_dict["loss"].update({
-            "question_reconstruction_gt": question_reconstruction_loss_gt_supervision,
-            "program_generation_gt": program_generation_loss_gt_supervision,
+            "question_reconstruction_gt": question_reconstruction_loss_supervision,
+            "program_generation_gt": program_generation_loss_supervision,
         })
     return iteration_output_dict
 
@@ -132,104 +121,134 @@ if __name__ == "__main__":
     # ============================================================================================
     #   INPUT ARGUMENTS AND CONFIG
     # ============================================================================================
-    config = common_utils.read_config(args.config_yml)
-    config = common_utils.override_config_from_opts(config, args.config_override)
-    common_utils.print_config_and_args(config, args)
+    _A = parser.parse_args()
 
-    device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+    # Create a config with default values, then override from config file, and _A.
+    # This config object is immutable, nothing can be changed in this anymore.
+    _C = Config(_A.config_yml, _A.config_override)
+    common_utils.print_config_and_args(_C, _A)
+
+    # Create serialization directory and save config in it.
+    os.makedirs(_A.save_dirpath, exist_ok=True)
+    _C.dump(os.path.join(_A.save_dirpath, "config.yml"))
+
+    # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
+    # These five lines control all the major sources of randomness.
+    np.random.seed(_C.RANDOM_SEED)
+    torch.manual_seed(_C.RANDOM_SEED)
+    torch.cuda.manual_seed_all(_C.RANDOM_SEED)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+    # Set device according to specified GPU ids.
+    device = torch.device("cuda", _A.gpu_ids[0]) if _A.gpu_ids[0] >= 0 else torch.device("cpu")
 
     # ============================================================================================
     #   SETUP VOCABULARY, DATASET, DATALOADER, MODEL, OPTIMIZER
     # ============================================================================================
-    vocabulary = Vocabulary.from_files(args.vocab_dirpath)
+    vocabulary = Vocabulary.from_files(_A.vocab_dirpath)
     train_dataset = JointTrainingDataset(
-        args.tokens_train_h5,
-        args.features_train_h5,
-        num_supervision=config["qc_num_supervision"],
-        supervision_question_max_length=config["qc_supervision_question_max_length"],
+        _A.tokens_train_h5,
+        _A.features_train_h5,
+        num_supervision=_C.SUPERVISION,
+        supervision_question_max_length=_C.SUPERVISION_QUESTION_MAX_LENGTH,
     )
     val_dataset = JointTrainingDataset(
-        args.tokens_val_h5, args.features_val_h5, num_supervision=config["qc_num_supervision"]
+        _A.tokens_val_h5, _A.features_val_h5, num_supervision=_C.SUPERVISION
     )
 
     train_sampler = SupervisionWeightedRandomSampler(train_dataset)
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=config["optim_batch_size"],
+        batch_size=_C.OPTIM.BATCH_SIZE,
         sampler=train_sampler,
-        num_workers=args.cpu_workers
+        num_workers=_A.cpu_workers
     )
     val_dataloader = DataLoader(
         val_dataset,
-        batch_size=config["optim_batch_size"],
-        num_workers=args.cpu_workers
+        batch_size=_C.OPTIM.BATCH_SIZE,
+        num_workers=_A.cpu_workers
     )
-    # Program Prior checkpoint, this will be frozen during question coding.
-    program_prior = ProgramPrior(
-        vocabulary=vocabulary,
-        input_size=config["prior_input_size"],
-        hidden_size=config["prior_hidden_size"],
-        num_layers=config["prior_num_layers"],
-        dropout=config["prior_dropout"],
-    ).to(device)
-    program_prior.load_state_dict(torch.load(config["prior_checkpoint"])["program_prior"])
-    program_prior.eval()
+
+    # Make train_dataloader cyclical to sample batches perpetually.
+    train_dataloader = common_utils.cycle(train_dataloader)
 
     program_generator = ProgramGenerator(
         vocabulary=vocabulary,
-        input_size=config["qc_model_input_size"],
-        hidden_size=config["qc_model_hidden_size"],
-        num_layers=config["qc_model_num_layers"],
-        dropout=config["qc_model_dropout"],
+        input_size=_C.PROGRAM_GENERATOR.INPUT_SIZE,
+        hidden_size=_C.PROGRAM_GENERATOR.HIDDEN_SIZE,
+        num_layers=_C.PROGRAM_GENERATOR.NUM_LAYERS,
+        dropout=_C.PROGRAM_GENERATOR.DROPOUT,
     ).to(device)
+
     question_reconstructor = QuestionReconstructor(
         vocabulary=vocabulary,
-        input_size=config["qc_model_input_size"],
-        hidden_size=config["qc_model_hidden_size"],
-        num_layers=config["qc_model_num_layers"],
-        dropout=config["qc_model_dropout"],
+        input_size=_C.QUESTION_RECONSTRUCTOR.INPUT_SIZE,
+        hidden_size=_C.QUESTION_RECONSTRUCTOR.HIDDEN_SIZE,
+        num_layers=_C.QUESTION_RECONSTRUCTOR.NUM_LAYERS,
+        dropout=_C.QUESTION_RECONSTRUCTOR.DROPOUT,
     ).to(device)
+
     nmn = NeuralModuleNetwork(
         vocabulary=vocabulary,
-        image_feature_size=tuple(config["mt_model_image_feature_size"]),
-        module_channels=config["mt_model_module_channels"],
-        class_projection_channels=config["mt_model_class_projection_channels"],
-        classifier_linear_size=config["mt_model_classifier_linear_size"]
+        image_feature_size=tuple(_C.NMN.IMAGE_FEATURE_SIZE),
+        module_channels=_C.NMN.MODULE_CHANNELS,
+        class_projection_channels=_C.NMN.CLASS_PROJECTION_CHANNELS,
+        classifier_linear_size=_C.NMN.CLASSIFIER_LINEAR_SIZE,
     ).to(device)
 
-    # Load checkpoints from program prior, question coding and module training phases.
-    question_coding_checkpoint = torch.load(config["qc_checkpoint"])
+    # Load checkpoints from question coding and module training phases.
+    question_coding_checkpoint = torch.load(_C.CHECKPOINTS.QUESTION_CODING)
     program_generator.load_state_dict(question_coding_checkpoint["program_generator"])
     question_reconstructor.load_state_dict(question_coding_checkpoint["question_reconstructor"])
+    nmn.load_state_dict(torch.load(_C.CHECKPOINTS.NMN)["nmn"])
 
-    program_prior.load_state_dict(torch.load(config["prior_checkpoint"])["program_prior"])
-    nmn.load_state_dict(torch.load(config["mt_checkpoint"])["nmn"])
+    # ProgramPrior checkpoint, this will be frozen during joint training.
+    program_prior = ProgramPrior(
+        vocabulary=vocabulary,
+        input_size=_C.PROGRAM_PRIOR.INPUT_SIZE,
+        hidden_size=_C.PROGRAM_PRIOR.HIDDEN_SIZE,
+        num_layers=_C.PROGRAM_PRIOR.NUM_LAYERS,
+        dropout=_C.PROGRAM_PRIOR.DROPOUT,
+    ).to(device)
+
+    program_prior.load_state_dict(torch.load(_C.CHECKPOINTS.PROGRAM_PRIOR)["program_prior"])
+    program_prior.eval()
 
     elbo = JointTrainingNegativeElbo(
         program_generator, question_reconstructor, program_prior, nmn,
-        beta=config["qc_beta"], gamma=config["jt_gamma"], baseline_decay=config["qc_delta"],
-        objective=config["jt_objective"]
-    )
-    optimizer = optim.Adam(
-        itertools.chain(
-            program_generator.parameters(), question_reconstructor.parameters(), nmn.parameters()
-        ),
-        lr=config["optim_lr_initial"], weight_decay=config["optim_weight_decay"]
-    )
-    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="max", factor=config["optim_lr_gamma"],
-        patience=config["optim_lr_patience"], threshold=1e-2
+        beta=_C.BETA, gamma=_C.GAMMA, baseline_decay=_C.DELTA,
+        objective=_C.OBJECTIVE
     )
 
-    if -1 not in args.gpu_ids:
+    all_parameters = (
+        list(program_generator.parameters()) + 
+        list(question_reconstructor.parameters()) + 
+        list(nmn.parameters())
+    )
+    optimizer = optim.Adam(
+        all_parameters,
+        lr=_C.OPTIM.LR_INITIAL,
+        weight_decay=_C.OPTIM.WEIGHT_DECAY,
+    )
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="max",
+        factor=_C.OPTIM.LR_GAMMA,
+        patience=_C.OPTIM.LR_PATIENCE,
+        threshold=1e-2,
+    )
+
+    if -1 not in _A.gpu_ids:
         # Don't wrap to DataParallel for CPU-mode.
-        nmn = nn.DataParallel(nmn, args.gpu_ids)
+        nmn = nn.DataParallel(nmn, _A.gpu_ids)
 
     # ============================================================================================
     #   BEFORE TRAINING LOOP
     # ============================================================================================
-    checkpoint_manager = checkpointing_utils.CheckpointManager(
-        serialization_dir=args.save_dirpath,
+    summary_writer = SummaryWriter(log_dir=_A.save_dirpath)
+    checkpoint_manager = CheckpointManager(
+        serialization_dir=_A.save_dirpath,
         models={
             "program_generator": program_generator,
             "question_reconstructor": question_reconstructor,
@@ -239,43 +258,39 @@ if __name__ == "__main__":
         mode="max",
         filename_prefix="joint_training",
     )
-    checkpoint_manager.init_directory(config)
-    summary_writer = SummaryWriter(log_dir=args.save_dirpath)
-
-    # Make train dataloader iteration cyclical.
-    train_dataloader = common_utils.cycle(train_dataloader)
 
     # ============================================================================================
     #   TRAINING LOOP
     # ============================================================================================
-    print(f"Training for {config['optim_num_iterations']} iterations:")
-    for iteration in tqdm(range(1, config["optim_num_iterations"] + 1)):
+    for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
         batch = next(train_dataloader)
         for key in batch:
             batch[key] = batch[key].to(device)
 
-        # keys: {"predictions", "loss", "answer_accuracy"}
+        # keys: {"predictions", "loss", "metrics"}
         iteration_output_dict = do_iteration(
-            config, batch, nmn, program_generator, question_reconstructor, program_prior,
+            _C, batch, nmn, program_generator, question_reconstructor, program_prior,
             elbo, optimizer
         )
 
         # Log losses and hyperparameters.
-        summary_writer.add_scalars("loss", iteration_output_dict["loss"], iteration)
-        summary_writer.add_scalars("elbo", iteration_output_dict["elbo"], iteration)
-        summary_writer.add_scalars("nmn_metrics", iteration_output_dict["nmn_metrics"], iteration)
-        summary_writer.add_scalars("schedule", {"lr": optimizer.param_groups[0]["lr"]}, iteration)
+        summary_writer.add_scalars("train/loss", iteration_output_dict["loss"], iteration)
+        summary_writer.add_scalars("train/elbo", iteration_output_dict["elbo"], iteration)
+        summary_writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], iteration)
+        for metric in iteration_output_dict["metrics"]:
+            summary_writer.add_scalar(
+                f"train/metrics/{metric}", iteration_output_dict["metrics"][metric], iteration
+            )
 
         # ========================================================================================
         #   VALIDATION
         # ========================================================================================
-        if iteration % args.checkpoint_every == 0:
-            print(f"Validation after iteration {iteration}:")
+        if iteration % _A.checkpoint_every == 0:
             nmn.eval()
             program_generator.eval()
             question_reconstructor.eval()
 
-            for i, batch in enumerate(tqdm(val_dataloader)):
+            for i, batch in enumerate(tqdm(val_dataloader, desc="validation")):
                 for key in batch:
                     batch[key] = batch[key].to(device)
 
@@ -286,7 +301,7 @@ if __name__ == "__main__":
                     _ = question_reconstructor(batch["program"], batch["question"])
                     _ = nmn(batch["image"], sampled_programs, batch["answer"])
 
-                if (i + 1) * len(batch["question"]) > args.num_val_examples: break
+                if (i + 1) * len(batch["question"]) > _A.num_val_examples: break
 
             val_metrics = {
                 "program_generator": program_generator.get_metrics(),

@@ -62,6 +62,12 @@ def add_common_args(parser):
         help="List of ids of GPUs to use (-1 for CPU)."
     )
     parser.add_argument(
+        "--cpu-workers",
+        type=int,
+        default=0,
+        help="Number of CPU workers to use for data loading."
+    )
+    parser.add_argument(
         "--num-val-examples",
         default=10000,
         type=int,

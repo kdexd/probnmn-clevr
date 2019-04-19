@@ -39,9 +39,9 @@ def do_iteration(
     batch: Dict[str, torch.Tensor],
     program_generator: ProgramGenerator,
     question_reconstructor: QuestionReconstructor,
-    program_prior: ProgramPrior = None,
-    elbo: QuestionCodingElbo = None,
-    optimizer: optim.Optimizer = None,
+    program_prior: ProgramPrior,
+    elbo: QuestionCodingElbo,
+    optimizer: optim.Optimizer,
 ):
     """Perform one iteration - forward, backward passes (and optim step, if training)."""
 
@@ -261,10 +261,9 @@ if __name__ == "__main__":
                 for key in batch:
                     batch[key] = batch[key].to(device)
                 with torch.no_grad():
-                    # Elbo has no role during validation, we don't need it (and hence the prior).
-                    iteration_output_dict = do_iteration(
-                        _C, batch, program_generator, question_reconstructor
-                    )
+                    # We really only need to accumulate metrics in these classes.
+                    _ = program_generator(batch["question"], batch["program"])
+                    _ = question_reconstructor(batch["program"], batch["question"])
                 if (i + 1) * len(batch["program"]) > _A.num_val_examples:
                     break
 

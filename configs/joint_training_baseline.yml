@@ -1,49 +1,59 @@
-# Arguments for the constructor of NeuralModuleNetwork model
-mt_model_image_feature_size: [1024, 14, 14]
-mt_model_module_channels: 128
-mt_model_class_projection_channels: 1024
-mt_model_classifier_linear_size: 1024
+RANDOM_SEED: 0
+PHASE: joint_training
 
-# Arguments for the constructor of ProgramGenerator and QuestionReconstructor model
-qc_model_input_size: 256
-qc_model_hidden_size: 256
-qc_model_num_layers: 2
-qc_model_dropout: 0.0
+# Training objective, "baseline": just train a program generator on examples with
+# supervision. "ours": optimize the whole question coding objective.
+OBJECTIVE: baseline
+SUPERVISION: 1000
+SUPERVISION_QUESTION_MAX_LENGTH: 40
 
-# Arguments for the constructor of ProgramPrior model
-prior_checkpoint: "data/program_prior_best_checkpoint.pth"  # ppl: 2.600
-prior_input_size: 256
-prior_hidden_size: 256
-prior_num_layers: 2
-prior_dropout: 0.0
+# ALPHA, BETA, GAMMA, DELTA are not used when OBJECTIVE is "baseline".
+ALPHA: 1.0
+BETA: 1.0
+GAMMA: 1.0
+DELTA: 1.0
 
-# Optimization arguments (adam optimizer by default)
-optim_num_iterations: 20000
-optim_batch_size: 256
-optim_weight_decay: 0.000
+# Optimization arguments, we use Adam optimizer and ReduceLROnPlateau scheduler.
+OPTIM:
+  BATCH_SIZE: 256
+  NUM_ITERATIONS: 20000
+  WEIGHT_DECAY: 0.0
 
-### Learning rate scheduling - (lr *= gamma) if answer accuracy plateaus
-optim_lr_initial: 0.00002
-optim_lr_gamma: 0.9
-optim_lr_patience: 10000
-### No LR scheduling here.
+  # Learning rate scheduling: (lr *= gamma) if program generation accuracy plateaus.
+  LR_INITIAL: 0.00001
+  LR_GAMMA: 0.5
+  LR_PATIENCE: 3
 
-# Question coding hyper parameters
-qc_num_supervision: 1000
+# Path to pre-trained checkpoints.
+CHECKPOINTS:
+  PROGRAM_PRIOR: checkpoints/program_prior_best.pth
+  QUESTION_CODING: checkpoints/question_coding_1000_baseline_best.pth
+  MODULE_TRAINING: checkpoints/module_training_1000_baseline_best.pth
 
-### Question length in CLEVR can be upto 45 - too much variance in lengths for less supervision.
-qc_supervision_question_max_length: 40
+# Arguments for the constructor of ProgramGenerator model (loaded from checkpoint).
+PROGRAM_GENERATOR:
+  INPUT_SIZE: 256
+  HIDDEN_SIZE: 256
+  NUM_LAYERS: 2
+  DROPOUT: 0.0
 
-# These don't mean anything when training a baseline.
-qc_alpha: 1.0
-qc_beta: 1.0
-qc_delta: 1.0
+# Arguments for the constructor of QuestionReconstructor model (loaded from checkpoint).
+QUESTION_RECONSTRUCTOR:
+  INPUT_SIZE: 256
+  HIDDEN_SIZE: 256
+  NUM_LAYERS: 2
+  DROPOUT: 0.0
 
-jt_gamma: 1.0
+# Arguments for the constructor of ProgramPrior model (loaded from checkpoint).
+PROGRAM_PRIOR:
+  INPUT_SIZE: 256
+  HIDDEN_SIZE: 256
+  NUM_LAYERS: 2
+  DROPOUT: 0.0
 
-### Optimization objective.
-jt_objective: "baseline"
-
-# Best checkpoints from previous phases of training.
-qc_checkpoint: "data/question_coding_best.pth"
-mt_checkpoint: "data/module_training_best.pth"
+# Arguments for the constructor of NeuralModuleNetwork model (loaded from checkpoint).
+NMN:
+  IMAGE_FEATURE_SIZE: [1024, 14, 14]
+  MODULE_CHANNELS: 128
+  CLASS_PROJECTION_CHANNELS: 1024
+  CLASSIFIER_LINEAR_SIZE: 1024
