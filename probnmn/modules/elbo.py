@@ -189,9 +189,5 @@ class JointTrainingNegativeElbo(_NegativeElboWithReinforce):
 
         return {
             "nmn_loss": nmn_output_dict["loss"].mean(),
-            "negative_elbo_loss": negative_elbo_loss.mean(),
-            "nmn_metrics": {
-                "answer_accuracy": nmn_output_dict["answer_accuracy"],
-                "average_invalid": nmn_output_dict["average_invalid"]
-            }
+            "elbo": -negative_elbo_loss.mean(),
         }

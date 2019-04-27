@@ -10,10 +10,16 @@ from tqdm import tqdm
 from probnmn.config import Config
 from probnmn.evaluators import (
     ProgramPriorEvaluator,
+    JointTrainingEvaluator,
     ModuleTrainingEvaluator,
     QuestionCodingEvaluator,
 )
-from probnmn.trainers import ProgramPriorTrainer, ModuleTrainingTrainer, QuestionCodingTrainer
+from probnmn.trainers import (
+    ProgramPriorTrainer,
+    JointTrainingTrainer,
+    ModuleTrainingTrainer,
+    QuestionCodingTrainer,
+)
 import probnmn.utils.common as common_utils
 
 
@@ -21,7 +27,7 @@ parser = argparse.ArgumentParser("Run training for a particular phase.")
 parser.add_argument(
     "--phase",
     required=True,
-    choices=["program_prior", "question_coding"],
+    choices=["program_prior", "question_coding", "module_training", "joint_training"],
     help="Which phase to train, this argument must match 'PHASE' parameter in provided config.",
 )
 parser.add_argument(
@@ -87,6 +93,9 @@ if __name__ == "__main__":
     elif _C.PHASE == "module_training":
         trainer = ModuleTrainingTrainer(_C, _A, device)
         evaluator = ModuleTrainingEvaluator(_C, _A, trainer.models, device)
+    elif _C.PHASE == "module_training":
+        trainer = JointTrainingTrainer(_C, _A, device)
+        evaluator = JointTrainingEvaluator(_C, _A, trainer.models, device)
 
     for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
         trainer.step()
