@@ -28,7 +28,7 @@ DELTA: 0.99
 # Optimization arguments, we use Adam optimizer and ReduceLROnPlateau scheduler.
 OPTIM:
   BATCH_SIZE: 256
-  NUM_ITERATIONS: 60000
+  NUM_ITERATIONS: 80000
   WEIGHT_DECAY: 0.0
 
   # Learning rate scheduling: (lr *= gamma) if program generation accuracy plateaus.

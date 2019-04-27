@@ -34,9 +34,6 @@ parser.add_argument(
     "--config-yml", required=True, help="Path to a config file for specified phase."
 )
 parser.add_argument(
-    "--cpu-workers", type=int, default=0, help="Number of CPU workers to use for data loading."
-)
-parser.add_argument(
     "--checkpoint-pthpath", default="", help="Path to load checkpoint and continue training."
 )
 # Data file paths, gpu ids, checkpoint args etc.
@@ -93,7 +90,7 @@ if __name__ == "__main__":
     elif _C.PHASE == "module_training":
         trainer = ModuleTrainingTrainer(_C, _A, device)
         evaluator = ModuleTrainingEvaluator(_C, _A, trainer.models, device)
-    elif _C.PHASE == "module_training":
+    elif _C.PHASE == "joint_training":
         trainer = JointTrainingTrainer(_C, _A, device)
         evaluator = JointTrainingEvaluator(_C, _A, trainer.models, device)
 

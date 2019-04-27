@@ -11,13 +11,13 @@ NMN:
 # Optimization arguments, we use Adam optimizer (no LR scheduling here).
 OPTIM:
   BATCH_SIZE: 128
-  NUM_ITERATIONS: 40000
+  NUM_ITERATIONS: 80000
   WEIGHT_DECAY: 0.000
 
   LR_INITIAL: 0.0001
 
-  # Learning rate scheduling is off here (very higher patience and gamma=1).
-  LR_GAMMA: 1.0
+  # Learning rate scheduling is off here (very higher patience).
+  LR_GAMMA: 0.5
   LR_PATIENCE: 1000000
 
 # Path to pre-trained checkpoint of ProgramGenerator (from Question Coding).
