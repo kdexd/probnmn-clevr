@@ -169,6 +169,17 @@ class _Trainer(object):
                     self._iteration,
                 )
 
+    def start_from(self, checkpoint_path: str, iteration: Optional[int] = None):
+        training_checkpoint: Dict[str, Any] = torch.load(checkpoint_path)
+        for key in training_checkpoint:
+            if key == "optimizer":
+                self._optimizer.load_state_dict(training_checkpoint[key])
+            else:
+                self._models[key].load_state_dict(training_checkpoint[key])
+
+        # Infer iteration number from checkpoint file name, if not specified.
+        self._iteration = iteration or int(checkpoint_path.split("_")[-1][:-4])
+
     def _cycle(self, dataloader: DataLoader) -> Generator[Dict[str, torch.Tensor], None, None]:
         """A generator which yields a random batch from dataloader perpetually. This generator is
         used in the constructor.

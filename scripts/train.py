@@ -62,7 +62,7 @@ parser.add_argument(
     help="Save a checkpoint after every this many epochs/iterations.",
 )
 parser.add_argument(
-    "--checkpoint-pthpath",
+    "--start-from-checkpoint",
     default="",
     help="Path to load checkpoint and continue training [only supported for module_training].",
 )
@@ -131,6 +131,10 @@ if __name__ == "__main__":
     elif _C.PHASE == "joint_training":
         trainer = JointTrainingTrainer(_C, _A.serialization_dir, _A.gpu_ids)
         evaluator = JointTrainingEvaluator(_C, trainer.models, _A.gpu_ids)
+
+    # Load from a checkpoint if specified, and resume training from there.
+    if _A.start_from_checkpoint != "":
+        trainer.start_from(_A.start_from_checkpoint)
 
     for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
         trainer.step()

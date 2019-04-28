@@ -74,12 +74,6 @@ class JointTrainingTrainer(_Trainer):
             dropout=self._C.PROGRAM_PRIOR.DROPOUT,
         )
 
-        # Load program prior from checkpoint, this will be frozen during joint training.
-        self._program_prior.load_state_dict(
-            torch.load(self._C.CHECKPOINTS.PROGRAM_PRIOR)["program_prior"]
-        )
-        self._program_prior.eval()
-
         self._nmn = NeuralModuleNetwork(
             vocabulary=vocabulary,
             image_feature_size=tuple(self._C.NMN.IMAGE_FEATURE_SIZE),
@@ -88,13 +82,17 @@ class JointTrainingTrainer(_Trainer):
             classifier_linear_size=self._C.NMN.CLASSIFIER_LINEAR_SIZE,
         )
 
-        # Load checkpoints from question coding and module training phases.
+        # Load checkpoints from question_coding and module_training phases.
         question_coding_checkpoint = torch.load(self._C.CHECKPOINTS.QUESTION_CODING)
         self._program_generator.load_state_dict(question_coding_checkpoint["program_generator"])
         self._question_reconstructor.load_state_dict(
             question_coding_checkpoint["question_reconstructor"]
         )
         self._nmn.load_state_dict(torch.load(self._C.CHECKPOINTS.NMN)["nmn"])
+
+        # This checkpoint is same as propgram prior phase (frozen during question coding).
+        self._program_prior.load_state_dict(question_coding_checkpoint["program_prior"])
+        self._program_prior.eval()
 
         super().__init__(
             config=config,

@@ -7,7 +7,6 @@ from typing import Any, Dict, Type
 
 import torch
 from torch import nn, optim
-import yaml
 
 
 class CheckpointManager(object):
@@ -15,9 +14,9 @@ class CheckpointManager(object):
     directory. This class closely follows the API of PyTorch optimizers and learning rate
     schedulers.
 
-    Note::
-        For ``DataParallel`` modules, ``model.module.state_dict()`` is
-        saved, instead of ``model.state_dict()``.
+    Note
+    ----
+    For ``nn.DataParallel``, ``.module.state_dict()`` is called instead of ``.state_dict()``.
 
     Parameters
     ----------
@@ -28,9 +27,8 @@ class CheckpointManager(object):
     serialization_dir: str
         Path to an empty or non-existent directory to save checkpoints.
     mode: str, optional (default="max")
-        One of `min`, `max`. In `min` mode, best checkpoint will be
-        recorded when metric hits a lower value; in `max` mode it will
-        be recorded when metric hits a higher value.
+        One of `min`, `max`. In `min` mode, best checkpoint will be recorded when metric hits a
+        lower value; in `max` mode it will be recorded when metric hits a higher value.
     filename_prefix: str, optional (default="checkpoint")
         Prefix of the to-be-saved checkpoint files.
 
@@ -70,18 +68,6 @@ class CheckpointManager(object):
         # Initialize members to hold best checkpoint and its performance.
         self._best_metric = None
         self._best_ckpt = copy.copy(self._models_state_dict())
-
-    def init_directory(self, config: Dict[str, Any]):
-        """Initialize empty directory to serialize checkpoints and record commit SHA in it and
-        save config in this directory.
-        """
-        # Create serialization directory if it doesn't exist. 
-        self._serialization_dir.mkdir(parents=True, exist_ok=True)
-        yaml.dump(
-            config,
-            open(str(self._serialization_dir / "config.yml"), "w"),
-            default_flow_style=False,
-        )
 
     def step(self, metric, epoch_or_iteration):
         """Save checkpoint if step size conditions meet, and update best checkpoint based
