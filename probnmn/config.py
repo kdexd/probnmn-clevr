@@ -84,7 +84,64 @@ class Config(object):
         return self._C.__getattr__(attr)
 
     def __str__(self):
-        return self._C.__str__()
+
+        __C: CN = CN()
+        __C.PHASE = self._C.PHASE
+        __C.RANDOM_SEED = self._C.RANDOM_SEED
+        common_string: str = str(__C) + "\n"
+
+        if self._C.PHASE in {"question_coding", "joint_training"}:
+            __C: CN = CN()
+            __C.OBJECTIVE = self._C.OBJECTIVE
+            __C.SUPERVISION = self._C.SUPERVISION
+            __C.SUPERVISION_QUESTION_MAX_LENGTH = self._C.SUPERVISION_QUESTION_MAX_LENGTH
+            common_string += str(__C) + "\n"
+
+        common_string += str(self._C.DATA) + "\n"
+
+        if self._C.PHASE in {"program_prior", "question_coding", "joint_training"}:
+            common_string += str(CN({"PROGRAM_PRIOR": self._C.PROGRAM_PRIOR})) + "\n"
+
+        if self._C.PHASE in {"question_coding", "module_training", "joint_training"}:
+            common_string += str(CN({"PROGRAM_GENERATOR": self._C.PROGRAM_GENERATOR})) + "\n"
+
+        if self._C.PHASE in {"question_coding", "joint_training"}:
+            common_string += (
+                str(CN({"QUESTION_RECONSTRUCTOR": self._C.QUESTION_RECONSTRUCTOR})) + "\n"
+            )
+
+        if self._C.PHASE in {"module_training", "joint_training"}:
+            common_string += str(CN({"NMN": self._C.NMN})) + "\n"
+
+        if self._C.PHASE in {"question_coding", "joint_training"}:
+            __C: CN = CN()
+            __C.ALPHA = self._C.ALPHA
+            __C.BETA = self._C.BETA
+            __C.DELTA = self._C.DELTA
+            if self._C.PHASE == "joint_training":
+                __C.GAMMA = self._C.GAMMA
+            common_string += str(__C) + "\n"
+
+        common_string += str(CN({"OPTIM": self._C.OPTIM})) + "\n"
+
+        if self._C.PHASE == "question_coding":
+            __C = CN()
+            __C.CHECKPOINTS = CN()
+            __C.CHECKPOINTS.PROGRAM_PRIOR = self._C.CHECKPOINTS.PROGRAM_PRIOR
+        elif self._C.PHASE == "module_training":
+            __C = CN()
+            __C.CHECKPOINTS = CN()
+            __C.CHECKPOINTS.QUESTION_CODING = self._C.CHECKPOINTS.QUESTION_CODING
+        elif self._C.PHASE == "joint_training":
+            __C = CN()
+            __C.CHECKPOINTS = CN()
+            __C.CHECKPOINTS.QUESTION_CODING = self._C.CHECKPOINTS.QUESTION_CODING
+            __C.CHECKPOINTS.MODULE_TRAINING = self._C.CHECKPOINTS.MODULE_TRAINING
+        else:
+            __C = CN()
+
+        common_string += str(__C) + "\n"
+        return common_string
 
     def __repr__(self):
         return self._C.__repr__()
