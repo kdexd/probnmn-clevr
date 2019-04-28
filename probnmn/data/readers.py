@@ -62,15 +62,14 @@ class ClevrTokensReader(object):
 
 
 class ClevrImageFeaturesReader(object):
-    """
-    A Reader for retrieving pre-extracted image features from CLEVR images. We typically use
+    r"""A Reader for retrieving pre-extracted image features from CLEVR images. We typically use
     features extracted using ResNet-101.
 
-    Example of an HDF file:
-    ```
-    features_train.h5
-       |--- "features" [shape: (num_images, channels, height, width)]
-       +--- .attrs ("split", "train")
+    Example of an HDF file::
+
+        features_train.h5
+        |--- "features" [shape: (num_images, channels, height, width)]
+        +--- .attrs ("split", "train")
 
     Parameters
     ----------

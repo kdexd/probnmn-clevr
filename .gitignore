@@ -39,6 +39,9 @@ data/
 # Checkpoints directory
 checkpoints/
 
+# Sphinx documentation
+docs/_build
+
 # IPython Notebook
 .ipynb_checkpoints
 

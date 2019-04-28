@@ -1,0 +1,7 @@
+
+/* Add a light background to class signatures. */
+.class > dt:first-of-type {
+    background-color: #dddddd;
+    padding: 10px;
+    border: 1px solid #888888;
+}
