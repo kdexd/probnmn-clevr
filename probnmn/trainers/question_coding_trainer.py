@@ -37,8 +37,8 @@ class QuestionCodingTrainer(_Trainer):
 
         # Vocabulary is needed to instantiate the models.
         vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
-        # These will be a part of `self._models`, keep these handles for convenience.
-        self._program_generator = ProgramGenerator(
+
+        program_generator = ProgramGenerator(
             vocabulary=vocabulary,
             input_size=self._C.PROGRAM_GENERATOR.INPUT_SIZE,
             hidden_size=self._C.PROGRAM_GENERATOR.HIDDEN_SIZE,
@@ -46,7 +46,7 @@ class QuestionCodingTrainer(_Trainer):
             dropout=self._C.PROGRAM_GENERATOR.DROPOUT,
         )
 
-        self._question_reconstructor = QuestionReconstructor(
+        question_reconstructor = QuestionReconstructor(
             vocabulary=vocabulary,
             input_size=self._C.QUESTION_RECONSTRUCTOR.INPUT_SIZE,
             hidden_size=self._C.QUESTION_RECONSTRUCTOR.HIDDEN_SIZE,
@@ -54,7 +54,7 @@ class QuestionCodingTrainer(_Trainer):
             dropout=self._C.QUESTION_RECONSTRUCTOR.DROPOUT,
         )
 
-        self._program_prior = ProgramPrior(
+        program_prior = ProgramPrior(
             vocabulary=vocabulary,
             input_size=self._C.PROGRAM_PRIOR.INPUT_SIZE,
             hidden_size=self._C.PROGRAM_PRIOR.HIDDEN_SIZE,
@@ -63,22 +63,27 @@ class QuestionCodingTrainer(_Trainer):
         )
 
         # Load program prior from checkpoint, this will be frozen during question coding.
-        self._program_prior.load_state_dict(
+        program_prior.load_state_dict(
             torch.load(self._C.CHECKPOINTS.PROGRAM_PRIOR)["program_prior"]
         )
-        self._program_prior.eval()
+        program_prior.eval()
 
         super().__init__(
             config=config,
             dataloader=dataloader,
             models={
-                "program_generator": self._program_generator,
-                "question_reconstructor": self._question_reconstructor,
-                "program_prior": self._program_prior,
+                "program_generator": program_generator,
+                "question_reconstructor": question_reconstructor,
+                "program_prior": program_prior,
             },
             serialization_dir=serialization_dir,
             gpu_ids=gpu_ids
         )
+
+        # These will be a part of `self._models`, keep these handles for convenience.
+        self._program_generator = self._models["program_generator"]
+        self._question_reconstructor = self._models["question_reconstructor"]
+        self._program_prior = self._models["program_prior"]
 
         # Instantiate an elbo module to compute evidence lower bound during `_do_iteration`.
         self._elbo = QuestionCodingElbo(

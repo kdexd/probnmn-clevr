@@ -37,16 +37,7 @@ class ModuleTrainingTrainer(_Trainer):
         # Vocabulary is needed to instantiate the models.
         vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
 
-        # This will be a part of `self._models`, keep this handle for convenience.
-        self._nmn = NeuralModuleNetwork(
-            vocabulary=vocabulary,
-            image_feature_size=tuple(self._C.NMN.IMAGE_FEATURE_SIZE),
-            module_channels=self._C.NMN.MODULE_CHANNELS,
-            class_projection_channels=self._C.NMN.CLASS_PROJECTION_CHANNELS,
-            classifier_linear_size=self._C.NMN.CLASSIFIER_LINEAR_SIZE,
-        )
-
-        self._program_generator = ProgramGenerator(
+        program_generator = ProgramGenerator(
             vocabulary=vocabulary,
             input_size=self._C.PROGRAM_GENERATOR.INPUT_SIZE,
             hidden_size=self._C.PROGRAM_GENERATOR.HIDDEN_SIZE,
@@ -55,18 +46,30 @@ class ModuleTrainingTrainer(_Trainer):
         )
 
         # Load program generator from checkpoint, this will be frozen during module training.
-        self._program_generator.load_state_dict(
+        program_generator.load_state_dict(
             torch.load(self._C.CHECKPOINTS.QUESTION_CODING)["program_generator"]
         )
-        self._program_generator.eval()
+        program_generator.eval()
+
+        nmn = NeuralModuleNetwork(
+            vocabulary=vocabulary,
+            image_feature_size=tuple(self._C.NMN.IMAGE_FEATURE_SIZE),
+            module_channels=self._C.NMN.MODULE_CHANNELS,
+            class_projection_channels=self._C.NMN.CLASS_PROJECTION_CHANNELS,
+            classifier_linear_size=self._C.NMN.CLASSIFIER_LINEAR_SIZE,
+        )
 
         super().__init__(
             config=config,
             dataloader=dataloader,
-            models={"nmn": self._nmn, "program_generator": self._program_generator},
+            models={"program_generator": program_generator, "nmn": nmn},
             serialization_dir=serialization_dir,
             gpu_ids=gpu_ids,
         )
+
+        # These will be a part of `self._models`, keep these handles for convenience.
+        self._program_generator = self._models["program_generator"]
+        self._nmn = self._models["nmn"]
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         """Perform one iteration, take a forward pass and compute loss. Return an output dict
