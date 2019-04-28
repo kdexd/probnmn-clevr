@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 
-from typing import Any, Dict, List, Set, Union
+from typing import List, Set
 from mypy_extensions import TypedDict
 
 
@@ -25,9 +25,9 @@ parser.add_argument(
     help="Path to CLEVR v1.0 train annotation json file.",
 )
 parser.add_argument(
-    "-s",
-    "--save-dirpath",
-    default="data/vocabulary",
+    "-o",
+    "--output-dirpath",
+    default="data/clevr_vocabulary",
     help="Path to a (non-existent directory to save the vocabulary.",
 )
 
@@ -119,29 +119,30 @@ if __name__ == "__main__":
     print(f"Program vocabulary size (with special tokens): {len(program_vocabulary)}")
 
     print("Building answer vocabulary...")
-    # No special tokens for answer vocabulary, because answers are not a "sequence".
+    # Only @@UNKNOWN@@ for answer vocabulary, because answers are not a "sequence".
     answer_vocabulary: List[str] = sorted(list(set([item["answer"] for item in clevr_json])))
+    answer_vocabulary = answer_vocabulary + ["@@UNKNOWN@@"]
     print(f"Answer vocabulary size: {len(answer_vocabulary)}")
 
     # Write the vocabulary to separate namespace files in directory.
-    print(f"Writing the vocabulary to {args.save_dirpath}...")
+    print(f"Writing the vocabulary to {args.output_dirpath}...")
     print("Namespaces: programs, questions, answers.")
     print("Non-padded namespaces: answers.")
 
-    os.makedirs(args.save_dirpath, exist_ok=True)
+    os.makedirs(args.output_dirpath, exist_ok=True)
 
     # DO NOT write @@PADDING@@ token, AllenNLP would always add it internally.
-    with open(os.path.join(args.save_dirpath, "questions.txt"), "w") as f:
+    with open(os.path.join(args.output_dirpath, "questions.txt"), "w") as f:
         for question_token in question_vocabulary[1:]:
             f.write(question_token + "\n")
 
-    with open(os.path.join(args.save_dirpath, "programs.txt"), "w") as f:
+    with open(os.path.join(args.output_dirpath, "programs.txt"), "w") as f:
         for program_token in program_vocabulary[1:]:
             f.write(program_token + "\n")
 
-    with open(os.path.join(args.save_dirpath, "answers.txt"), "w") as f:
+    with open(os.path.join(args.output_dirpath, "answers.txt"), "w") as f:
         for answer_token in answer_vocabulary:
             f.write(answer_token + "\n")
 
-    with open(os.path.join(args.save_dirpath, "non_padded_namespaces.txt"), "w") as f:
+    with open(os.path.join(args.output_dirpath, "non_padded_namespaces.txt"), "w") as f:
         f.write("answers")
