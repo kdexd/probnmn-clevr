@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 from torch import nn
 
@@ -21,34 +19,6 @@ class Reinforce(nn.Module):
         centered_reward = reward.detach() - self._reinforce_baseline
         self._reinforce_baseline += self._baseline_decay * centered_reward.mean().item()
         return inputs * centered_reward
-
-
-class _NegativeElboWithReinforce(nn.Module):
-    def __init__(self, beta: float = 0.1, baseline_decay: float = 0.99):
-        super().__init__()
-        self._reinforce = Reinforce(baseline_decay)
-        self._beta = beta
-
-    def forward(
-        self,
-        inference_loss: torch.FloatTensor,
-        reconstruction_loss: torch.FloatTensor,
-        prior_loss: torch.FloatTensor,
-        extra_reinforce_reward: Optional[torch.FloatTensor] = None,
-    ):
-        # KL-divergence (fully monte carlo form)
-        negative_reinforce_reward = reconstruction_loss + self._beta * (
-            prior_loss - inference_loss
-        )
-
-        if extra_reinforce_reward is not None:
-            negative_reinforce_reward = negative_reinforce_reward - extra_reinforce_reward
-        reinforce_reward = -negative_reinforce_reward
-
-        path_derivative_loss = inference_loss.mean()
-        score_function_loss = self._reinforce(inference_loss, reinforce_reward).mean()
-        nelbo = reconstruction_loss + self._beta * path_derivative_loss + score_function_loss
-        return nelbo
 
 
 class _ElboWithReinforce(nn.Module):
@@ -75,8 +45,8 @@ class _ElboWithReinforce(nn.Module):
 
         # shape: (batch_size, )
         kl_divergence = (
-            -self._beta * path_derivative_inference_likelihood
-            - reinforce_estimator_inference_likelihood
+            reinforce_estimator_inference_likelihood
+            - self._beta * path_derivative_inference_likelihood
         )
 
         # shape: (batch_size, )
@@ -107,7 +77,8 @@ class QuestionCodingElbo(_ElboWithReinforce):
         self._question_reconstructor = question_reconstructor
         self._program_prior = program_prior
 
-    def forward(self, question_tokens: torch.LongTensor):
+    def forward(self, question_tokens: torch.LongTensor):  # type: ignore
+
         # Sample programs using the inference model (program generator).
         # Sample z ~ q_\phi(z|x'), shape: (batch_size, max_program_length)
 
@@ -126,7 +97,9 @@ class QuestionCodingElbo(_ElboWithReinforce):
         logprobs_generation = -program_generator_output_dict["loss"]
         logprobs_prior = -self._program_prior(sampled_programs)["loss"]
 
-        # REINFORCE reward (R): ( \log{ (p_\theta (x'|z) * p(z) ^ \beta) / (q_\phi (z|x') ) })
+        # REINFORCE reward (R): \log (p_\theta (x'|z)           (reconstruction)
+        #                     + \beta * \log (p(z))             (prior)
+        #                     - \beta * \log (q_\phi (z|x'))    (inference)
         # Note that reward is made of log-probabilities, not loss (negative log-probabilities)
         # shape: (batch_size, )
         reinforce_reward = logprobs_reconstruction + self._beta * (
@@ -136,7 +109,7 @@ class QuestionCodingElbo(_ElboWithReinforce):
         return super().forward(logprobs_generation, logprobs_reconstruction, reinforce_reward)
 
 
-class JointTrainingNegativeElbo(_NegativeElboWithReinforce):
+class JointTrainingElbo(_ElboWithReinforce):
     def __init__(
         self,
         program_generator: ProgramGenerator,
@@ -181,21 +154,32 @@ class JointTrainingNegativeElbo(_NegativeElboWithReinforce):
             # Baseline objective only takes answer logprobs as reward.
             reinforce_reward = -nmn_output_dict["loss"]
 
-            negative_elbo_loss = self._reinforce(
-                program_generator_output_dict["loss"], reinforce_reward
-            ).mean()
+            elbo_output_dict = {
+                "reinforce_reward": self._reinforce(
+                    program_generator_output_dict["loss"], reinforce_reward
+                ).mean()
+            }
         else:
             # Gather components required to calculate REINFORCE reward.
-            negative_logprobs_reconstruction = question_reconstructor_output_dict["loss"]
-            negative_logprobs_generation = program_generator_output_dict["loss"]
-            negative_logprobs_prior = self._program_prior(sampled_programs)["loss"]
-            negative_logprobs_answers = nmn_output_dict["loss"]
+            # shape: (batch_size, )
+            logprobs_reconstruction = -question_reconstructor_output_dict["loss"]
+            logprobs_generation = -program_generator_output_dict["loss"]
+            logprobs_prior = -self._program_prior(sampled_programs)["loss"]
+            logprobs_answering = -nmn_output_dict["loss"]
 
-            negative_elbo_loss = super().forward(
-                negative_logprobs_generation,
-                negative_logprobs_reconstruction,
-                negative_logprobs_prior,
-                (-negative_logprobs_answers * self._gamma),
+            # REINFORCE reward (R): \log (p_\theta (x'|z)                (reconstruction)
+            #                     + \beta * \log (p(z))                  (prior)
+            #                     - \beta * \log (q_\phi (z|x'))         (inference)
+            #                     + \gamma * \log (q_\phi_z (a'|z, i'))  (answering)
+            # Note that reward is made of log-probabilities, not loss (negative log-probabilities)
+            # shape: (batch_size, )
+            reinforce_reward = logprobs_reconstruction + self._beta * (
+                logprobs_prior - logprobs_generation
             )
 
-        return {"nmn_loss": nmn_output_dict["loss"].mean(), "elbo": -negative_elbo_loss.mean()}
+            # keys: {"reconstruction_likelihood", "kl_divergence", "elbo", "reinforce_reward"}
+            elbo_output_dict = super().forward(
+                logprobs_generation, logprobs_reconstruction, reinforce_reward
+            )
+
+        return {**elbo_output_dict, "nmn_loss": nmn_output_dict["loss"].mean()}

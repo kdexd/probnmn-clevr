@@ -14,7 +14,7 @@ from probnmn.models import (
     QuestionReconstructor,
     NeuralModuleNetwork,
 )
-from probnmn.modules.elbo import JointTrainingNegativeElbo
+from probnmn.modules.elbo import JointTrainingElbo
 from ._trainer import _Trainer
 
 
@@ -113,7 +113,7 @@ class JointTrainingTrainer(_Trainer):
         self._nmn = self._models["nmn"]
 
         # Instantiate an elbo module to compute evidence lower bound during `_do_iteration`.
-        self._elbo = JointTrainingNegativeElbo(
+        self._elbo = JointTrainingElbo(
             program_generator=self._program_generator,
             question_reconstructor=self._question_reconstructor,
             nmn=self._nmn,
@@ -140,14 +140,15 @@ class JointTrainingTrainer(_Trainer):
         image_features_no_supervision = batch["image"][no_supervision_indices]
         answer_tokens_no_supervision = batch["answer"][no_supervision_indices]
 
-        # keys: {"nmn_loss", "elbo"}
+        # keys: {"reconstruction_likelihood", "kl_divergence", "elbo", "reinforce_reward",
+        #        "nmn_loss"}
         elbo_output_dict = self._elbo(
             question_tokens_no_supervision,
             image_features_no_supervision,
             answer_tokens_no_supervision,
         )
-
-        loss_objective = self._C.GAMMA * elbo_output_dict["nmn_loss"] - elbo_output_dict["elbo"]
+        nmn_loss = elbo_output_dict.pop("nmn_loss")
+        loss_objective = self._C.GAMMA * nmn_loss - elbo_output_dict["elbo"]
 
         if self._C.OBJECTIVE == "ours":
             # ------------------------------------------------------------------------------------
@@ -188,8 +189,8 @@ class JointTrainingTrainer(_Trainer):
                 parameter.grad.clamp_(min=-5, max=5)
 
         iteration_output_dict = {
-            "loss": {"nmn": elbo_output_dict["nmn_loss"]},
-            "elbo": {"elbo": elbo_output_dict["elbo"]},
+            "loss": {"nmn": nmn_loss},
+            "elbo": elbo_output_dict,
         }
         if self._C.OBJECTIVE == "ours":
             iteration_output_dict["loss"].update(
