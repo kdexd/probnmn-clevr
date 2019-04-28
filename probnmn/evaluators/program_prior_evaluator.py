@@ -1,4 +1,3 @@
-import argparse
 import logging
 from typing import Any, Dict, Optional, Type
 
@@ -16,28 +15,19 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ProgramPriorEvaluator(_Evaluator):
-    def __init__(
-        self,
-        config: Config,
-        args: argparse.Namespace,
-        models: Dict[str, Type[nn.Module]],
-        device: torch.device,
-    ):
+    def __init__(self, config: Config, models: Dict[str, Type[nn.Module]], device: torch.device):
         self._C = config
-
-        # TODO (kd): absorb args into Config.
-        self._A = args
 
         if self._C.PHASE != "program_prior":
             raise ValueError(
-                f"Trying to initialize a {self.__name__}, expected config PHASE to be "
+                f"Trying to initialize a ProgramPriorEvaluator, expected config PHASE to be "
                 f"program_prior, found {self._C.PHASE}"
             )
 
         # Initialize vocabulary, dataloader and model.
-        self._vocabulary = Vocabulary.from_files(self._A.vocab_dirpath)
+        self._vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
 
-        dataset = ProgramPriorDataset(self._A.tokens_val_h5)
+        dataset = ProgramPriorDataset(self._C.DATA.VAL.TOKENS)
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE)
 
         super().__init__(config=config, dataloader=dataloader, models=models, device=device)

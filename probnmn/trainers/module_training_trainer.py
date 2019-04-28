@@ -1,4 +1,3 @@
-import argparse
 import logging
 from typing import Any, Dict, Optional
 
@@ -17,17 +16,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ModuleTrainingTrainer(_Trainer):
-    def __init__(
-        self,
-        config: Config,
-        args: argparse.Namespace,
-        device: torch.device,
-        start_iteration: Optional[int] = 0,
-    ):
+    def __init__(self, config: Config, device: torch.device, serialization_dir: str):
         self._C = config
-
-        # TODO (kd): absorb args into Config.
-        self._A = args
 
         if self._C.PHASE != "module_training":
             raise ValueError(
@@ -36,17 +26,17 @@ class ModuleTrainingTrainer(_Trainer):
             )
 
         # Initialize dataloader and model.
-        self._vocabulary = Vocabulary.from_files(self._A.vocab_dirpath)
-
         dataset = ModuleTrainingDataset(
-            self._A.tokens_train_h5, self._A.features_train_h5, in_memory=False
+            self._C.DATA.TRAIN.TOKENS, self._C.DATA.TRAIN.IMAGE_FEATURES, in_memory=False
         )
         dataloader = DataLoader(
-            dataset, batch_size=self._C.OPTIM.BATCH_SIZE, num_workers=self._A.cpu_workers
+            dataset,
+            batch_size=self._C.OPTIM.BATCH_SIZE,
+            # num_workers=self._A.cpu_workers
         )
 
         # Vocabulary is needed to instantiate the models.
-        vocabulary = Vocabulary.from_files(self._A.vocab_dirpath)
+        vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
 
         # This will be a part of `self._models`, keep this handle for convenience.
         self._nmn = NeuralModuleNetwork(
@@ -57,9 +47,9 @@ class ModuleTrainingTrainer(_Trainer):
             classifier_linear_size=self._C.NMN.CLASSIFIER_LINEAR_SIZE,
         ).to(device)
 
-        if -1 not in self._A.gpu_ids:
-            # Don't wrap to DataParallel for CPU-mode.
-            self._nmn = nn.DataParallel(self._nmn, self._A.gpu_ids)
+        # if -1 not in self._A.gpu_ids:
+        #     # Don't wrap to DataParallel for CPU-mode.
+        #     self._nmn = nn.DataParallel(self._nmn, self._A.gpu_ids)
 
         # Program Generator checkpoint, this will be frozen during module training.
         self._program_generator = ProgramGenerator(
@@ -80,16 +70,15 @@ class ModuleTrainingTrainer(_Trainer):
             dataloader=dataloader,
             models={"nmn": self._nmn, "program_generator": self._program_generator},
             device=device,
-            serialization_dir=self._A.save_dirpath,
-            start_iteration=start_iteration,
+            serialization_dir=serialization_dir,
         )
 
         # Load NMN from saved checkpoint if specified.
-        if self._A.checkpoint_pthpath != "":
-            module_training_checkpoint = torch.load(self._A.checkpoint_pthpath)
-            self._nmn.load_state_dict(module_training_checkpoint["nmn"])
-            self._optimizer.load_state_dict(module_training_checkpoint["optimizer"])
-            self._iteration = int(self._A.checkpoint_pthpath.split("_")[-1][:-4])
+        # if self._A.checkpoint_pthpath != "":
+        #     module_training_checkpoint = torch.load(self._A.checkpoint_pthpath)
+        #     self._nmn.load_state_dict(module_training_checkpoint["nmn"])
+        #     self._optimizer.load_state_dict(module_training_checkpoint["optimizer"])
+        #     self._iteration = int(self._A.checkpoint_pthpath.split("_")[-1][:-4])
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         """Perform one iteration, take a forward pass and compute loss. Return an output dict

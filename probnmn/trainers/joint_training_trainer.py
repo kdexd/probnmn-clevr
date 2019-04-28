@@ -1,4 +1,3 @@
-import argparse
 import logging
 from typing import Any, Dict, Optional
 
@@ -24,17 +23,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class JointTrainingTrainer(_Trainer):
-    def __init__(
-        self,
-        config: Config,
-        args: argparse.Namespace,
-        device: torch.device,
-        start_iteration: Optional[int] = 0,
-    ):
+    def __init__(self, config: Config, device: torch.device, serialization_dir: str):
         self._C = config
-
-        # TODO (kd): absorb args into Config.
-        self._A = args
 
         if self._C.PHASE != "joint_training":
             raise ValueError(
@@ -43,24 +33,23 @@ class JointTrainingTrainer(_Trainer):
             )
 
         # Initialize dataloader and model.
-        self._vocabulary = Vocabulary.from_files(self._A.vocab_dirpath)
-
         dataset = JointTrainingDataset(
-            self._A.tokens_train_h5,
-            self._A.features_train_h5,
+            self._C.DATA.TRAIN.TOKENS,
+            self._C.DATA.TRAIN.IMAGE_FEATURES,
             num_supervision=self._C.SUPERVISION,
             supervision_question_max_length=self._C.SUPERVISION_QUESTION_MAX_LENGTH,
         )
-
         sampler = SupervisionWeightedRandomSampler(dataset)
         dataloader = DataLoader(
             dataset,
             batch_size=self._C.OPTIM.BATCH_SIZE,
             sampler=sampler,
-            num_workers=self._A.cpu_workers,
+            # num_workers=self._A.cpu_workers,
         )
+
         # Vocabulary is needed to instantiate the models.
-        vocabulary = Vocabulary.from_files(self._A.vocab_dirpath)
+        vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
+
         # These will be a part of `self._models`, keep these handles for convenience.
         self._program_generator = ProgramGenerator(
             vocabulary=vocabulary,
@@ -94,9 +83,9 @@ class JointTrainingTrainer(_Trainer):
         )
         self._nmn.load_state_dict(torch.load(self._C.CHECKPOINTS.NMN)["nmn"])
 
-        if -1 not in self._A.gpu_ids:
-            # Don't wrap to DataParallel for CPU-mode.
-            self._nmn = nn.DataParallel(self._nmn, self._A.gpu_ids)
+        # if -1 not in self._A.gpu_ids:
+        #     # Don't wrap to DataParallel for CPU-mode.
+        #     self._nmn = nn.DataParallel(self._nmn, self._A.gpu_ids)
 
         super().__init__(
             config=config,
@@ -107,8 +96,7 @@ class JointTrainingTrainer(_Trainer):
                 "nmn": self._nmn,
             },
             device=device,
-            serialization_dir=self._A.save_dirpath,
-            start_iteration=start_iteration,
+            serialization_dir=serialization_dir,
         )
 
         # Program Prior checkpoint, this will be frozen during question coding.

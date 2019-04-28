@@ -31,7 +31,7 @@ parser.add_argument(
 parser.add_argument(
     "-o",
     "--output-h5path",
-    default="data/clevr_tokens_train.h5",
+    default="data/clevr_train_tokens.h5",
     help="Path to save tokenized components in an H5 file.",
 )
 parser.add_argument("-s", "--split", default="train")
