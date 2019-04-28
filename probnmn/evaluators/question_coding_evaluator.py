@@ -16,10 +16,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class QuestionCodingEvaluator(_Evaluator):
     def __init__(
-        self,
-        config: Config,
-        models: Dict[str, Type[nn.Module]],
-        device: torch.device,
+        self, config: Config, models: Dict[str, Type[nn.Module]], gpu_ids: List[int] = [0]
     ):
         self._C = config
 
@@ -36,7 +33,7 @@ class QuestionCodingEvaluator(_Evaluator):
         dataset = QuestionCodingDataset(self._C.DATA.VAL.TOKENS)
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE)
 
-        super().__init__(config=config, dataloader=dataloader, models=models, device=device)
+        super().__init__(config=config, dataloader=dataloader, models=models, gpu_ids=gpu_ids)
 
         # These will be a part of `self._models`, keep these handles for convenience.
         self._program_generator = self._models["program_generator"]

@@ -1,9 +1,8 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from allennlp.data import Vocabulary
 import torch
-from torch import nn
 from torch.utils.data import DataLoader
 
 from probnmn.config import Config
@@ -16,7 +15,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ModuleTrainingTrainer(_Trainer):
-    def __init__(self, config: Config, device: torch.device, serialization_dir: str):
+    def __init__(self, config: Config, serialization_dir: str, gpu_ids: List[int] = [0]):
         self._C = config
 
         if self._C.PHASE != "module_training":
@@ -45,21 +44,17 @@ class ModuleTrainingTrainer(_Trainer):
             module_channels=self._C.NMN.MODULE_CHANNELS,
             class_projection_channels=self._C.NMN.CLASS_PROJECTION_CHANNELS,
             classifier_linear_size=self._C.NMN.CLASSIFIER_LINEAR_SIZE,
-        ).to(device)
+        )
 
-        # if -1 not in self._A.gpu_ids:
-        #     # Don't wrap to DataParallel for CPU-mode.
-        #     self._nmn = nn.DataParallel(self._nmn, self._A.gpu_ids)
-
-        # Program Generator checkpoint, this will be frozen during module training.
         self._program_generator = ProgramGenerator(
             vocabulary=vocabulary,
             input_size=self._C.PROGRAM_GENERATOR.INPUT_SIZE,
             hidden_size=self._C.PROGRAM_GENERATOR.HIDDEN_SIZE,
             num_layers=self._C.PROGRAM_GENERATOR.NUM_LAYERS,
             dropout=self._C.PROGRAM_GENERATOR.DROPOUT,
-        ).to(device)
+        )
 
+        # Load program generator from checkpoint, this will be frozen during module training.
         self._program_generator.load_state_dict(
             torch.load(self._C.CHECKPOINTS.QUESTION_CODING)["program_generator"]
         )
@@ -69,8 +64,8 @@ class ModuleTrainingTrainer(_Trainer):
             config=config,
             dataloader=dataloader,
             models={"nmn": self._nmn, "program_generator": self._program_generator},
-            device=device,
             serialization_dir=serialization_dir,
+            gpu_ids=gpu_ids,
         )
 
         # Load NMN from saved checkpoint if specified.

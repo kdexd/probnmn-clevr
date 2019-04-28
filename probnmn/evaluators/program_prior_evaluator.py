@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from allennlp.data import Vocabulary
 import torch
@@ -15,7 +15,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ProgramPriorEvaluator(_Evaluator):
-    def __init__(self, config: Config, models: Dict[str, Type[nn.Module]], device: torch.device):
+    def __init__(
+        self, config: Config, models: Dict[str, Type[nn.Module]], gpu_ids: List[int] = [0]
+    ):
         self._C = config
 
         if self._C.PHASE != "program_prior":
@@ -30,7 +32,7 @@ class ProgramPriorEvaluator(_Evaluator):
         dataset = ProgramPriorDataset(self._C.DATA.VAL.TOKENS)
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE)
 
-        super().__init__(config=config, dataloader=dataloader, models=models, device=device)
+        super().__init__(config=config, dataloader=dataloader, models=models, gpu_ids=gpu_ids)
 
         # This will be a part of `self._models`, keep this handle for convenience.
         self._program_prior = self._models["program_prior"]
