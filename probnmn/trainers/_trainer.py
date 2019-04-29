@@ -92,7 +92,7 @@ class _Trainer(object):
 
         # Initialize a counter to keep track of the iteration number.
         # This increments everytime ``step`` is called.
-        self._iteration: int = 0
+        self._iteration: int = -1
 
     @property
     def iteration(self):

@@ -134,11 +134,14 @@ if __name__ == "__main__":
 
     # Load from a checkpoint if specified, and resume training from there.
     if _A.start_from_checkpoint != "":
-        trainer.load_iteration(_A.start_from_checkpoint)
+        trainer.load_checkpoint(_A.start_from_checkpoint)
+        start_iteration = trainer.iteration
+    else:
+        start_iteration = 0
 
-    for iteration in tqdm(range(_C.OPTIM.NUM_ITERATIONS), desc="training"):
-        trainer.step()
+    for iteration in tqdm(range(start_iteration, _C.OPTIM.NUM_ITERATIONS), desc="training"):
+        trainer.step(iteration)
 
         if iteration % _A.checkpoint_every == 0:
             val_metrics = evaluator.evaluate(num_batches=_A.num_val_batches)
-            trainer.after_validation(val_metrics)
+            trainer.after_validation(val_metrics, iteration)
