@@ -29,7 +29,7 @@ class ProgramPriorEvaluator(_Evaluator):
         # Initialize vocabulary, dataloader and model.
         self._vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
 
-        dataset = ProgramPriorDataset(self._C.DATA.VAL.TOKENS)
+        dataset = ProgramPriorDataset(self._C.DATA.VAL_TOKENS)
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE)
 
         super().__init__(config=config, dataloader=dataloader, models=models, gpu_ids=gpu_ids)

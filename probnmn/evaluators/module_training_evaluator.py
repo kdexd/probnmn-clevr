@@ -27,7 +27,7 @@ class ModuleTrainingEvaluator(_Evaluator):
 
         # Initialize dataloader and model.
         dataset = ModuleTrainingDataset(
-            self._C.DATA.VAL.TOKENS, self._C.DATA.VAL.IMAGE_FEATURES, in_memory=False
+            self._C.DATA.VAL_TOKENS, self._C.DATA.VAL_FEATURES, in_memory=False
         )
         dataloader = DataLoader(
             dataset,

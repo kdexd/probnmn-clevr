@@ -30,7 +30,7 @@ class QuestionCodingEvaluator(_Evaluator):
         self._vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
 
         # There is no notion of "supervision" during evaluation.
-        dataset = QuestionCodingDataset(self._C.DATA.VAL.TOKENS)
+        dataset = QuestionCodingDataset(self._C.DATA.VAL_TOKENS)
         dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE)
 
         super().__init__(config=config, dataloader=dataloader, models=models, gpu_ids=gpu_ids)

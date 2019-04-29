@@ -29,7 +29,7 @@ class JointTrainingEvaluator(_Evaluator):
         self._vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
 
         # There is no notion of "supervision" during evaluation.
-        dataset = JointTrainingDataset(self._C.DATA.VAL.TOKENS, self._C.DATA.VAL.IMAGE_FEATURES)
+        dataset = JointTrainingDataset(self._C.DATA.VAL_TOKENS, self._C.DATA.VAL_FEATURES)
         dataloader = DataLoader(
             dataset,
             batch_size=self._C.OPTIM.BATCH_SIZE,

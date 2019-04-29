@@ -28,7 +28,7 @@ class QuestionCodingTrainer(_Trainer):
 
         # Initialize dataloader and model.
         dataset = QuestionCodingDataset(
-            self._C.DATA.TRAIN.TOKENS,
+            self._C.DATA.TRAIN_TOKENS,
             num_supervision=self._C.SUPERVISION,
             supervision_question_max_length=self._C.SUPERVISION_QUESTION_MAX_LENGTH,
         )
