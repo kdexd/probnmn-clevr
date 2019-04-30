@@ -12,19 +12,23 @@ from torch.nn import functional as F
 
 
 class ProgramPrior(nn.Module):
-    """
+    r"""
     A simple language model which learns a prior over all the valid program sequences in CLEVR
     v1.0 training split.
 
     Parameters
     ----------
-    vocabulary: Vocabulary
-        Vocabulary with namespaces for CLEVR programs, questions and answers. We'll only use the
-        `programs` namespace though.
-    input_size: int
-    hidden_size: int
-    num_layers: int
-    dropout: float
+    vocabulary: allennlp.data.vocabulary.Vocabulary
+        AllenNLP's vocabulary. This vocabulary has three namespaces - "questions", "programs" and
+        "answers", which contain respective token to integer mappings.
+    input_size: int, optional (default = 256)
+        The dimension of the inputs to the LSTM.
+    hidden_size: int, optional (default = 256)
+        The dimension of the outputs of the LSTM.
+    num_layers: int, optional (default = 2)
+        Number of recurrent layers in the LSTM.
+    dropout: float, optional (default = 0.0)
+        Dropout probability for the outputs of LSTM at each layer except last.
     """
 
     def __init__(
@@ -58,25 +62,27 @@ class ProgramPrior(nn.Module):
         # Record average log2 (perplexity) for calculating final perplexity.
         self._log2_perplexity = Average()
 
-    def forward(self, program_tokens: torch.LongTensor):
-        """
+    def forward(self, program_tokens: torch.Tensor):
+        r"""
         Given tokenized program sequences padded upto maximum length, predict sequence at next
         time-step and calculate cross entropy loss of this predicted sequence.
 
         Parameters
         ----------
-        program_tokens: torch.LongTensor
+        program_tokens: torch.Tensor
             Tokenized program sequences padded with zeroes upto maximum length.
-            Shape: (batch_size, max_sequence_length)
+            shape: (batch_size, max_sequence_length)
 
         Returns
         -------
         Dict[str, torch.Tensor]
-            A dict with two keys - `predicted_tokens` and `loss`.
-                - `predictions` represents program sequences predicted for
-                   next time-step, shape: (batch_size, max_sequence_length - 1).
-                - `loss` represents per sequence cross entropy loss, shape:
-                  (batch_size, )
+            Predictions of next time-step and cross entropy loss (by teacher forcing), a dict
+            with structure::
+
+                {
+                    "predictions": torch.Tensor (shape: (batch_size, max_program_length - 1)),
+                    "loss": torch.Tensor (shape: (batch_size, ))
+                }
         """
 
         batch_size = program_tokens.size(0)
@@ -101,7 +107,7 @@ class ProgramPrior(nn.Module):
         output_logits = self._output_layer(output_projection)
 
         output_class_probabilities = F.softmax(output_logits, dim=-1)
-        # Don't sample @start@, @@PADDING@@ and @@UNKNOWN@@
+        # Don't sample @start@, @@PADDING@@ and @@UNKNOWN@@.
         output_class_probabilities[:, :, self._start_index] = 0
         output_class_probabilities[:, :, self._pad_index] = 0
         output_class_probabilities[:, :, self._unk_index] = 0
@@ -133,8 +139,19 @@ class ProgramPrior(nn.Module):
             self._log2_perplexity(sequence_cross_entropy.mean().item())
         return {"predictions": predictions, "loss": sequence_cross_entropy}
 
-    def get_metrics(self) -> Dict[str, float]:
-        """Return perplexity using the accumulated loss."""
-        all_metrics: Dict[str, float] = {}
-        all_metrics.update({"perplexity": 2 ** self._log2_perplexity.get_metric(reset=True)})
-        return all_metrics
+    def get_metrics(self, reset: bool = True) -> Dict[str, float]:
+        r"""
+        Return perplexity using the accumulated loss.
+
+        Parameters
+        ----------
+        reset: bool, optional (default = True)
+            Whether to reset the accumulated metrics after retrieving them.
+
+        Returns
+        -------
+        Dict[str, float]
+            A dictionary with metrics ``{"perplexity"}``.
+        """
+
+        return {"perplexity": 2 ** self._log2_perplexity.get_metric(reset=reset)}
