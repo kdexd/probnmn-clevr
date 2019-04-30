@@ -1,6 +1,6 @@
 
 /* Add a light background to class signatures. */
-dl.class > dt:first-of-type, dl.function > dt:first-of-type {
+dl.class > dt:first-of-type, dl.function > dt:first-of-type, dl.method > dt:first-of-type {
     background-color: #dddddd;
     padding: 10px;
     border: 1px solid #888888;
@@ -12,7 +12,7 @@ dl.field-list {
 }
 
 /* Increase font size of subsection headings ("Parameters", "Examples" etc.) */
-.rubric, dl.field-list > dt.field-odd:first-of-type {
+.rubric, dl.field-list > dt.field-odd, dl.field-list > dt.field-even {
     font-size: 1.2em;
     font-weight: bold;
     line-height: 1.3em;

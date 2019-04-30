@@ -95,6 +95,10 @@ class ModuleTrainingTrainer(_Trainer):
         # track of best checkpoint. For module training, it will be answer accuracy.
         val_metrics["metric"] = val_metrics["nmn"]["answer_accuracy"]
 
+        # Remove metrics of program generator, they would be dummy values as programs were
+        # sampled without providing (GT) program supervision.
+        val_metrics.pop("program_generator")
+
         # Super method will perform learning rate scheduling, serialize checkpoint, and log all
         # the validation metrics to tensorboard.
         super().after_validation(val_metrics, iteration)

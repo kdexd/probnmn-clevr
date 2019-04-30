@@ -15,8 +15,37 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class QuestionCodingEvaluator(_Evaluator):
+    r"""
+    Performs evaluation for ``question_coding`` phase, using batches of evaluation examples from
+    :class:`~probnmn.data.datasets.QuestionCodingDataset`.
+
+    Parameters
+    ----------
+    config: Config
+        A :class:`~probnmn.Config` object with all the relevant configuration parameters.
+    models: Dict[str, Type[nn.Module]]
+        All the models which interact with each other for evaluation. This should come from
+        :class:`~probnmn.trainers.question_coding_trainer.QuestionCodingTrainer`.
+    gpu_ids: List[int], optional (default=[0])
+        List of GPU IDs to use or evaluation, ``[-1]`` - use CPU.
+
+    Examples
+    --------
+    To evaluate a pre-trained checkpoint:
+
+    >>> config = Config("config.yaml")  # PHASE must be "question_coding"
+    >>> trainer = QuestionCodingTrainer(config, serialization_dir="/tmp")
+    >>> trainer.load_checkpoint("/path/to/question_coding_checkpoint.pth")
+    >>> evaluator = QuestionCodingEvaluator(config, trainer.models)
+    >>> eval_metrics = evaluator.evaluate(num_batches=50)
+    """
+
     def __init__(
-        self, config: Config, models: Dict[str, Type[nn.Module]], gpu_ids: List[int] = [0]
+        self,
+        config: Config,
+        models: Dict[str, Type[nn.Module]],
+        gpu_ids: List[int] = [0],
+        cpu_workers: int = 0,
     ):
         self._C = config
 
@@ -31,7 +60,9 @@ class QuestionCodingEvaluator(_Evaluator):
 
         # There is no notion of "supervision" during evaluation.
         dataset = QuestionCodingDataset(self._C.DATA.VAL_TOKENS)
-        dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE)
+        dataloader = DataLoader(
+            dataset, batch_size=self._C.OPTIM.BATCH_SIZE, num_workers=cpu_workers
+        )
 
         super().__init__(config=config, dataloader=dataloader, models=models, gpu_ids=gpu_ids)
 
@@ -93,10 +124,30 @@ class QuestionCodingEvaluator(_Evaluator):
         return eval_metrics
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-        """Perform one iteration, take a forward pass to accumulate metrics in model objects."""
+        r"""
+        Perform one iteration, given a batch. Take a forward pass to accumulate metrics in
+        :class:`~probnmn.models.program_generator.ProgramGenerator` and
+        :class:`~probnmn.models.question_reconstructor.QuestionReconstructor`.
 
-        # Forward pass through program_generator and question reconstructor.
-        # keys: {"predictions", "loss"}
+        Parameters
+        ----------
+        batch: Dict[str, Any]
+            A batch of evaluation examples sampled from dataloader.
+
+        Returns
+        -------
+        Dict[str, Any]
+            A dictionary containing model predictions and/or batch validation losses of
+            :class:`~probnmn.models.program_generator.ProgramGenerator` and
+            :class:`~probnmn.models.question_reconstructor.QuestionReconstructor`.
+            Nested dict structure::
+
+                {
+                    "program_generator": {"predictions", "loss"}
+                    "question_reconstructor": {"predictions", "loss"}
+                }
+        """
+
         program_generator_output_dict = self._program_generator(
             batch["question"], batch["program"]
         )

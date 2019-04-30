@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Dict, List, Type
 
-import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
@@ -14,8 +13,37 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ModuleTrainingEvaluator(_Evaluator):
+    r"""
+    Performs evaluation for ``module_training`` phase, using batches of evaluation examples from
+    :class:`~probnmn.data.datasets.ModuleTrainingDataset`.
+
+    Parameters
+    ----------
+    config: Config
+        A :class:`~probnmn.Config` object with all the relevant configuration parameters.
+    models: Dict[str, Type[nn.Module]]
+        All the models which interact with each other for evaluation. This should come from
+        :class:`~probnmn.trainers.module_training_trainer.ModuleTrainingTrainer`.
+    gpu_ids: List[int], optional (default=[0])
+        List of GPU IDs to use or evaluation, ``[-1]`` - use CPU.
+
+    Examples
+    --------
+    To evaluate a pre-trained checkpoint:
+
+    >>> config = Config("config.yaml")  # PHASE must be "module_training"
+    >>> trainer = ModuleTrainingTrainer(config, serialization_dir="/tmp")
+    >>> trainer.load_checkpoint("/path/to/module_training_checkpoint.pth")
+    >>> evaluator = ModuleTrainingEvaluator(config, trainer.models)
+    >>> eval_metrics = evaluator.evaluate(num_batches=50)
+    """
+
     def __init__(
-        self, config: Config, models: Dict[str, Type[nn.Module]], gpu_ids: List[int] = [0]
+        self,
+        config: Config,
+        models: Dict[str, Type[nn.Module]],
+        gpu_ids: List[int] = [0],
+        cpu_workers: int = 0,
     ):
         self._C = config
 
@@ -32,7 +60,7 @@ class ModuleTrainingEvaluator(_Evaluator):
         dataloader = DataLoader(
             dataset,
             batch_size=self._C.OPTIM.BATCH_SIZE,
-            # num_workers=self._A.cpu_workers
+            num_workers=cpu_workers
         )
 
         super().__init__(config=config, dataloader=dataloader, models=models, gpu_ids=gpu_ids)
@@ -42,10 +70,29 @@ class ModuleTrainingEvaluator(_Evaluator):
         self._nmn = self._models["nmn"]
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-        """Perform one iteration, take a forward pass to accumulate metrics in model objects."""
+        r"""
+        Perform one iteration, given a batch. Take a forward pass to accumulate metrics in
+        :class:`~probnmn.models.nmn.NeuralModulenetwork`.
 
-        sampled_programs = self._program_generator(batch["question"])["predictions"]
-        output_dict = self._nmn(batch["image"], sampled_programs, batch["answer"])
-        batch_loss = output_dict["loss"].mean()
+        Parameters
+        ----------
+        batch: Dict[str, Any]
+            A batch of evaluation examples sampled from dataloader.
 
-        return {"loss": batch_loss}
+        Returns
+        -------
+        Dict[str, Any]
+            A dictionary containing model predictions and/or batch validation losses of
+            :class:`~probnmn.models.program_generator.ProgramGenerator` and
+            :class:`~probnmn.models.nmn.NeuralModuleNetwork`. Nested dict structure::
+
+                {
+                    "program_generator": {"predictions"}
+                    "nmn": {"predictions", "loss"}
+                }
+        """
+
+        pg_output_dict = self._program_generator(batch["question"], batch["program"])
+        nmn_output_dict = self._nmn(batch["image"], pg_output_dict["predictions"], batch["answer"])
+
+        return {"program_generator": pg_output_dict, "nmn": nmn_output_dict}
