@@ -113,16 +113,16 @@ if __name__ == "__main__":
     evaluator: Any = None
 
     if _C.PHASE == "program_prior":
-        trainer = ProgramPriorTrainer(_C, _A.serialization_dir, _A.gpu_ids)
+        trainer = ProgramPriorTrainer(_C, _A.serialization_dir, _A.gpu_ids, _A.cpu_workers)
         evaluator = ProgramPriorEvaluator(_C, trainer.models, _A.gpu_ids, _A.cpu_workers)
     elif _C.PHASE == "question_coding":
-        trainer = QuestionCodingTrainer(_C, _A.serialization_dir, _A.gpu_ids)
+        trainer = QuestionCodingTrainer(_C, _A.serialization_dir, _A.gpu_ids, _A.cpu_workers)
         evaluator = QuestionCodingEvaluator(_C, trainer.models, _A.gpu_ids, _A.cpu_workers)
     elif _C.PHASE == "module_training":
-        trainer = ModuleTrainingTrainer(_C, _A.serialization_dir, _A.gpu_ids)
+        trainer = ModuleTrainingTrainer(_C, _A.serialization_dir, _A.gpu_ids, _A.cpu_workers)
         evaluator = ModuleTrainingEvaluator(_C, trainer.models, _A.gpu_ids, _A.cpu_workers)
     elif _C.PHASE == "joint_training":
-        trainer = JointTrainingTrainer(_C, _A.serialization_dir, _A.gpu_ids)
+        trainer = JointTrainingTrainer(_C, _A.serialization_dir, _A.gpu_ids, _A.cpu_workers)
         evaluator = JointTrainingEvaluator(_C, trainer.models, _A.gpu_ids, _A.cpu_workers)
 
     # Load from a checkpoint if specified, and resume training from there.

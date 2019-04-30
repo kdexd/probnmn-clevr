@@ -26,8 +26,10 @@ class ProgramPriorEvaluator(_Evaluator):
     models: Dict[str, Type[nn.Module]]
         All the models which interact with each other for evaluation. This should come from
         :class:`~probnmn.trainers.program_prior_trainer.ProgramPriorTrainer`.
-    gpu_ids: List[int], optional (default=[0])
+    gpu_ids: List[int], optional (default = [0])
         List of GPU IDs to use or evaluation, ``[-1]`` - use CPU.
+    cpu_workers: int, optional (default = 0)
+        Number of CPU workers to use for fetching batch examples in dataloader.
 
     Examples
     --------

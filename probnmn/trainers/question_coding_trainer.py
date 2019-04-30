@@ -1,3 +1,4 @@
+import itertools
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -17,7 +18,41 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class QuestionCodingTrainer(_Trainer):
-    def __init__(self, config: Config, serialization_dir: str, gpu_ids: List[int] = [0]):
+    r"""
+    Performs training for ``question_coding`` phase, using batches of training examples from
+    :class:`~probnmn.data.datasets.QuestionCodingDataset`.
+
+    Parameters
+    ----------
+    config: Config
+        A :class:`~probnmn.Config` object with all the relevant configuration parameters.
+    serialization_dir: str
+        Path to a directory for tensorboard logging and serializing checkpoints.
+    gpu_ids: List[int], optional (default=[0])
+        List of GPU IDs to use or evaluation, ``[-1]`` - use CPU.
+    cpu_workers: int, optional (default = 0)
+        Number of CPU workers to use for fetching batch examples in dataloader.
+
+    Examples
+    --------
+    >>> config = Config("config.yaml")  # PHASE must be "question_coding"
+    >>> trainer = QuestionCodingTrainer(config, serialization_dir="/tmp")
+    >>> evaluator = QuestionCodingEvaluator(config, trainer.models)
+    >>> for iteration in range(100):
+    >>>     trainer.step()
+    >>>     # validation every 100 steps
+    >>>     if iteration % 100 == 0:
+    >>>         val_metrics = evaluator.evaluate()
+    >>>         trainer.after_validation(val_metrics, iteration)
+    """
+
+    def __init__(
+        self,
+        config: Config,
+        serialization_dir: str,
+        gpu_ids: List[int] = [0],
+        cpu_workers: int = 0,
+    ):
         self._C = config
 
         if self._C.PHASE != "question_coding":
@@ -33,7 +68,9 @@ class QuestionCodingTrainer(_Trainer):
             supervision_question_max_length=self._C.SUPERVISION_QUESTION_MAX_LENGTH,
         )
         sampler = SupervisionWeightedRandomSampler(dataset)
-        dataloader = DataLoader(dataset, batch_size=self._C.OPTIM.BATCH_SIZE, sampler=sampler)
+        dataloader = DataLoader(
+            dataset, batch_size=self._C.OPTIM.BATCH_SIZE, sampler=sampler, num_workers=cpu_workers
+        )
 
         # Vocabulary is needed to instantiate the models.
         vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
@@ -77,7 +114,7 @@ class QuestionCodingTrainer(_Trainer):
                 "program_prior": program_prior,
             },
             serialization_dir=serialization_dir,
-            gpu_ids=gpu_ids
+            gpu_ids=gpu_ids,
         )
 
         # These will be a part of `self._models`, keep these handles for convenience.
@@ -95,10 +132,6 @@ class QuestionCodingTrainer(_Trainer):
         )
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-        """Perform one iteration, take a forward pass and compute loss. Return an output dict
-        which would be passed to `after_iteration`.
-        """
-
         # Separate out examples with supervision and without supervision, these two lists will be
         # mutually exclusive.
         supervision_indices = batch["supervision"].nonzero().squeeze()
@@ -145,10 +178,9 @@ class QuestionCodingTrainer(_Trainer):
 
         loss_objective.backward()
         # Clamp all gradients between (-5, 5)
-        for parameter in self._program_generator.parameters():
-            if parameter.grad is not None:
-                parameter.grad.clamp_(min=-5, max=5)
-        for parameter in self._question_reconstructor.parameters():
+        for parameter in itertools.chain(
+            self._program_generator.parameters(), self._question_reconstructor.parameters()
+        ):
             if parameter.grad is not None:
                 parameter.grad.clamp_(min=-5, max=5)
 
@@ -161,11 +193,5 @@ class QuestionCodingTrainer(_Trainer):
         }
 
     def after_validation(self, val_metrics: Dict[str, Any], iteration: Optional[int] = None):
-
-        # Set "metric" key in `val_metrics`, this governs learning rate scheduling and keeping
-        # track of best checkpoint. For question coding, it will be program generation accuracy.
         val_metrics["metric"] = val_metrics["program_generator"]["sequence_accuracy"]
-
-        # Super method will perform learning rate scheduling, serialize checkpoint, and log all
-        # the validation metrics to tensorboard.
         super().after_validation(val_metrics, iteration)
