@@ -1,9 +1,10 @@
-from typing import Dict, Tuple, Type
+from typing import Dict, Optional, Tuple, Type
 
 from allennlp.data import Vocabulary
 from allennlp.training.metrics import Average, BooleanAccuracy
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 from probnmn.modules.nmn_modules import (
     AndModule,
@@ -117,7 +118,12 @@ class NeuralModuleNetwork(nn.Module):
         # Record average number of invalid programs per batch.
         self._average_invalid_programs = Average()
 
-    def forward(self, features: torch.Tensor, programs: torch.Tensor, answers: torch.Tensor):
+    def forward(
+        self,
+        features: torch.Tensor,
+        programs: torch.Tensor,
+        answers: Optional[torch.Tensor] = None,
+    ):
         r"""
         Given image features and program sequences, lay out a modular network and pass through
         the image features, further take the final feature representation output from modular
@@ -134,14 +140,15 @@ class NeuralModuleNetwork(nn.Module):
             Input image features of shape (batch, channels, height, width).
         programs: torch.Tensor
             Program sequences padded up to maximum length, shape (batch_size, max_program_length).
-        answers: torch.Tensor
+        answers: torch.Tensor, optional (default = None)
             Target answers for corresponding images and programs, shape (batch_size, ).
 
         Returns
         -------
         Dict[str, Any]
-            Model predictions, answer cross-entropy loss and (if training, ) batch metrics. A dict
-            with structure::
+            Model predictions, answer cross-entropy loss and (if training, ) batch metrics. When
+            answer targets are not provided, it returns negative log-probabilities of predicted
+            answers. A dict with structure::
 
                 {
                     "predictions": torch.Tensor (shape: (batch_size, )),
@@ -217,7 +224,9 @@ class NeuralModuleNetwork(nn.Module):
 
         # shape: (batch_size, __num_answers)
         answer_logits = self.classifier(final_module_outputs)
-        _, answer_predictions = torch.max(answer_logits, dim=1)
+        answer_logprobs = F.log_softmax(answer_logits, dim=-1)
+
+        answer_prediction_logprobs, answer_predictions = torch.max(answer_logprobs, dim=1)
 
         # Replace answers of examples with invalid programs as @@UNKNOWN@@.
         valid_examples_mask_tensor = torch.tensor(valid_examples_mask)
@@ -225,13 +234,21 @@ class NeuralModuleNetwork(nn.Module):
             "@@UNKNOWN@@", namespace="answers"
         )
 
-        # shape: (batch_size, )
-        loss = self._loss(answer_logits, answers)
-        # Replace loss values of examples with invalid programs as ln (__num_answers).
-        loss[valid_examples_mask_tensor == 0] = 3.33
+        if answers is not None:
+            # Compute cross-entropy loss if ground truth answers are provided.
+            # shape: (batch_size, )
+            loss = self._loss(answer_logits, answers)
+            # Replace loss values of examples with invalid programs as ln (__num_answers).
+            loss[valid_examples_mask_tensor == 0] = 3.33
 
-        self._answer_accuracy(answer_predictions, answers)
-        self._average_invalid_programs((1 - valid_examples_mask_tensor).sum())
+            self._answer_accuracy(answer_predictions, answers)
+            self._average_invalid_programs((1 - valid_examples_mask_tensor).sum())
+        else:
+            # Without ground truth answers, simply return the logprobs of answer predictions.
+            # shape: (batch_size, )
+            loss = -answer_prediction_logprobs
+            # Replace loss values of examples with invalid programs as ln (__num_answers).
+            loss[valid_examples_mask_tensor == 0] = 3.33
 
         # Report batch metrics only during training (training is generally slow, so this helps).
         output_dict = {"predictions": answer_predictions, "loss": loss}

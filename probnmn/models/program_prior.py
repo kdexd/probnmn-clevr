@@ -163,6 +163,8 @@ class ProgramPrior(nn.Module):
         Using @start@ token at first time-step, perform categorical sampling and sample program
         sequences freely, all sequences would be padded after encountering first @end@ token.
 
+        This method is mainly useful in checking coherence and sensitivity of our model's beliefs.
+
         Parameters
         ----------
         num_samples: int, optional (default = 1)
