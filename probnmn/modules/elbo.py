@@ -38,8 +38,8 @@ class _ElboWithReinforce(nn.Module):
     r"""
     A PyTorch Module to compute the Fully Monte Carlo form of Evidence Lower Bound, given the
     inference likelihood, reconstruction likelihood and a REINFORCE reward. Accepting any scalar
-    as REINFORCE reward allows flexibility in Evidence lower ound objective - like we have an
-    extra answer log-likelihood term during Joint Training.
+    as REINFORCE reward allows flexibility in ELBO objective - like we have an extra answer
+    log-likelihood term during Joint Training.
 
     This class is not used directly, instead its extended classes :class:`QuestionCodingElbo` and
     :class:`JointTrainingElbo` are used in corresponding phases.
@@ -93,7 +93,7 @@ class QuestionCodingElbo(_ElboWithReinforce):
     r"""
     A PyTorch module to compute Evidence Lower Bound for observed questions without (GT) program
     supervision. This implementation takes the Fully Monte Carlo form, and uses :class:`Reinforce`
-    estimator for parameters of the inference model
+    estimator for gradient estimation of parameters of the inference model
     (:class:`~probnmn.models.program_generator.ProgramGenerator`).
 
     Parameters
@@ -101,7 +101,7 @@ class QuestionCodingElbo(_ElboWithReinforce):
     program_generator: ProgramGenerator
         A :class:`~probnmn.models.program_generator.ProgramGenerator`, serves as inference model
         of the posterior (programs).
-    question_reconstructor: QuestinReconstructor
+    question_reconstructor: QuestionReconstructor
         A :class:`~probnmn.models.question_reconstructor.QuestionReconstructor`, serves as
         reconstruction model of observed data (questions).
     program_prior: ProgramPrior
@@ -166,7 +166,7 @@ class JointTrainingElbo(_ElboWithReinforce):
     A PyTorch module to compute Evidence Lower Bound for observed questions without (GT) program
     supervision with the added answer log-likelihood term in the bound, from Joint Training
     objective. This implementation takes the Fully Monte Carlo form, and uses :class:`Reinforce`
-    estimator for parameters of the inference model
+    estimator for gradient estimation of parameters of the inference model
     (:class:`~probnmn.models.program_generator.ProgramGenerator`).
 
     Parameters
@@ -174,7 +174,7 @@ class JointTrainingElbo(_ElboWithReinforce):
     program_generator: ProgramGenerator
         A :class:`~probnmn.models.program_generator.ProgramGenerator`, serves as inference model
         of the posterior (programs).
-    question_reconstructor: QuestinReconstructor
+    question_reconstructor: QuestionReconstructor
         A :class:`~probnmn.models.question_reconstructor.QuestionReconstructor`, serves as
         reconstruction model of observed data (questions).
     program_prior: ProgramPrior
