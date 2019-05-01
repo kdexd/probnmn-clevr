@@ -6,6 +6,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from probnmn.config import Config
 from probnmn.modules.nmn_modules import (
     AndModule,
     AttentionModule,
@@ -117,6 +118,19 @@ class NeuralModuleNetwork(nn.Module):
 
         # Record average number of invalid programs per batch.
         self._average_invalid_programs = Average()
+
+    @classmethod
+    def from_config(cls, config: Config):
+        r"""Instantiate this class directly from a :class:`~probnmn.config.Config`."""
+
+        _C = config
+        return cls(  # type: ignore
+            vocabulary=Vocabulary.from_files(_C.DATA.VOCABULARY),
+            image_feature_size=tuple(_C.NMN.IMAGE_FEATURE_SIZE),
+            module_channels=_C.NMN.MODULE_CHANNELS,
+            class_projection_channels=_C.NMN.CLASS_PROJECTION_CHANNELS,
+            classifier_linear_size=_C.NMN.CLASSIFIER_LINEAR_SIZE,
+        )
 
     def forward(
         self,

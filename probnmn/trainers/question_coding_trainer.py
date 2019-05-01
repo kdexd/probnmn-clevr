@@ -72,32 +72,9 @@ class QuestionCodingTrainer(_Trainer):
             dataset, batch_size=self._C.OPTIM.BATCH_SIZE, sampler=sampler, num_workers=cpu_workers
         )
 
-        # Vocabulary is needed to instantiate the models.
-        vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
-
-        program_generator = ProgramGenerator(
-            vocabulary=vocabulary,
-            input_size=self._C.PROGRAM_GENERATOR.INPUT_SIZE,
-            hidden_size=self._C.PROGRAM_GENERATOR.HIDDEN_SIZE,
-            num_layers=self._C.PROGRAM_GENERATOR.NUM_LAYERS,
-            dropout=self._C.PROGRAM_GENERATOR.DROPOUT,
-        )
-
-        question_reconstructor = QuestionReconstructor(
-            vocabulary=vocabulary,
-            input_size=self._C.QUESTION_RECONSTRUCTOR.INPUT_SIZE,
-            hidden_size=self._C.QUESTION_RECONSTRUCTOR.HIDDEN_SIZE,
-            num_layers=self._C.QUESTION_RECONSTRUCTOR.NUM_LAYERS,
-            dropout=self._C.QUESTION_RECONSTRUCTOR.DROPOUT,
-        )
-
-        program_prior = ProgramPrior(
-            vocabulary=vocabulary,
-            input_size=self._C.PROGRAM_PRIOR.INPUT_SIZE,
-            hidden_size=self._C.PROGRAM_PRIOR.HIDDEN_SIZE,
-            num_layers=self._C.PROGRAM_PRIOR.NUM_LAYERS,
-            dropout=self._C.PROGRAM_PRIOR.DROPOUT,
-        )
+        program_prior = ProgramPrior.from_config(self._C)
+        program_generator = ProgramGenerator.from_config(self._C)
+        question_reconstructor = QuestionReconstructor.from_config(self._C)
 
         # Load program prior from checkpoint, this will be frozen during question coding.
         program_prior.load_state_dict(

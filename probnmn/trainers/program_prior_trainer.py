@@ -64,13 +64,7 @@ class ProgramPriorTrainer(_Trainer):
         )
 
         # This will be a part of `self._models`, keep this handle for convenience.
-        program_prior = ProgramPrior(
-            vocabulary=Vocabulary.from_files(self._C.DATA.VOCABULARY),
-            input_size=self._C.PROGRAM_PRIOR.INPUT_SIZE,
-            hidden_size=self._C.PROGRAM_PRIOR.HIDDEN_SIZE,
-            num_layers=self._C.PROGRAM_PRIOR.NUM_LAYERS,
-            dropout=self._C.PROGRAM_PRIOR.DROPOUT,
-        )
+        program_prior = ProgramPrior.from_config(self._C)
 
         super().__init__(
             config=config,

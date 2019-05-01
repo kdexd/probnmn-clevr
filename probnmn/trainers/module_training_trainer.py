@@ -66,30 +66,14 @@ class ModuleTrainingTrainer(_Trainer):
             dataset, batch_size=self._C.OPTIM.BATCH_SIZE, num_workers=cpu_workers
         )
 
-        # Vocabulary is needed to instantiate the models.
-        vocabulary = Vocabulary.from_files(self._C.DATA.VOCABULARY)
-
-        program_generator = ProgramGenerator(
-            vocabulary=vocabulary,
-            input_size=self._C.PROGRAM_GENERATOR.INPUT_SIZE,
-            hidden_size=self._C.PROGRAM_GENERATOR.HIDDEN_SIZE,
-            num_layers=self._C.PROGRAM_GENERATOR.NUM_LAYERS,
-            dropout=self._C.PROGRAM_GENERATOR.DROPOUT,
-        )
+        program_generator = ProgramGenerator.from_config(self._C)
+        nmn = NeuralModuleNetwork.from_config(self._C)
 
         # Load program generator from checkpoint, this will be frozen during module training.
         program_generator.load_state_dict(
             torch.load(self._C.CHECKPOINTS.QUESTION_CODING)["program_generator"]
         )
         program_generator.eval()
-
-        nmn = NeuralModuleNetwork(  # type: ignore
-            vocabulary=vocabulary,
-            image_feature_size=tuple(self._C.NMN.IMAGE_FEATURE_SIZE),
-            module_channels=self._C.NMN.MODULE_CHANNELS,
-            class_projection_channels=self._C.NMN.CLASS_PROJECTION_CHANNELS,
-            classifier_linear_size=self._C.NMN.CLASSIFIER_LINEAR_SIZE,
-        )
 
         super().__init__(
             config=config,

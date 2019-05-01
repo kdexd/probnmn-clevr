@@ -10,6 +10,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from probnmn.config import Config
+
 
 class ProgramPrior(nn.Module):
     r"""
@@ -61,6 +63,19 @@ class ProgramPrior(nn.Module):
 
         # Record average log2 (perplexity) for calculating final perplexity.
         self._log2_perplexity = Average()
+
+    @classmethod
+    def from_config(cls, config: Config):
+        r"""Instantiate this class directly from a :class:`~probnmn.config.Config`."""
+
+        _C = config
+        return cls(
+            vocabulary=Vocabulary.from_files(_C.DATA.VOCABULARY),
+            input_size=_C.PROGRAM_PRIOR.INPUT_SIZE,
+            hidden_size=_C.PROGRAM_PRIOR.HIDDEN_SIZE,
+            num_layers=_C.PROGRAM_PRIOR.NUM_LAYERS,
+            dropout=_C.PROGRAM_PRIOR.DROPOUT,
+        )
 
     def forward(self, program_tokens: torch.Tensor):
         r"""
@@ -203,9 +218,7 @@ class ProgramPrior(nn.Module):
         hidden_state = torch.zeros(
             (encoder.num_layers, num_samples, encoder.hidden_size), device=device
         )
-        cell_state = torch.zeros(
-            (encoder.num_layers, num_samples, encoder.hidden_size), device=device
-        )
+        cell_state = torch.zeros_like(hidden_state)
 
         step_logits: List[torch.Tensor] = []
         step_logprobs: List[torch.Tensor] = []
