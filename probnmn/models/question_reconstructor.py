@@ -1,5 +1,6 @@
 from allennlp.data import Vocabulary
 
+from probnmn.config import Config
 from probnmn.modules.seq2seq_base import Seq2SeqBase
 
 
@@ -41,4 +42,17 @@ class QuestionReconstructor(Seq2SeqBase):
             num_layers=num_layers,
             dropout=dropout,
             max_decoding_steps=max_decoding_steps
+        )
+
+    @classmethod
+    def from_config(cls, config: Config):
+        r"""Instantiate this class directly from a :class:`~probnmn.config.Config`."""
+
+        _C = config
+        return cls(
+            vocabulary=Vocabulary.from_files(_C.DATA.VOCABULARY),
+            input_size=_C.QUESTION_RECONSTRUCTOR.INPUT_SIZE,
+            hidden_size=_C.QUESTION_RECONSTRUCTOR.HIDDEN_SIZE,
+            num_layers=_C.QUESTION_RECONSTRUCTOR.NUM_LAYERS,
+            dropout=_C.QUESTION_RECONSTRUCTOR.DROPOUT,
         )

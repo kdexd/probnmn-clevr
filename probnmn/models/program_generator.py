@@ -1,5 +1,6 @@
 from allennlp.data import Vocabulary
 
+from probnmn.config import Config
 from probnmn.modules.seq2seq_base import Seq2SeqBase
 
 
@@ -42,4 +43,17 @@ class ProgramGenerator(Seq2SeqBase):
             num_layers=num_layers,
             dropout=dropout,
             max_decoding_steps=max_decoding_steps
+        )
+
+    @classmethod
+    def from_config(cls, config: Config):
+        r"""Instantiate this class directly from a :class:`~probnmn.config.Config`."""
+
+        _C = config
+        return cls(
+            vocabulary=Vocabulary.from_files(_C.DATA.VOCABULARY),
+            input_size=_C.PROGRAM_GENERATOR.INPUT_SIZE,
+            hidden_size=_C.PROGRAM_GENERATOR.HIDDEN_SIZE,
+            num_layers=_C.PROGRAM_GENERATOR.NUM_LAYERS,
+            dropout=_C.PROGRAM_GENERATOR.DROPOUT,
         )
