@@ -3,9 +3,9 @@ from torch.utils.data import Dataset, WeightedRandomSampler
 
 
 class SupervisionWeightedRandomSampler(WeightedRandomSampler):
-    """
-    A ``WeightedRandomSampler`` to form a mini-batch with nearly equal number of examples
-    with/without program supervision during question coding and joint training.
+    r"""
+    A :class:`torch.utils.data.WeightedRandomSampler` to form a mini-batch with nearly equal
+    number of examples with(out) program supervision during question coding and joint training.
     """
 
     def __init__(self, dataset: Dataset):

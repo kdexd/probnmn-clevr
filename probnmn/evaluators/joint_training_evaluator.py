@@ -95,7 +95,9 @@ class JointTrainingEvaluator(_Evaluator):
                 }
         """
 
-        pg_output_dict = self._program_generator(batch["question"], batch["program"])
+        pg_output_dict = self._program_generator(
+            batch["question"], batch["program"], decoding_strategy="greedy"
+        )
         nmn_output_dict = self._nmn(batch["image"], pg_output_dict["predictions"], batch["answer"])
 
         return {"program_generator": pg_output_dict, "nmn": nmn_output_dict}

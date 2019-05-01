@@ -60,9 +60,7 @@ class ModuleTrainingEvaluator(_Evaluator):
             self._C.DATA.VAL_TOKENS, self._C.DATA.VAL_FEATURES, in_memory=False
         )
         dataloader = DataLoader(
-            dataset,
-            batch_size=self._C.OPTIM.BATCH_SIZE,
-            num_workers=cpu_workers
+            dataset, batch_size=self._C.OPTIM.BATCH_SIZE, num_workers=cpu_workers
         )
 
         super().__init__(config=config, dataloader=dataloader, models=models, gpu_ids=gpu_ids)
@@ -94,7 +92,9 @@ class ModuleTrainingEvaluator(_Evaluator):
                 }
         """
 
-        pg_output_dict = self._program_generator(batch["question"], batch["program"])
+        pg_output_dict = self._program_generator(
+            batch["question"], batch["program"], decoding_strategy="greedy"
+        )
         nmn_output_dict = self._nmn(batch["image"], pg_output_dict["predictions"], batch["answer"])
 
         return {"program_generator": pg_output_dict, "nmn": nmn_output_dict}

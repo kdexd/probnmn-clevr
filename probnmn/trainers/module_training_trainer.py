@@ -104,8 +104,10 @@ class ModuleTrainingTrainer(_Trainer):
         self._nmn = self._models["nmn"]
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-        sampled_programs = self._program_generator(batch["question"])["predictions"]
-        output_dict = self._nmn(batch["image"], sampled_programs, batch["answer"])
+        pg_output_dict = self._program_generator(
+            batch["question"], decoding_strategy="sampling"
+        )
+        output_dict = self._nmn(batch["image"], pg_output_dict["predictions"], batch["answer"])
         batch_loss = output_dict["loss"].mean()
         batch_loss.backward()
 

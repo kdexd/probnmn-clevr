@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from allennlp.data import Vocabulary
 from allennlp.models.encoder_decoders import SimpleSeq2Seq as AllenNlpSimpleSeq2Seq
@@ -7,29 +7,34 @@ from allennlp.modules.seq2seq_encoders import PytorchSeq2SeqWrapper
 from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
 from allennlp.nn.util import add_sentence_boundary_token_ids, sequence_cross_entropy_with_logits
-from allennlp.training.metrics import Average, SequenceAccuracy
+from allennlp.training.metrics import Average, SequenceAccuracy, UnigramRecall
 import torch
 from torch import nn
 from torch.nn import functional as F
 
 
 class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
-    """
+    r"""
     A wrapper over AllenNLP's SimpleSeq2Seq class. This serves as a base class for the
-    ``ProgramGenerator`` and ``QuestionReconstructor``. The key differences from super class are:
-        1. This class doesn't use BeamSearch, it performs ancestral sampling during training
-           and greedy decoding during validation.
-        2. This class records three metrics: perplexity, sequence_accuracy and BLEU score.
+    :class:`~probnmn.models.program_generator.ProgramGenerator` and
+    :class:`~probnmn.models.question_reconstructor.QuestionReconstructor`. The key differences
+    from super class are:
+
+        1. This class doesn't use beam search, it performs categorical sampling or greedy decoding
+           as explicitly passed on :meth:`forward` call.
+        2. This class records four metrics: perplexity, sequence_accuracy, word error rate and
+           BLEU score.
         3. Has sensible defaults for super class (dot-product attention, embedding etc.).
 
     Parameters
     ----------
-    vocabulary: Vocabulary
-        AllenNLP's vocabulary object. This vocabulary has three namespaces - "questions",
-        "programs" and "answers", which contain respective token to integer mappings.
+    vocabulary: allennlp.data.vocabulary.Vocabulary
+        AllenNLP's vocabulary. This vocabulary has three namespaces - "questions", "programs" and
+        "answers", which contain respective token to integer mappings.
     source_namespace: str, required
-        Namespace for source tokens, "programs" for QuestionReconstructor and "questions"
-        for ProgramGenerator.
+        Namespace for source tokens,
+        "programs" for :class:`~probnmn.models.question_reconstructor.QuestionReconstructor` and
+        "questions" for :class:`~probnmn.models.program_generator.ProgramGenerator`.
     target_namespace: str, required
         Namespace for target tokens, "programs" for ProgramGenerator and "questions" for
         QuestionReconstructor.
@@ -40,17 +45,20 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
     num_layers: int, optional (default = 2)
         Number of recurrent layers of the LSTM.
     """
-    def __init__(self,
-                 vocabulary: Vocabulary,
-                 source_namespace: str,
-                 target_namespace: str,
-                 input_size: int = 256,
-                 hidden_size: int = 256,
-                 num_layers: int = 2,
-                 dropout: float = 0.0,
-                 max_decoding_steps: int = 30):
 
-        # @@PADDING@@, @@UNKNOWN@@, @start@, @end@ have same indices in all namespaces
+    def __init__(
+        self,
+        vocabulary: Vocabulary,
+        source_namespace: str,
+        target_namespace: str,
+        input_size: int = 256,
+        hidden_size: int = 256,
+        num_layers: int = 2,
+        dropout: float = 0.0,
+        max_decoding_steps: int = 30,
+    ):
+
+        # @@PADDING@@, @@UNKNOWN@@, @start@, @end@ have same indices in all namespaces.
         self._pad_index = vocabulary.get_token_index("@@PADDING@@", namespace=source_namespace)
         self._unk_index = vocabulary.get_token_index("@@UNKNOWN@@", namespace=source_namespace)
         self._end_index = vocabulary.get_token_index("@end@", namespace=source_namespace)
@@ -80,24 +88,26 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             max_decoding_steps=max_decoding_steps,
             attention=__attention,
             target_namespace=target_namespace,
-            use_bleu=True
+            use_bleu=True,
         )
-        # Record three metrics - perplexity, sequence accuracy and BLEU score.
-        # super().__init__() already declared "self._bleu", perplexity = 2 ** average_val_loss.
+        # Record four metrics - perplexity, sequence accuracy, word error rate and BLEU score.
+        # super().__init__() already declared "self._bleu",
+        # perplexity = 2 ** average_val_loss
+        # word error rate = 1 - unigram recall
         self._log2_perplexity = Average()
-        self._sequence_accuracy= SequenceAccuracy()
+        self._sequence_accuracy = SequenceAccuracy()
+        self._unigram_recall = UnigramRecall()
 
-    def forward(self,
-                source_tokens: torch.LongTensor,
-                target_tokens: Optional[torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
-        """
-        Override AllenNLP's forward, changing decoder logic. During training, it performs
-        categorical sampling, while during evaluation it performs greedy decoding. This means
-        beam search with beam size 1 by default.
+    def forward(
+        self,
+        source_tokens: torch.LongTensor,
+        target_tokens: Optional[torch.LongTensor] = None,
+        decoding_strategy: str = "sampling",
+    ) -> Dict[str, torch.Tensor]:
 
-        Extended Summary
-        ----------------
-        Make forward pass with decoder logic for producing the entire target sequence.
+        r"""
+        Override AllenNLP's forward, changing decoder logic. Perform either categorical sampling
+        or greedy decoding as per specified.
 
         Parameters
         ----------
@@ -107,6 +117,8 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         target_tokens: torch.LongTensor, optional (default = None)
             Tokenized target sequences padded to maximum length. These are not padded with
             @start@ and @end@ sentence boundaries. Shape: (batch_size, max_target_length)
+        decoding_strategy: str, optional (default = "sampling")
+            How to perform decoding? One of "sampling" or "greedy".
 
         Returns
         -------
@@ -114,13 +126,14 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         """
         # Add "@start@" and "@end@" tokens to source and target sequences.
         source_tokens, _ = add_sentence_boundary_token_ids(
-            source_tokens, (source_tokens != self._pad_index),
-            self._start_index, self._end_index
+            source_tokens, (source_tokens != self._pad_index), self._start_index, self._end_index
         )
         if target_tokens is not None:
             target_tokens, _ = add_sentence_boundary_token_ids(
-                target_tokens, (target_tokens != self._pad_index),
-                self._start_index, self._end_index
+                target_tokens,
+                (target_tokens != self._pad_index),
+                self._start_index,
+                self._end_index,
             )
         # Remove "@start@" from source sequences anyway (it's being encoded).
         source_tokens = {"tokens": source_tokens[:, 1:]}
@@ -137,14 +150,17 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         # The `_forward_loop` decodes the input sequence and computes the loss during training
         # and validation.
         # keys: {"predictions", "loss"}
-        output_dict = self._forward_loop(state, target_tokens)
+        output_dict = self._forward_loop(state, target_tokens, decoding_strategy)
 
         return output_dict
 
-    def _forward_loop(self,
-                      state: Dict[str, torch.Tensor],
-                      target_tokens: Dict[str, torch.LongTensor] = None
-                      ) -> Dict[str, torch.Tensor]:
+    def _forward_loop(
+        self,
+        state: Dict[str, torch.FloatTensor],
+        target_tokens: Dict[str, torch.LongTensor] = None,
+        decoding_strategy: str = "sampling",
+    ) -> Dict[str, torch.Tensor]:
+
         # shape: (batch_size, max_input_sequence_length)
         source_mask = state["source_mask"]
         batch_size = source_mask.size()[0]
@@ -189,11 +205,10 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
 
             # NOTE -------------------------------------------------------------------------------
             # This differs from super()._forward_loop(...)
-            if not self.training:
-                # perform greedy decoding during evaluation
+            if decoding_strategy == "greedy":
                 _, predicted_classes = torch.max(class_probabilities, 1)
-            else:
-                # perform categorical sampling, don't sample @@PADDING@@, @@UNKNOWN@@, @start@
+            elif decoding_strategy == "sampling":
+                # Perform categorical sampling, don't sample @@PADDING@@, @@UNKNOWN@@, @start@.
                 class_probabilities[:, self._pad_index] = 0
                 class_probabilities[:, self._unk_index] = 0
                 class_probabilities[:, self._start_index] = 0
@@ -204,7 +219,7 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             last_predictions = predicted_classes
             class_logprobs = class_logprobs[torch.arange(batch_size), predicted_classes]
 
-            # list of tensors, shape: (batch_size, 1, num_classes)
+            # List of tensors, shape: (batch_size, 1, num_classes)
             step_predictions.append(last_predictions.unsqueeze(1))
             step_logits.append(output_projections.unsqueeze(1))
             step_logprobs.append(class_logprobs.unsqueeze(1))
@@ -226,14 +241,14 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         sequence_logprobs = logprobs.mul(prediction_mask).sum(-1)
         prediction_lengths = prediction_mask.sum(-1)
         # shape: (batch_size, )
-        sequence_logprobs /= (prediction_lengths + 1e-12)
+        sequence_logprobs /= prediction_lengths + 1e-12
 
         output_dict = {"predictions": predictions, "loss": -sequence_logprobs}
         if target_tokens:
             # shape: (batch_size, num_decoding_steps, num_classes)
             logits = torch.cat(step_logits, 1)
             # shape: (batch_size, max_sequence_length)
-            target_mask = (targets != self._pad_index)
+            target_mask = targets != self._pad_index
             # shape: (batch_size, )
             sequence_cross_entropy = self._get_loss(logits, targets, target_mask)
             output_dict["loss"] = sequence_cross_entropy
@@ -241,22 +256,27 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             relevant_targets = targets[:, 1:]
 
             if not self.training:
-                # Record BLEU, perplexity and sequence accuracy during validation.
+                # Record BLEU, perplexity, word error rate and sequence accuracy during validation.
                 self._bleu(predictions, targets)
                 self._log2_perplexity(sequence_cross_entropy.mean().item())
 
-                # Sequence accuracy expects top-k beams, so need to add beam dimension.
+                # Sequence accuracy and unigram recall expect a beam dimension.
                 # Compare generated sequences without "@start@" token.
                 self._sequence_accuracy(
-                    predictions[:, :relevant_targets.size(-1)].unsqueeze(1),
+                    predictions[:, : relevant_targets.size(-1)].unsqueeze(1),
                     relevant_targets,
-                    (relevant_targets != self._pad_index).long()
+                    (relevant_targets != self._pad_index).long(),
+                )
+                self._unigram_recall(
+                    predictions[:, : relevant_targets.size(-1)].unsqueeze(1),
+                    relevant_targets,
+                    (relevant_targets != self._pad_index).long(),
                 )
 
         return output_dict
 
     def _trim_predictions(self, predictions: torch.LongTensor):
-        """
+        r"""
         Trim output predictions at first "@end@" and pad the rest of sequence.
         This includes "@end@" as last token in trimmed sequence.
         """
@@ -267,17 +287,17 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             if self._end_index in prediction_indices:
                 end_index = prediction_indices.index(self._end_index)
                 if end_index > 0:
-                    trimmed_predictions[i][:end_index + 1] = prediction[:end_index + 1]
+                    trimmed_predictions[i][: end_index + 1] = prediction[: end_index + 1]
             else:
                 trimmed_predictions[i] = prediction
         return trimmed_predictions
 
     @staticmethod
-    def _get_loss(logits: torch.LongTensor,
-                  targets: torch.LongTensor,
-                  target_mask: torch.LongTensor) -> torch.Tensor:
-        """
-        Override AllenNLP Seq2Seq model's provided `_get_loss` method, which returns sequence
+    def _get_loss(
+        logits: torch.LongTensor, targets: torch.LongTensor, target_mask: torch.LongTensor
+    ):
+        r"""
+        Override AllenNLP Seq2Seq model's provided ``_get_loss`` method, which returns sequence
         cross entropy averaged over batch by default. Instead, provide sequence cross entropy of
         each sequence in a batch separately.
 
@@ -316,15 +336,36 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
             logits, relevant_targets, relevant_mask, average=None
         )
 
-    def get_metrics(self) -> Dict[str, float]:
-        """Override AllenNLP's get_metric and return perplexity, along with BLEU."""
+    def get_metrics(self, reset: bool = True) -> Dict[str, float]:
+        r"""
+        Return recorded metrics - perplexity, sequence accuracy, word error rate, BLEU.
+
+        Parameters
+        ----------
+        reset: bool, optional (default = True)
+            Whether to reset the accumulated metrics after retrieving them.
+
+        Returns
+        -------
+        Dict[str, float]
+            A dictionary with metrics::
+
+                {
+                    "perplexity",
+                    "sequence_accuracy",
+                    "word_error_rate",
+                    "BLEU"
+                }
+        """
+
         all_metrics: Dict[str, float] = {}
         if not self.training:
             all_metrics.update(self._bleu.get_metric(reset=True))
             all_metrics.update(
                 {
-                    "perplexity": 2 ** self._log2_perplexity.get_metric(reset=True),
-                    "sequence_accuracy": self._sequence_accuracy.get_metric(reset=True)
+                    "perplexity": 2 ** self._log2_perplexity.get_metric(reset=reset),
+                    "sequence_accuracy": self._sequence_accuracy.get_metric(reset=reset),
+                    "word_error_rate": 1 - self._unigram_recall.get_metric(reset=reset),
                 }
             )
         return all_metrics
