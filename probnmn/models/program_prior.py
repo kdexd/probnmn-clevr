@@ -80,7 +80,7 @@ class ProgramPrior(nn.Module):
             with structure::
 
                 {
-                    "predictions": torch.Tensor (shape: (batch_size, max_program_length - 1)),
+                    "predictions": torch.Tensor (shape: (batch_size, max_sequence_length - 1)),
                     "loss": torch.Tensor (shape: (batch_size, ))
                 }
         """
@@ -155,3 +155,132 @@ class ProgramPrior(nn.Module):
         """
 
         return {"perplexity": 2 ** self._log2_perplexity.get_metric(reset=reset)}
+
+    def sample(
+        self, num_samples: int = 1, max_sequence_length: int = 28
+    ) -> Dict[str, torch.Tensor]:
+        r"""
+        Using @start@ token at first time-step, perform categorical sampling and sample program
+        sequences freely, all sequences would be padded after encountering first @end@ token.
+
+        Parameters
+        ----------
+        num_samples: int, optional (default = 1)
+            Number of program_samples to generate.
+        max_sequence_length: int, optional (default = 28)
+            Maximum decoding steps while sampling programs. This includes @start@ token. Output
+            sequences will be one time-step smaller, excluding @start@.
+
+        Returns
+        -------
+        Dict[str, torch.Tensor]
+            A dict with predictions and sequence log-probabilities (averaged across time-steps).
+            This would acutally return negative log-probabilities and name it "loss" for API
+            consistency. The dict structure looks like::
+
+                {
+                    "predictions": torch.Tensor (shape: (batch_size, max_sequence_length - 1)),
+                    "loss": torch.Tensor (shape: (batch_size, ))
+                }
+        """
+
+        # Get device of any member in this module to initialize fresh tensors on that device.
+        device = self._output_layer.weight.device
+
+        # Take out the PyTorch module from AllenNLP's wrapper.
+        encoder = self._encoder._module
+
+        # Create a tensor of @start@ tokens on same device as this module.
+        # shape: (num_samples, )
+        last_predictions = torch.full(
+            (num_samples, 1), fill_value=self._start_index, device=device
+        ).long()
+
+        # Initialize hidden and cell states as zeroes.
+        # shape: (num_layers, num_samples, hidden_size)
+        hidden_state = torch.zeros(
+            (encoder.num_layers, num_samples, encoder.hidden_size), device=device
+        )
+        cell_state = torch.zeros(
+            (encoder.num_layers, num_samples, encoder.hidden_size), device=device
+        )
+
+        step_logits: List[torch.Tensor] = []
+        step_logprobs: List[torch.Tensor] = []
+        step_predictions: List[torch.Tensor] = []
+
+        for timestep in range(max_sequence_length - 1):
+            # shape: (num_samples, 1)
+            input_choices = last_predictions
+
+            # shape: (num_samples, 1, input_size)
+            embedded_tokens = self._embedder({"programs": last_predictions})
+
+            # shape: (num_samples, 1, hidden_size)
+            encoded_tokens, (hidden_state, cell_state) = encoder(
+                embedded_tokens, (hidden_state, cell_state)
+            )
+
+            # shape: (num_samples, 1, input_size)
+            output_projection = self._projection_layer(encoded_tokens)
+
+            # shape: (num_samples, 1, vocab_size)
+            output_logits = self._output_layer(output_projection)
+
+            output_class_probabilities = F.softmax(output_logits, dim=-1)
+            output_class_logprobs = F.log_softmax(output_projection, dim=-1)
+
+            # Perform categorical sampling, don't sample @@PADDING@@, @@UNKNOWN@@, @start@.
+            output_class_probabilities[:, :, self._start_index] = 0
+            output_class_probabilities[:, :, self._pad_index] = 0
+            output_class_probabilities[:, :, self._unk_index] = 0
+
+            # shape: (num_samples, 1)
+            predicted_classes = torch.multinomial(output_class_probabilities.squeeze(1), 1)
+
+            # Pick predictions and their logprobs and append to lists.
+            last_predictions = predicted_classes
+            output_class_logprobs = torch.gather(
+                output_class_logprobs, 2, predicted_classes.unsqueeze(1)
+            )
+
+            # List of tensors, shape: (num_samples, 1, vocab_size)
+            step_predictions.append(last_predictions)
+            step_logits.append(output_projection)
+            step_logprobs.append(output_class_logprobs.squeeze(-1))
+
+        # shape: (batch_size, max_sequence_length)
+        predictions = torch.cat(step_predictions, 1)
+
+        # Trim predictions after first "@end@" token.
+        # shape: (batch_size, num_decoding_steps)
+        trimmed_predictions = torch.zeros_like(predictions)
+        for i, prediction in enumerate(predictions):
+            prediction_indices = list(prediction.detach().cpu().numpy())
+            if self._end_index in prediction_indices:
+                end_index = prediction_indices.index(self._end_index)
+                if end_index > 0:
+                    trimmed_predictions[i][: end_index + 1] = prediction[: end_index + 1]
+            else:
+                trimmed_predictions[i] = prediction
+        predictions = trimmed_predictions
+
+        # Log-probabilities at each time-step (without teacher forcing).
+        logprobs = torch.cat(step_logprobs, 1)
+        prediction_mask = (predictions != self._pad_index).float()
+
+        # Average the sequence logprob across time-steps. This ensures equal importance of all
+        # sequences irrespective of their lengths.
+        sequence_logprobs = logprobs.mul(prediction_mask).sum(-1)
+        prediction_lengths = prediction_mask.sum(-1)
+        # shape: (batch_size, )
+        sequence_logprobs /= prediction_lengths + 1e-12
+
+        # Sort predictions and logprobs in ascending order. Most probble sequence has the lowest
+        # "loss" (negative logprobs).
+        sequence_logprobs_sorting = (- sequence_logprobs).sort()[1]
+        predictions = predictions[sequence_logprobs_sorting]
+        sequence_logprobs = sequence_logprobs[sequence_logprobs_sorting]
+
+        output_dict = {"predictions": predictions, "loss": - sequence_logprobs}
+        return output_dict
