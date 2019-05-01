@@ -151,10 +151,10 @@ class QuestionCodingEvaluator(_Evaluator):
         """
 
         program_generator_output_dict = self._program_generator(
-            batch["question"], batch["program"]
+            batch["question"], batch["program"], decoding_strategy="greedy"
         )
         question_reconstructor_output_dict = self._question_reconstructor(
-            batch["program"], batch["question"]
+            batch["program"], batch["question"], decoding_strategy="greedy"
         )
         return {
             "program_generator": program_generator_output_dict,

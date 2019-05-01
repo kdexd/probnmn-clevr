@@ -1,45 +1,54 @@
-"""Collection of PyTorch modules used by our Neural Module Network."""
+r"""
+Collection of PyTorch modules used by our Neural Module Network.
+
+Adopted from: `davidmascharka/tbd-nets <https://www.github.com/davidmascharka/tbd-nets>`_.
+"""
 import torch
 from torch import nn
 from torch.nn import functional as F
 
 
 class AndModule(nn.Module):
-    """A neural module that (basically) performs a logical and.
+    r"""
+    A neural module that (basically) performs a logical and.
 
     Extended Summary
-    ---------------- 
-    A :class:`AndModule` is a neural module that takes two input attention masks and (basically)
+    ----------------
+    An :class:`AndModule` is a neural module that takes two input attention masks and (basically)
     performs a set intersection. This would be used in a question like "What color is the cube to
     the left of the sphere and right of the yellow cylinder?" After localizing the regions left of
     the sphere and right of the yellow cylinder, an :class:`AndModule` would be used to find the
     intersection of the two. Its output would then go into an :class:`AttentionModule` that finds
     cubes.
     """
+
     def forward(self, attn1, attn2):
         out = torch.min(attn1, attn2)
         return out
 
 
 class OrModule(nn.Module):
-    """A neural module that (basically) performs a logical or.
+    r"""
+    A neural module that (basically) performs a logical or.
 
     Extended Summary
     ----------------
-    A :class:`OrModule` is a neural module that takes two input attention masks and (basically)
+    An :class:`OrModule` is a neural module that takes two input attention masks and (basically)
     performs a set union. This would be used in a question like "How many cubes are left of the
     brown sphere or right of the cylinder?" After localizing the regions left of the brown sphere
-    and right of the cylinder, an :class:`OrModule` would be used to find the union of the two. Its
-    output would then go into an :class:`AttentionModule` that finds cubes.
+    and right of the cylinder, an :class:`OrModule` would be used to find the union of the two.
+    Its output would then go into an :class:`AttentionModule` that finds cubes.
     """
+
     def forward(self, attn1, attn2):
         out = torch.max(attn1, attn2)
         return out
 
 
 class AttentionModule(nn.Module):
-    """A neural module that takes a feature map and attention, attends to the features, and 
-    produces an attention.
+    r"""
+    A neural module that takes a feature map and attention, attends to the features, and produces
+    an attention.
 
     Extended Summary
     ----------------
@@ -50,19 +59,20 @@ class AttentionModule(nn.Module):
     looking for.
 
     For example, an :class:`AttentionModule` may be tasked with finding cubes. Given an input
-    attention of all ones, it will highlight all the cubes in the provided input features. Given an
-    attention mask highlighting all the red objects, it will produce an attention mask highlighting
-    all the red cubes.
+    attention of all ones, it will highlight all the cubes in the provided input features. Given
+    an attention mask highlighting all the red objects, it will produce an attention mask
+    highlighting all the red cubes.
 
     Parameters
     ----------
     dim: int
         The number of channels of each convolutional filter.
     """
+
     def __init__(self, dim: int):
         super().__init__()
         self.conv1 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(dim, dim, kernel_size=3, padding=1) 
+        self.conv2 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(dim, 1, kernel_size=1, padding=0)
         torch.nn.init.kaiming_normal_(self.conv1.weight)
         torch.nn.init.kaiming_normal_(self.conv2.weight)
@@ -78,7 +88,8 @@ class AttentionModule(nn.Module):
 
 
 class QueryModule(nn.Module):
-    """A neural module that takes as input a feature map and an attention and produces a feature
+    r"""
+    A neural module that takes as input a feature map and an attention and produces a feature
     map as output.
 
     Extended Summary
@@ -96,6 +107,7 @@ class QueryModule(nn.Module):
     dim: int
         The number of channels of each convolutional filter.
     """
+
     def __init__(self, dim: int):
         super().__init__()
         self.conv1 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
@@ -112,7 +124,8 @@ class QueryModule(nn.Module):
 
 
 class RelateModule(nn.Module):
-    """A neural module that takes as input a feature map and an attention and produces an attention
+    r"""
+    A neural module that takes as input a feature map and an attention and produces an attention
     as output.
 
     Extended Summary
@@ -127,6 +140,7 @@ class RelateModule(nn.Module):
     dim: int
         The number of channels of each convolutional filter.
     """
+
     def __init__(self, dim: int):
         super().__init__()
         self.conv1 = nn.Conv2d(dim, dim, kernel_size=3, padding=1, dilation=1)  # receptive field 3
@@ -155,7 +169,8 @@ class RelateModule(nn.Module):
 
 
 class SameModule(nn.Module):
-    """A neural module that takes as input a feature map and an attention and produces an attention
+    r"""
+    A neural module that takes as input a feature map and an attention and produces an attention
     as output.
 
     Extended Summary
@@ -166,18 +181,19 @@ class SameModule(nn.Module):
     other regions have this same property. This correlated feature map then goes through a
     convolutional block whose output is an attention mask.
 
-    As an example, this module can be used with the CLEVR dataset to perform the `same_shape`
-    operation, which will highlight every region of an image that shares the same shape as an object
-    of interest (excluding the original object).
+    As an example, this module can be used with the CLEVR dataset to perform the ``same_shape``
+    operation, which will highlight every region of an image that shares the same shape as an
+    object of interest (excluding the original object).
 
     Parameters
     ----------
     dim: int
         The number of channels in the input feature map.
     """
+
     def __init__(self, dim: int):
         super().__init__()
-        self.conv = nn.Conv2d(dim+1, 1, kernel_size=1)
+        self.conv = nn.Conv2d(dim + 1, 1, kernel_size=1)
         torch.nn.init.kaiming_normal_(self.conv.weight)
         self.dim = dim
 
@@ -193,7 +209,8 @@ class SameModule(nn.Module):
 
 
 class ComparisonModule(nn.Module):
-    """A neural module that takes as input two feature maps and produces a feature map as output.
+    r"""
+    A neural module that takes as input two feature maps and produces a feature map as output.
 
     Extended Summary
     ----------------
@@ -201,8 +218,8 @@ class ComparisonModule(nn.Module):
     processes the concatenated features and produces a feature map encoding whether the two input
     feature maps encode the same property.
 
-    This block is useful in making integer comparisons, for example to answer the question, ``Are
-    there more red things than small spheres?'' It can also be used to determine whether some
+    This block is useful in making integer comparisons, for example to answer the question, "Are
+    there more red things than small spheres?" It can also be used to determine whether some
     relationship holds of two objects (e.g. they are the same shape, size, color, or material).
 
     Parameters
@@ -210,9 +227,10 @@ class ComparisonModule(nn.Module):
     dim: int
         The number of channels of each convolutional filter.
     """
+
     def __init__(self, dim: int):
         super().__init__()
-        self.projection = nn.Conv2d(2*dim, dim, kernel_size=1, padding=0)
+        self.projection = nn.Conv2d(2 * dim, dim, kernel_size=1, padding=0)
         self.conv1 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(dim, dim, kernel_size=3, padding=1)
         torch.nn.init.kaiming_normal_(self.conv1.weight)

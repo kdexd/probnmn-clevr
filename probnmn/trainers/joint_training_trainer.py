@@ -190,10 +190,14 @@ class JointTrainingTrainer(_Trainer):
 
             # keys: {"predictions", "loss"}
             pg_output_dict_supervision = self._program_generator(
-                question_tokens_supervision, program_tokens_supervision
+                question_tokens_supervision,
+                program_tokens_supervision,
+                decoding_strategy="sampling",
             )
             qr_output_dict_supervision = self._question_reconstructor(
-                program_tokens_supervision, question_tokens_supervision
+                program_tokens_supervision,
+                question_tokens_supervision,
+                decoding_strategy="sampling",
             )
             program_generation_loss_supervision = pg_output_dict_supervision["loss"].mean()
             question_reconstruction_loss_supervision = qr_output_dict_supervision["loss"].mean()
