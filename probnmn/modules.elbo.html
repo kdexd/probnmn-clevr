@@ -56,8 +56,8 @@ keeps track of a decaying moving average baseline.</p>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A PyTorch Module to compute the Fully Monte Carlo form of Evidence Lower Bound, given the
 inference likelihood, reconstruction likelihood and a REINFORCE reward. Accepting any scalar
-as REINFORCE reward allows flexibility in Evidence lower ound objective - like we have an
-extra answer log-likelihood term during Joint Training.</p>
+as REINFORCE reward allows flexibility in ELBO objective - like we have an extra answer
+log-likelihood term during Joint Training.</p>
 <p>This class is not used directly, instead its extended classes <a class="reference internal" href="#probnmn.modules.elbo.QuestionCodingElbo" title="probnmn.modules.elbo.QuestionCodingElbo"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionCodingElbo</span></code></a> and
 <a class="reference internal" href="#probnmn.modules.elbo.JointTrainingElbo" title="probnmn.modules.elbo.JointTrainingElbo"><code class="xref py py-class docutils literal notranslate"><span class="pre">JointTrainingElbo</span></code></a> are used in corresponding phases.</p>
 <dl class="field-list simple">
@@ -79,7 +79,7 @@ extra answer log-likelihood term during Joint Training.</p>
 <dd><p>Bases: <a class="reference internal" href="#probnmn.modules.elbo._ElboWithReinforce" title="probnmn.modules.elbo._ElboWithReinforce"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.modules.elbo._ElboWithReinforce</span></code></a></p>
 <p>A PyTorch module to compute Evidence Lower Bound for observed questions without (GT) program
 supervision. This implementation takes the Fully Monte Carlo form, and uses <a class="reference internal" href="#probnmn.modules.elbo.Reinforce" title="probnmn.modules.elbo.Reinforce"><code class="xref py py-class docutils literal notranslate"><span class="pre">Reinforce</span></code></a>
-estimator for parameters of the inference model
+estimator for gradient estimation of parameters of the inference model
 (<a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a>).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -87,7 +87,7 @@ estimator for parameters of the inference model
 <dt><strong>program_generator: ProgramGenerator</strong></dt><dd><p>A <a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a>, serves as inference model
 of the posterior (programs).</p>
 </dd>
-<dt><strong>question_reconstructor: QuestinReconstructor</strong></dt><dd><p>A <a class="reference internal" href="models.question_reconstructor.html#probnmn.models.question_reconstructor.QuestionReconstructor" title="probnmn.models.question_reconstructor.QuestionReconstructor"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionReconstructor</span></code></a>, serves as
+<dt><strong>question_reconstructor: QuestionReconstructor</strong></dt><dd><p>A <a class="reference internal" href="models.question_reconstructor.html#probnmn.models.question_reconstructor.QuestionReconstructor" title="probnmn.models.question_reconstructor.QuestionReconstructor"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionReconstructor</span></code></a>, serves as
 reconstruction model of observed data (questions).</p>
 </dd>
 <dt><strong>program_prior: ProgramPrior</strong></dt><dd><p>A <a class="reference internal" href="models.program_prior.html#probnmn.models.program_prior.ProgramPrior" title="probnmn.models.program_prior.ProgramPrior"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramPrior</span></code></a>, serves as prior of the posterior
@@ -110,7 +110,7 @@ distribution (programs).</p>
 <p>A PyTorch module to compute Evidence Lower Bound for observed questions without (GT) program
 supervision with the added answer log-likelihood term in the bound, from Joint Training
 objective. This implementation takes the Fully Monte Carlo form, and uses <a class="reference internal" href="#probnmn.modules.elbo.Reinforce" title="probnmn.modules.elbo.Reinforce"><code class="xref py py-class docutils literal notranslate"><span class="pre">Reinforce</span></code></a>
-estimator for parameters of the inference model
+estimator for gradient estimation of parameters of the inference model
 (<a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a>).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -118,7 +118,7 @@ estimator for parameters of the inference model
 <dt><strong>program_generator: ProgramGenerator</strong></dt><dd><p>A <a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a>, serves as inference model
 of the posterior (programs).</p>
 </dd>
-<dt><strong>question_reconstructor: QuestinReconstructor</strong></dt><dd><p>A <a class="reference internal" href="models.question_reconstructor.html#probnmn.models.question_reconstructor.QuestionReconstructor" title="probnmn.models.question_reconstructor.QuestionReconstructor"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionReconstructor</span></code></a>, serves as
+<dt><strong>question_reconstructor: QuestionReconstructor</strong></dt><dd><p>A <a class="reference internal" href="models.question_reconstructor.html#probnmn.models.question_reconstructor.QuestionReconstructor" title="probnmn.models.question_reconstructor.QuestionReconstructor"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionReconstructor</span></code></a>, serves as
 reconstruction model of observed data (questions).</p>
 </dd>
 <dt><strong>program_prior: ProgramPrior</strong></dt><dd><p>A <a class="reference internal" href="models.program_prior.html#probnmn.models.program_prior.ProgramPrior" title="probnmn.models.program_prior.ProgramPrior"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramPrior</span></code></a>, serves as prior of the posterior
