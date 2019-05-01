@@ -1,0 +1,159 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>probnmn.utils.checkpointing &#8212; ProbNMN 0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="probnmn.evaluators.joint_training_evaluator" href="evaluators.joint_training_evaluator.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="module-probnmn.utils.checkpointing">
+<span id="probnmn-utils-checkpointing"></span><h1>probnmn.utils.checkpointing<a class="headerlink" href="#module-probnmn.utils.checkpointing" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="probnmn.utils.checkpointing.CheckpointManager">
+<em class="property">class </em><code class="descclassname">probnmn.utils.checkpointing.</code><code class="descname">CheckpointManager</code><span class="sig-paren">(</span><em>models: Dict[str, torch.nn.modules.module.Module], optimizer: Type[torch.optim.optimizer.Optimizer], serialization_dir: str, mode: str = 'max', filename_prefix: str = 'checkpoint'</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/utils/checkpointing.py#L9-L107"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.utils.checkpointing.CheckpointManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A <a class="reference internal" href="#probnmn.utils.checkpointing.CheckpointManager" title="probnmn.utils.checkpointing.CheckpointManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">CheckpointManager</span></code></a> periodically serializes models and optimizer as .pth files during
+training, and keeps track of best performing checkpoint based on an observed metric.</p>
+<p>It saves state dicts of models and optimizer as <code class="docutils literal notranslate"><span class="pre">.pth</span></code> files in a specified directory. This
+class closely follows the API of PyTorch optimizers and learning rate schedulers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>models: Dict[str, torch.nn.Module]</strong></dt><dd><p>Models which need to be serialized as a checkpoint.</p>
+</dd>
+<dt><strong>optimizer: torch.optim.Optimizer</strong></dt><dd><p>Optimizer which needs to be serialized as a checkpoint.</p>
+</dd>
+<dt><strong>serialization_dir: str</strong></dt><dd><p>Path to an empty or non-existent directory to save checkpoints.</p>
+</dd>
+<dt><strong>mode: str, optional (default=”max”)</strong></dt><dd><p>One of <code class="docutils literal notranslate"><span class="pre">min</span></code>, <code class="docutils literal notranslate"><span class="pre">max</span></code>. In <code class="docutils literal notranslate"><span class="pre">min</span></code> mode, best checkpoint will be recorded when metric
+hits a lower value; in <cite>max</cite> mode it will be recorded when metric hits a higher value.</p>
+</dd>
+<dt><strong>filename_prefix: str, optional (default=”checkpoint”)</strong></dt><dd><p>Prefix of the to-be-saved checkpoint files.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>For <a class="reference external" href="https://pytorch.org/docs/stable/nn.html#torch.nn.DataParallel" title="(in PyTorch vmaster (1.1.0 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataParallel</span></code></a> objects, <code class="docutils literal notranslate"><span class="pre">.module.state_dict()</span></code> is called instead of
+<code class="docutils literal notranslate"><span class="pre">.state_dict()</span></code>.</p>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ckpt_manager</span> <span class="o">=</span> <span class="n">CheckpointManager</span><span class="p">({</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">},</span> <span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;/tmp/ckpt&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;min&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">num_epochs</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">train</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">val_loss</span> <span class="o">=</span> <span class="n">validate</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">ckpt_manager</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">val_loss</span><span class="p">,</span> <span class="n">epoch</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="probnmn.utils.checkpointing.CheckpointManager.step">
+<code class="descname">step</code><span class="sig-paren">(</span><em>metric: Union[float, torch.Tensor], epoch_or_iteration: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/utils/checkpointing.py#L76-L107"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.utils.checkpointing.CheckpointManager.step" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serialize checkpoint and update best checkpoint based on metric and mode.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProbNMN</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="config.html">probnmn.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">probnmn.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">probnmn.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">probnmn.utils.checkpointing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="evaluators.joint_training_evaluator.html" title="previous chapter">probnmn.evaluators.joint_training_evaluator</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Karan Desai.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/probnmn/utils.checkpointing.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,215 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>probnmn.models.nmn &#8212; ProbNMN 0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="probnmn.modules" href="modules.html" />
+    <link rel="prev" title="probnmn.models.question_reconstructor" href="models.question_reconstructor.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="probnmn-models-nmn">
+<h1>probnmn.models.nmn<a class="headerlink" href="#probnmn-models-nmn" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="probnmn.models.nmn.NeuralModuleNetwork">
+<em class="property">class </em><code class="descclassname">probnmn.models.nmn.</code><code class="descname">NeuralModuleNetwork</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>image_feature_size: Tuple[int</em>, <em>int</em>, <em>int] = (1024</em>, <em>14</em>, <em>14)</em>, <em>module_channels: int = 128</em>, <em>class_projection_channels: int = 1024</em>, <em>classifier_linear_size: int = 1024</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L21-L292"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<p>A <a class="reference internal" href="#probnmn.models.nmn.NeuralModuleNetwork" title="probnmn.models.nmn.NeuralModuleNetwork"><code class="xref py py-class docutils literal notranslate"><span class="pre">NeuralModuleNetwork</span></code></a> holds neural modules, a stem network, and a classifier network.
+It hooks these all together to answer a question given some scene and a program describing how
+to arrange the neural modules.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>vocabulary: allennlp.data.vocabulary.Vocabulary</strong></dt><dd><p>AllenNLP’s vocabulary. This vocabulary has three namespaces - “questions”, “programs” and
+“answers”, which contain respective token to integer mappings.</p>
+</dd>
+<dt><strong>image_feature_size: tuple (K, R, C), optional (default = (1024, 14, 14))</strong></dt><dd><p>Shape of input image features, in the form (channel, height, width).</p>
+</dd>
+<dt><strong>module_channels: int, optional (default = 128)</strong></dt><dd><p>Number of channels for each neural module’s convolutional blocks.</p>
+</dd>
+<dt><strong>class_projection_channels: int, optional (default = 512)</strong></dt><dd><p>Number of channels in projected final feature map (input to classifier).</p>
+</dd>
+<dt><strong>classifier_linear_size: int, optional (default = 1024)</strong></dt><dd><p>Size of input to the linear classifier.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="classmethod">
+<dt id="probnmn.models.nmn.NeuralModuleNetwork.from_config">
+<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L122-L133"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.from_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instantiate this class directly from a <a class="reference internal" href="config.html#probnmn.config.Config" title="probnmn.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="probnmn.models.nmn.NeuralModuleNetwork.forward">
+<code class="descname">forward</code><span class="sig-paren">(</span><em>features: torch.Tensor</em>, <em>programs: torch.Tensor</em>, <em>answers: Optional[torch.Tensor] = None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L135-L271"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given image features and program sequences, lay out a modular network and pass through
+the image features, further take the final feature representation output from modular
+network and pass it throuh the classifier to get the answer distribution.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>features: torch.Tensor</strong></dt><dd><p>Input image features of shape (batch, channels, height, width).</p>
+</dd>
+<dt><strong>programs: torch.Tensor</strong></dt><dd><p>Program sequences padded up to maximum length, shape (batch_size, max_program_length).</p>
+</dd>
+<dt><strong>answers: torch.Tensor, optional (default = None)</strong></dt><dd><p>Target answers for corresponding images and programs, shape (batch_size, ).</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl>
+<dt><strong>Dict[str, Any]</strong></dt><dd><p>Model predictions, answer cross-entropy loss and (if training, ) batch metrics. When
+answer targets are not provided, it returns negative log-probabilities of predicted
+answers. A dict with structure:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="p">(</span><span class="n">shape</span><span class="p">:</span> <span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="p">)),</span>
+    <span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="p">(</span><span class="n">shape</span><span class="p">:</span> <span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="p">)),</span>
+    <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;answer_accuracy&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="s2">&quot;average_invalid&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The structure of modular network is different for each program sequence, so we just
+loop through all programs of a batch and do forward pass for each example in the loop.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="probnmn.models.nmn.NeuralModuleNetwork.get_metrics">
+<code class="descname">get_metrics</code><span class="sig-paren">(</span><em>reset: bool = True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L273-L292"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.get_metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return recorded answer accuracy and average invalid programs per batch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>reset: bool, optional (default = True)</strong></dt><dd><p>Whether to reset the accumulated metrics after retrieving them.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>Dict[str, float]</strong></dt><dd><p>A dictionary with metrics <code class="docutils literal notranslate"><span class="pre">{&quot;answer_accuracy&quot;,</span> <span class="pre">&quot;average_invalid&quot;}</span></code>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProbNMN</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="config.html">probnmn.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">probnmn.data</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="models.html">probnmn.models</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="models.program_prior.html">probnmn.models.program_prior</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.program_generator.html">probnmn.models.program_generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.question_reconstructor.html">probnmn.models.question_reconstructor</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">probnmn.models.nmn</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="models.html">probnmn.models</a><ul>
+      <li>Previous: <a href="models.question_reconstructor.html" title="previous chapter">probnmn.models.question_reconstructor</a></li>
+      <li>Next: <a href="modules.html" title="next chapter">probnmn.modules</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Karan Desai.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/probnmn/models.nmn.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

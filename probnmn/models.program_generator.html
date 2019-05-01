@@ -1,0 +1,153 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>probnmn.models.program_generator &#8212; ProbNMN 0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="probnmn.models.question_reconstructor" href="models.question_reconstructor.html" />
+    <link rel="prev" title="probnmn.models.program_prior" href="models.program_prior.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="probnmn-models-program-generator">
+<h1>probnmn.models.program_generator<a class="headerlink" href="#probnmn-models-program-generator" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="probnmn.models.program_generator.ProgramGenerator">
+<em class="property">class </em><code class="descclassname">probnmn.models.program_generator.</code><code class="descname">ProgramGenerator</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>input_size: int = 256</em>, <em>hidden_size: int = 256</em>, <em>num_layers: int = 2</em>, <em>dropout: float = 0.0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_generator.py#L7-L59"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_generator.ProgramGenerator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="modules.seq2seq_base.html#probnmn.modules.seq2seq_base.Seq2SeqBase" title="probnmn.modules.seq2seq_base.Seq2SeqBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.modules.seq2seq_base.Seq2SeqBase</span></code></a></p>
+<p>A wrapper over <a class="reference internal" href="modules.seq2seq_base.html#probnmn.modules.seq2seq_base.Seq2SeqBase" title="probnmn.modules.seq2seq_base.Seq2SeqBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.modules.seq2seq_base.Seq2SeqBase</span></code></a>. This sequence to sequence
+model accepts tokenized and padded question sequences and decodes them to program sequences.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>vocabulary: allennlp.data.vocabulary.Vocabulary</strong></dt><dd><p>AllenNLP’s vocabulary. This vocabulary has three namespaces - “questions”, “programs” and
+“answers”, which contain respective token to integer mappings.</p>
+</dd>
+<dt><strong>input_size: int, optional (default = 256)</strong></dt><dd><p>The dimension of the inputs to the LSTM.</p>
+</dd>
+<dt><strong>hidden_size: int, optional (default = 256)</strong></dt><dd><p>The dimension of the outputs of the LSTM.</p>
+</dd>
+<dt><strong>num_layers: int, optional (default = 2)</strong></dt><dd><p>Number of recurrent layers in the LSTM.</p>
+</dd>
+<dt><strong>dropout: float, optional (default = 0.0)</strong></dt><dd><p>Dropout probability for the outputs of LSTM at each layer except last.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="classmethod">
+<dt id="probnmn.models.program_generator.ProgramGenerator.from_config">
+<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_generator.py#L48-L59"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_generator.ProgramGenerator.from_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instantiate this class directly from a <a class="reference internal" href="config.html#probnmn.config.Config" title="probnmn.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProbNMN</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="config.html">probnmn.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">probnmn.data</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="models.html">probnmn.models</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="models.program_prior.html">probnmn.models.program_prior</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">probnmn.models.program_generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.question_reconstructor.html">probnmn.models.question_reconstructor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="models.nmn.html">probnmn.models.nmn</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="models.html">probnmn.models</a><ul>
+      <li>Previous: <a href="models.program_prior.html" title="previous chapter">probnmn.models.program_prior</a></li>
+      <li>Next: <a href="models.question_reconstructor.html" title="next chapter">probnmn.models.question_reconstructor</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Karan Desai.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/probnmn/models.program_generator.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

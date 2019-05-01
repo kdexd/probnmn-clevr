@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>probnmn.evaluators.joint_training_evaluator &#8212; ProbNMN 0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="probnmn.utils.checkpointing" href="utils.checkpointing.html" />
+    <link rel="prev" title="probnmn.evaluators.module_training_evaluator" href="evaluators.module_training_evaluator.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="module-probnmn.evaluators.joint_training_evaluator">
+<span id="probnmn-evaluators-joint-training-evaluator"></span><h1>probnmn.evaluators.joint_training_evaluator<a class="headerlink" href="#module-probnmn.evaluators.joint_training_evaluator" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="probnmn.evaluators.joint_training_evaluator.JointTrainingEvaluator">
+<em class="property">class </em><code class="descclassname">probnmn.evaluators.joint_training_evaluator.</code><code class="descname">JointTrainingEvaluator</code><span class="sig-paren">(</span><em>config: probnmn.config.Config, models: Dict[str, Type[torch.nn.modules.module.Module]], gpu_ids: List[int] = [0], cpu_workers: int = 0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/joint_training_evaluator.py#L16-L103"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators.joint_training_evaluator.JointTrainingEvaluator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="evaluators._evaluator.html#probnmn.evaluators._evaluator._Evaluator" title="probnmn.evaluators._evaluator._Evaluator"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.evaluators._evaluator._Evaluator</span></code></a></p>
+<p>Performs evaluation for <code class="docutils literal notranslate"><span class="pre">joint_training</span></code> phase, using batches of evaluation examples from
+<a class="reference internal" href="data.datasets.html#probnmn.data.datasets.JointTrainingDataset" title="probnmn.data.datasets.JointTrainingDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">JointTrainingDataset</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>config: Config</strong></dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code> object with all the relevant configuration parameters.</p>
+</dd>
+<dt><strong>models: Dict[str, Type[nn.Module]]</strong></dt><dd><p>All the models which interact with each other for evaluation. This should come from
+<a class="reference internal" href="trainers.joint_training_trainer.html#probnmn.trainers.joint_training_trainer.JointTrainingTrainer" title="probnmn.trainers.joint_training_trainer.JointTrainingTrainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">JointTrainingTrainer</span></code></a>.</p>
+</dd>
+<dt><strong>gpu_ids: List[int], optional (default=[0])</strong></dt><dd><p>List of GPU IDs to use or evaluation, <code class="docutils literal notranslate"><span class="pre">[-1]</span></code> - use CPU.</p>
+</dd>
+<dt><strong>cpu_workers: int, optional (default = 0)</strong></dt><dd><p>Number of CPU workers to use for fetching batch examples in dataloader.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>To evaluate a pre-trained checkpoint:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="s2">&quot;config.yaml&quot;</span><span class="p">)</span>  <span class="c1"># PHASE must be &quot;joint_training&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span> <span class="o">=</span> <span class="n">JointTrainingTrainer</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">serialization_dir</span><span class="o">=</span><span class="s2">&quot;/tmp&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span><span class="o">.</span><span class="n">load_checkpoint</span><span class="p">(</span><span class="s2">&quot;/path/to/joint_training_checkpoint.pth&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">evaluator</span> <span class="o">=</span> <span class="n">JointTrainingEvaluator</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">trainer</span><span class="o">.</span><span class="n">models</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">eval_metrics</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">num_batches</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="probnmn.evaluators.joint_training_evaluator.JointTrainingEvaluator._do_iteration">
+<code class="descname">_do_iteration</code><span class="sig-paren">(</span><em>batch: Dict[str, Any]</em><span class="sig-paren">)</span> &#x2192; Dict[str, Any]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/joint_training_evaluator.py#L74-L103"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators.joint_training_evaluator.JointTrainingEvaluator._do_iteration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform one iteration, given a batch. Take a forward pass to accumulate metrics in
+<a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a> and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">NeuralModulenetwork</span></code>.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>batch: Dict[str, Any]</strong></dt><dd><p>A batch of evaluation examples sampled from dataloader.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl>
+<dt><strong>Dict[str, Any]</strong></dt><dd><p>A dictionary containing model predictions and/or batch validation losses of
+<a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a> and
+<a class="reference internal" href="models.nmn.html#probnmn.models.nmn.NeuralModuleNetwork" title="probnmn.models.nmn.NeuralModuleNetwork"><code class="xref py py-class docutils literal notranslate"><span class="pre">NeuralModuleNetwork</span></code></a>. Nested dict structure:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;program_generator&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;predictions&quot;</span><span class="p">,</span> <span class="s2">&quot;loss&quot;</span><span class="p">}</span>
+    <span class="s2">&quot;nmn&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;predictions&quot;</span><span class="p">,</span> <span class="s2">&quot;loss&quot;</span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProbNMN</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="config.html">probnmn.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">probnmn.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">probnmn.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="evaluators._evaluator.html">probnmn.evaluators._evaluator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="evaluators.program_prior_evaluator.html">probnmn.evaluators.program_prior_evaluator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="evaluators.question_coding_evaluator.html">probnmn.evaluators.question_coding_evaluator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="evaluators.module_training_evaluator.html">probnmn.evaluators.module_training_evaluator</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">probnmn.evaluators.joint_training_evaluator</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="evaluators.html">probnmn.evaluators</a><ul>
+      <li>Previous: <a href="evaluators.module_training_evaluator.html" title="previous chapter">probnmn.evaluators.module_training_evaluator</a></li>
+      <li>Next: <a href="utils.checkpointing.html" title="next chapter">probnmn.utils.checkpointing</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Karan Desai.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/probnmn/evaluators.joint_training_evaluator.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

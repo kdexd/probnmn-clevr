@@ -1,0 +1,265 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>probnmn.modules.seq2seq_base &#8212; ProbNMN 0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="probnmn.trainers" href="trainers.html" />
+    <link rel="prev" title="probnmn.modules.nmn_modules" href="modules.nmn_modules.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="probnmn-modules-seq2seq-base">
+<h1>probnmn.modules.seq2seq_base<a class="headerlink" href="#probnmn-modules-seq2seq-base" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="probnmn.modules.seq2seq_base.Seq2SeqBase">
+<em class="property">class </em><code class="descclassname">probnmn.modules.seq2seq_base.</code><code class="descname">Seq2SeqBase</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>source_namespace: str</em>, <em>target_namespace: str</em>, <em>input_size: int = 256</em>, <em>hidden_size: int = 256</em>, <em>num_layers: int = 2</em>, <em>dropout: float = 0.0</em>, <em>max_decoding_steps: int = 30</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L16-L371"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">allennlp.models.encoder_decoders.simple_seq2seq.SimpleSeq2Seq</span></code></p>
+<p>A wrapper over AllenNLP’s SimpleSeq2Seq class. This serves as a base class for the
+<a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a> and
+<a class="reference internal" href="models.question_reconstructor.html#probnmn.models.question_reconstructor.QuestionReconstructor" title="probnmn.models.question_reconstructor.QuestionReconstructor"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionReconstructor</span></code></a>. The key differences
+from super class are:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>This class doesn’t use beam search, it performs categorical sampling or greedy decoding
+as explicitly passed on <a class="reference internal" href="#probnmn.modules.seq2seq_base.Seq2SeqBase.forward" title="probnmn.modules.seq2seq_base.Seq2SeqBase.forward"><code class="xref py py-meth docutils literal notranslate"><span class="pre">forward()</span></code></a> call.</p></li>
+<li><p>This class records four metrics: perplexity, sequence_accuracy, word error rate and
+BLEU score.</p></li>
+<li><p>Has sensible defaults for super class (dot-product attention, embedding etc.).</p></li>
+</ol>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>vocabulary: allennlp.data.vocabulary.Vocabulary</strong></dt><dd><p>AllenNLP’s vocabulary. This vocabulary has three namespaces - “questions”, “programs” and
+“answers”, which contain respective token to integer mappings.</p>
+</dd>
+<dt><strong>source_namespace: str, required</strong></dt><dd><p>Namespace for source tokens,
+“programs” for <a class="reference internal" href="models.question_reconstructor.html#probnmn.models.question_reconstructor.QuestionReconstructor" title="probnmn.models.question_reconstructor.QuestionReconstructor"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionReconstructor</span></code></a> and
+“questions” for <a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a>.</p>
+</dd>
+<dt><strong>target_namespace: str, required</strong></dt><dd><p>Namespace for target tokens, “programs” for ProgramGenerator and “questions” for
+QuestionReconstructor.</p>
+</dd>
+<dt><strong>input_size</strong><span class="classifier">int, optional (default = 256)</span></dt><dd><p>The dimension of the inputs to the LSTM.</p>
+</dd>
+<dt><strong>hidden_size</strong><span class="classifier">int, optional (default = 256)</span></dt><dd><p>The dimension of the outputs of the LSTM.</p>
+</dd>
+<dt><strong>num_layers: int, optional (default = 2)</strong></dt><dd><p>Number of recurrent layers of the LSTM.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="method">
+<dt id="probnmn.modules.seq2seq_base.Seq2SeqBase.forward">
+<code class="descname">forward</code><span class="sig-paren">(</span><em>source_tokens: torch.LongTensor</em>, <em>target_tokens: Optional[torch.LongTensor] = None</em>, <em>decoding_strategy: str = 'sampling'</em><span class="sig-paren">)</span> &#x2192; Dict[str, torch.Tensor]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L101-L155"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Override AllenNLP’s forward, changing decoder logic. Perform either categorical sampling
+or greedy decoding as per specified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>source_tokens: torch.LongTensor</strong></dt><dd><p>Tokenized source sequences padded to maximum length. These are not padded with
+&#64;start&#64; and &#64;end&#64; sentence boundaries. Shape: (batch_size, max_source_length)</p>
+</dd>
+<dt><strong>target_tokens: torch.LongTensor, optional (default = None)</strong></dt><dd><p>Tokenized target sequences padded to maximum length. These are not padded with
+&#64;start&#64; and &#64;end&#64; sentence boundaries. Shape: (batch_size, max_target_length)</p>
+</dd>
+<dt><strong>decoding_strategy: str, optional (default = “sampling”)</strong></dt><dd><p>How to perform decoding? One of “sampling” or “greedy”.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>Dict[str, torch.Tensor]</strong></dt><dd></dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="probnmn.modules.seq2seq_base.Seq2SeqBase._forward_loop">
+<code class="descname">_forward_loop</code><span class="sig-paren">(</span><em>state: Dict[str, torch.FloatTensor], target_tokens: Dict[str, torch.LongTensor] = None, decoding_strategy: str = 'sampling'</em><span class="sig-paren">)</span> &#x2192; Dict[str, torch.Tensor]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L157-L276"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase._forward_loop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make forward pass during training or do greedy search during prediction.</p>
+<p class="rubric">Notes</p>
+<p>We really only use the predictions from the method to test that beam search
+with a beam size of 1 gives the same results.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="probnmn.modules.seq2seq_base.Seq2SeqBase._trim_predictions">
+<code class="descname">_trim_predictions</code><span class="sig-paren">(</span><em>predictions: torch.LongTensor</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L278-L293"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase._trim_predictions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Trim output predictions at first “&#64;end&#64;” and pad the rest of sequence.
+This includes “&#64;end&#64;” as last token in trimmed sequence.</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="probnmn.modules.seq2seq_base.Seq2SeqBase._get_loss">
+<em class="property">static </em><code class="descname">_get_loss</code><span class="sig-paren">(</span><em>logits: torch.LongTensor</em>, <em>targets: torch.LongTensor</em>, <em>target_mask: torch.LongTensor</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L295-L337"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase._get_loss" title="Permalink to this definition">¶</a></dt>
+<dd><p>Override AllenNLP Seq2Seq model’s provided <code class="docutils literal notranslate"><span class="pre">_get_loss</span></code> method, which returns sequence
+cross entropy averaged over batch by default. Instead, provide sequence cross entropy of
+each sequence in a batch separately.</p>
+<p>From AllenNLP documentation:</p>
+<p>Compute loss.
+Takes logits (unnormalized outputs from the decoder) of size (batch_size,
+num_decoding_steps, num_classes), target indices of size (batch_size, num_decoding_steps+1)
+and corresponding masks of size (batch_size, num_decoding_steps+1) steps and computes
+cross entropy loss while taking the mask into account.
+The length of <code class="docutils literal notranslate"><span class="pre">targets</span></code> is expected to be greater than that of <code class="docutils literal notranslate"><span class="pre">logits</span></code> because the
+decoder does not need to compute the output corresponding to the last timestep of
+<code class="docutils literal notranslate"><span class="pre">targets</span></code>. This method aligns the inputs appropriately to compute the loss.
+During training, we want the logit corresponding to timestep i to be similar to the target
+token from timestep i + 1. That is, the targets should be shifted by one timestep for
+appropriate comparison.  Consider a single example where the target has 3 words, and
+padding is to 7 tokens.</p>
+<blockquote>
+<div><p>The complete sequence would correspond to &lt;S&gt; w1  w2  w3  &lt;E&gt; &lt;P&gt; &lt;P&gt;
+and the mask would be                     1   1   1   1   1   0   0
+and let the logits be                     l1  l2  l3  l4  l5  l6</p>
+</div></blockquote>
+<dl class="simple">
+<dt>We actually need to compare:</dt><dd><p>the sequence           w1  w2  w3  &lt;E&gt; &lt;P&gt; &lt;P&gt;
+with masks             1   1   1   1   0   0
+against                l1  l2  l3  l4  l5  l6
+(where the input was)  &lt;S&gt; w1  w2  w3  &lt;E&gt; &lt;P&gt;</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="probnmn.modules.seq2seq_base.Seq2SeqBase.get_metrics">
+<code class="descname">get_metrics</code><span class="sig-paren">(</span><em>reset: bool = True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L339-L371"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase.get_metrics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return recorded metrics - perplexity, sequence accuracy, word error rate, BLEU.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>reset: bool, optional (default = True)</strong></dt><dd><p>Whether to reset the accumulated metrics after retrieving them.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl>
+<dt><strong>Dict[str, float]</strong></dt><dd><p>A dictionary with metrics:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;perplexity&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;sequence_accuracy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;word_error_rate&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;BLEU&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProbNMN</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="config.html">probnmn.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">probnmn.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">probnmn.models</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">probnmn.modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="modules.elbo.html">probnmn.modules.elbo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules.nmn_modules.html">probnmn.modules.nmn_modules</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">probnmn.modules.seq2seq_base</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">probnmn.modules</a><ul>
+      <li>Previous: <a href="modules.nmn_modules.html" title="previous chapter">probnmn.modules.nmn_modules</a></li>
+      <li>Next: <a href="trainers.html" title="next chapter">probnmn.trainers</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Karan Desai.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/probnmn/modules.seq2seq_base.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

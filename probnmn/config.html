@@ -1,0 +1,309 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>probnmn.config &#8212; ProbNMN 0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="probnmn.data" href="data.html" />
+    <link rel="prev" title="Probabilistic Neural-symbolic Models" href="../index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="module-probnmn.config">
+<span id="probnmn-config"></span><h1>probnmn.config<a class="headerlink" href="#module-probnmn.config" title="Permalink to this headline">¶</a></h1>
+<p>This module provides package-wide configuration management.</p>
+<dl class="class">
+<dt id="probnmn.config.Config">
+<em class="property">class </em><code class="descclassname">probnmn.config.</code><code class="descname">Config</code><span class="sig-paren">(</span><em>config_yaml: str</em>, <em>config_override: List[Any] = []</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py#L7-L300"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.config.Config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A collection of all the required configuration parameters. This class is a nested dict-like
+structure, with nested keys accessible as attributes. It contains sensible default values for
+all the parameters, which may be overriden by (first) through a YAML file and (second) through
+a list of attributes and values.</p>
+<p>This class definition contains default values corresponding to <code class="docutils literal notranslate"><span class="pre">joint_training</span></code> phase, as it
+is the final training phase and uses almost all the configuration parameters. Modification of
+any parameter after instantiating this class is not possible, so you must override required
+parameter values in either through <code class="docutils literal notranslate"><span class="pre">config_yaml</span></code> file or <code class="docutils literal notranslate"><span class="pre">config_override</span></code> list.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>config_yaml: str</strong></dt><dd><p>Path to a YAML file containing configuration parameters to override.</p>
+</dd>
+<dt><strong>config_override: List[Any], optional (default= [])</strong></dt><dd><p>A list of sequential attributes and values of parameters to override. This happens after
+overriding from YAML file.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>Let a YAML file named “config.yaml” specify these parameters to override:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ALPHA</span><span class="p">:</span> <span class="mf">1000.0</span>
+<span class="n">BETA</span><span class="p">:</span> <span class="mf">0.5</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">_C</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="s2">&quot;config.yaml&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;OPTIM.BATCH_SIZE&quot;</span><span class="p">,</span> <span class="mi">2048</span><span class="p">,</span> <span class="s2">&quot;BETA&quot;</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_C</span><span class="o">.</span><span class="n">ALPHA</span>  <span class="c1"># default: 100.0</span>
+<span class="go">1000.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_C</span><span class="o">.</span><span class="n">BATCH_SIZE</span>  <span class="c1"># default: 256</span>
+<span class="go">2048</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_C</span><span class="o">.</span><span class="n">BETA</span>  <span class="c1"># default: 0.1</span>
+<span class="go">0.7</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Attributes</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>RANDOM_SEED: 0</strong></dt><dd><p>Random seed for NumPy and PyTorch, important for reproducibility.</p>
+</dd>
+<dt><strong>PHASE: “joint_training”</strong></dt><dd><p>Which phase to train (or evaluate) on? One of <code class="docutils literal notranslate"><span class="pre">program_prior</span></code>, <code class="docutils literal notranslate"><span class="pre">question_coding</span></code>,
+<code class="docutils literal notranslate"><span class="pre">module_training</span></code> or <code class="docutils literal notranslate"><span class="pre">joint_training</span></code>.</p>
+</dd>
+<dt><strong>SUPERVISION: 1000</strong></dt><dd><p>Number of training examples where questions have paired ground-truth programs. These
+examples are chosen randomly (no stochasticity for a fixe <code class="docutils literal notranslate"><span class="pre">RANDOM_SEED</span></code>).</p>
+</dd>
+<dt><strong>SUPERVISION_QUESTION_MAX_LENGTH: 40</strong></dt><dd><p>Maximum length of questions to be considered for choosing <code class="docutils literal notranslate"><span class="pre">SUPERVISION</span></code> number of
+training examples. Longer questions will not have paired ground-truth programs by default.</p>
+</dd>
+<dt><strong>OBJECTIVE: “ours”</strong></dt><dd><p>Training objective, <code class="docutils literal notranslate"><span class="pre">baseline</span></code> - only use <code class="docutils literal notranslate"><span class="pre">SUPERVISION</span></code> examples for training.
+truth programs, and <code class="docutils literal notranslate"><span class="pre">ours</span></code> - use the whole dataset for training.</p>
+</dd>
+<dt><strong>__________</strong></dt><dd></dd>
+<dt><strong>DATA:</strong></dt><dd><p>Collection of required data paths for training and evaluation. All these are assumed to be
+relative to project root directory. If elsewhere, symlinking is recommended.</p>
+</dd>
+<dt><strong>DATA.VOCABULARY: “clevr_vocabulary”</strong></dt><dd><p>Path to a directory containing CLEVR v1.0 vocabulary (readable by AllenNLP).</p>
+</dd>
+<dt><strong>DATA.TRAIN_TOKENS: “data/clevr_train_tokens.h5”</strong></dt><dd><p>Path to H5 file containing tokenized programs, questions and answers, and corresponding
+image indices for CLEVR v1.0 train split.</p>
+</dd>
+<dt><strong>DATA.TRAIN_FEATURES: “data/clevr_train_features.h5”</strong></dt><dd><p>Path to H5 file containing pre-extracted features from CLEVR v1.0 train images.</p>
+</dd>
+<dt><strong>DATA.VAL_TOKENS: “data/clevr_val_tokens.h5”</strong></dt><dd><p>Path to H5 file containing tokenized programs, questions and answers, and corresponding
+image indices for CLEVR v1.0 val split.</p>
+</dd>
+<dt><strong>DATA.VAL_FEATURES: “data/clevr_val_features.h5”</strong></dt><dd><p>Path to H5 file containing pre-extracted features from CLEVR v1.0 val images.</p>
+</dd>
+<dt><strong>__________</strong></dt><dd></dd>
+<dt><strong>PROGRAM_PRIOR:</strong></dt><dd><p>Parameters controlling the model architecture of Program Prior (LSTM language model).</p>
+</dd>
+<dt><strong>PROGRAM_PRIOR.INPUT_SIZE: 256</strong></dt><dd><p>The dimension of the inputs to the LSTM.</p>
+</dd>
+<dt><strong>PROGRAM_PRIOR.HIDDEN_SIZE: 256</strong></dt><dd><p>The dimension of the outputs of the LSTM.</p>
+</dd>
+<dt><strong>PROGRAM_PRIOR.NUM_LAYERS: 2</strong></dt><dd><p>Number of recurrent layers in the LSTM.</p>
+</dd>
+<dt><strong>PROGRAM_PRIOR.DROPOUT: 0.0</strong></dt><dd><p>Dropout probability for the outputs of LSTM at each layer except last.</p>
+</dd>
+<dt><strong>__________</strong></dt><dd></dd>
+<dt><strong>PROGRAM_GENERATOR:</strong></dt><dd><p>Parameters controlling the model architecture of Program Generator (Seq2Seq model). Here,
+the model encodes questions and decodes programs.</p>
+</dd>
+<dt><strong>PROGRAM_GENERATOR.INPUT_SIZE: 256</strong></dt><dd><p>The dimension of the inputs to the encoder and decoder.</p>
+</dd>
+<dt><strong>PROGRAM_GENERATOR.HIDDEN_SIZE: 256</strong></dt><dd><p>The dimension of the outputs of the encoder and decoder.</p>
+</dd>
+<dt><strong>PROGRAM_GENERATOR.NUM_LAYERS: 2</strong></dt><dd><p>Number of recurrent layers in the LSTM.</p>
+</dd>
+<dt><strong>PROGRAM_GENERATOR.DROPOUT: 0.0</strong></dt><dd><p>Dropout probability for the outputs of LSTM at each layer except last.</p>
+</dd>
+<dt><strong>__________</strong></dt><dd></dd>
+<dt><strong>QUESTION_RECONSTRUCTOR:</strong></dt><dd><p>Parameters controlling the model architecture of Question Reconstructor (Seq2Seq model).
+Here, the model encodes programs and decodes questions.</p>
+</dd>
+<dt><strong>QUESTION_RECONSTRUCTOR.INPUT_SIZE: 256</strong></dt><dd><p>The dimension of the inputs to the encoder and decoder.</p>
+</dd>
+<dt><strong>QUESTION_RECONSTRUCTOR.HIDDEN_SIZE: 256</strong></dt><dd><p>The dimension of the outputs of the encoder and decoder.</p>
+</dd>
+<dt><strong>QUESTION_RECONSTRUCTOR.NUM_LAYERS: 2</strong></dt><dd><p>Number of recurrent layers in the LSTM.</p>
+</dd>
+<dt><strong>QUESTION_RECONSTRUCTOR.DROPOUT: 0.0</strong></dt><dd><p>Dropout probability for the outputs of LSTM at each layer except last.</p>
+</dd>
+<dt><strong>__________</strong></dt><dd></dd>
+<dt><strong>NMN:</strong></dt><dd><p>Parameters controlling the model architecture of Neural Module Network. Here, the model
+takes an image and a program, lays out a pipeline of neural modules and executes it to
+get an answer.</p>
+</dd>
+<dt><strong>NMN.IMAGE_FEATURE_SIZE: [1024, 14, 14]</strong></dt><dd><p>Shape of input image features, in the form (channel, height, width).</p>
+</dd>
+<dt><strong>NMN.MODULE_CHANNELS: 128</strong></dt><dd><p>Number of channels for each neural module’s convolutional blocks.</p>
+</dd>
+<dt><strong>NMN.CLASS_PROJECTION_CHANNELS: 1024</strong></dt><dd><p>Number of channels in projected final feature map (input to classifier).</p>
+</dd>
+<dt><strong>NMN.CLASSIFIER_LINEAR_SIZE: 1024</strong></dt><dd><p>Size of input to the classifier.</p>
+</dd>
+<dt><strong>__________</strong></dt><dd></dd>
+<dt><strong>ALPHA: 100.0</strong></dt><dd><p>Supervision scaling co-efficient. The negative log-likelihood loss of program generation
+and question reconstruction for examples with (GT) program supervision is scaled by this
+factor. Used during question coding and joint training.</p>
+</dd>
+<dt><strong>BETA: 0.1</strong></dt><dd><p>KL co-efficient. KL-divergence in ELBO is scaled by this factor. Used during question
+coding and joint training.</p>
+</dd>
+<dt><strong>GAMMA: 1.0</strong></dt><dd><p>Answer log-likelihood scaling co-efficient during joint training.</p>
+</dd>
+<dt><strong>DELTA: 0.99</strong></dt><dd><p>Decay co-efficient for moving average REINFORCE baseline. Used during question coding and
+joint training.</p>
+</dd>
+<dt><strong>__________</strong></dt><dd></dd>
+<dt><strong>OPTIM:</strong></dt><dd><p>Optimization hyper-parameters, relevant during training a particular phase.</p>
+</dd>
+<dt><strong>OPTIM.BATCH_SIZE: 256</strong></dt><dd><p>Batch size during training and evaluation.</p>
+</dd>
+<dt><strong>OPTIM.NUM_ITERATIONS: 20000</strong></dt><dd><p>Number of iterations to train for, batches are randomly sampled.</p>
+</dd>
+<dt><strong>OPTIM.WEIGHT_DECAY: 0.0</strong></dt><dd><p>Weight decay co-efficient for the optimizer.</p>
+</dd>
+<dt><strong>OPTIM.LR_INITIAL: 0.00001</strong></dt><dd><p>Initial learning rate for <a class="reference external" href="https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.ReduceLROnPlateau" title="(in PyTorch vmaster (1.1.0 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">torch.optim.lr_scheduler.ReduceLROnPlateau</span></code></a>.</p>
+</dd>
+<dt><strong>OPTIM.LR_GAMMA: 0.5</strong></dt><dd><p>Factor to scale learning rate when an observed metric plateaus.</p>
+</dd>
+<dt><strong>OPTIM.LR_PATIENCE: 3</strong></dt><dd><p>Number of validation steps to wait and observe improvement in observed metric, before
+reducing the learning rate.</p>
+</dd>
+<dt><strong>__________</strong></dt><dd></dd>
+<dt><strong>CHECKPOINTS:</strong></dt><dd><p>Paths to pre-trained checkpoints of a particular phase to be used in subsequent phases.</p>
+</dd>
+<dt><strong>CHECKPOINTS.PROGRAM_PRIOR: “checkpoints/program_prior_best.pth”</strong></dt><dd><p>Path to pre-trained Program Prior checkpoint. Used during question coding.</p>
+</dd>
+<dt><strong>CHECKPOINTS.QUESTION_CODING: “checkpoints/question_coding_1000_baseline_best.pth”</strong></dt><dd><p>Path to pre-trained question coding checkpoint containing Program Prior (unchanged from
+<code class="docutils literal notranslate"><span class="pre">program_prior</span></code> phase), Program generator and Question Reconstructor. Used during
+module training and joint training.</p>
+</dd>
+<dt><strong>CHECKPOINTS.MODULE_TRAINING: “checkpoints/module_training_1000_baseline_best.pth”</strong></dt><dd><p>Path to pre-trained question coding checkpoint containing Program Generator (unchanged
+from <code class="docutils literal notranslate"><span class="pre">question_coding</span></code> phase) and Neural Module Network. Used during joint training.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="method">
+<dt id="probnmn.config.Config.dump">
+<code class="descname">dump</code><span class="sig-paren">(</span><em>file_path: str</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py#L283-L291"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.config.Config.dump" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save config at the specified file path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>file_path: str</strong></dt><dd><p>(YAML) path to save config at.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="probnmn.config._config_str">
+<code class="descclassname">probnmn.config.</code><code class="descname">_config_str</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span> &#x2192; str<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py#L303-L365"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.config._config_str" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect a subset of config in sensible order (not alphabetical) according to phase. Used by
+<code class="xref py py-func docutils literal notranslate"><span class="pre">Config.__str__()</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>config: Config</strong></dt><dd><p>A <a class="reference internal" href="#probnmn.config.Config" title="probnmn.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a> object which is to be printed.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProbNMN</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">probnmn.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data.html">probnmn.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">probnmn.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../index.html" title="previous chapter">Probabilistic Neural-symbolic Models</a></li>
+      <li>Next: <a href="data.html" title="next chapter">probnmn.data</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Karan Desai.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/probnmn/config.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

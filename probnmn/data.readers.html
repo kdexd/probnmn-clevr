@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>probnmn.data.readers &#8212; ProbNMN 0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="probnmn.data.samplers" href="data.samplers.html" />
+    <link rel="prev" title="probnmn.data.datasets" href="data.datasets.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="module-probnmn.data.readers">
+<span id="probnmn-data-readers"></span><h1>probnmn.data.readers<a class="headerlink" href="#module-probnmn.data.readers" title="Permalink to this headline">¶</a></h1>
+<p>A Reader simply reads data from disk and returns it almost as is. Readers should be utilized by
+PyTorch <a class="reference external" href="https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset" title="(in PyTorch vmaster (1.1.0 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.Dataset</span></code></a>. Any type of data pre-processing is not recommended in
+the reader, such as tokenizing words to integers, embedding tokens, or passing an image through
+a pre-trained CNN.</p>
+<p>Each reader must implement three methods:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__len__</span></code> to return the length of data this Reader can read.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">__getitem__</span></code> to return data based on a unique index (which behaves as a primary key).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">keys</span></code> to return a list of possible primary keys (or indices) this Reader can provide
+data of.</p></li>
+</ul>
+</div></blockquote>
+<dl class="class">
+<dt id="probnmn.data.readers.ClevrTokensReader">
+<em class="property">class </em><code class="descclassname">probnmn.data.readers.</code><code class="descname">ClevrTokensReader</code><span class="sig-paren">(</span><em>tokens_h5path: str</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/readers.py#L17-L63"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.readers.ClevrTokensReader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A Reader for retrieving tokenized CLEVR programs, questions and answers, and corresponding
+image indices from a single HDF file containing this pre-processed data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>tokens_h5path: str</strong></dt><dd><p>Path to an HDF file containing tokenized programs, questions, answers and corresponding
+image indices.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="class">
+<dt id="probnmn.data.readers.ClevrImageFeaturesReader">
+<em class="property">class </em><code class="descclassname">probnmn.data.readers.</code><code class="descname">ClevrImageFeaturesReader</code><span class="sig-paren">(</span><em>features_h5path: str</em>, <em>in_memory: bool = True</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/readers.py#L66-L111"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.readers.ClevrImageFeaturesReader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A Reader for retrieving pre-extracted image features from CLEVR images. We typically use
+features extracted using ResNet-101.</p>
+<p>Example of an HDF file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">features_train</span><span class="o">.</span><span class="n">h5</span>
+<span class="o">|---</span> <span class="s2">&quot;features&quot;</span> <span class="p">[</span><span class="n">shape</span><span class="p">:</span> <span class="p">(</span><span class="n">num_images</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">)]</span>
+<span class="o">+---</span> <span class="o">.</span><span class="n">attrs</span> <span class="p">(</span><span class="s2">&quot;split&quot;</span><span class="p">,</span> <span class="s2">&quot;train&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>features_h5path: str</strong></dt><dd><p>Path to an HDF file containing a ‘dataset’ of pre-extracted image features.</p>
+</dd>
+<dt><strong>in_memory: bool, optional (default = True)</strong></dt><dd><p>Whether to load all image features in memory.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProbNMN</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="config.html">probnmn.config</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="data.html">probnmn.data</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data.datasets.html">probnmn.data.datasets</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">probnmn.data.readers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.samplers.html">probnmn.data.samplers</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">probnmn.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="data.html">probnmn.data</a><ul>
+      <li>Previous: <a href="data.datasets.html" title="previous chapter">probnmn.data.datasets</a></li>
+      <li>Next: <a href="data.samplers.html" title="next chapter">probnmn.data.samplers</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Karan Desai.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/probnmn/data.readers.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
