@@ -1,7 +1,7 @@
 import argparse
 import logging
 import os
-from typing import Any
+from typing import Type
 
 import numpy as np
 import torch
@@ -19,6 +19,10 @@ from probnmn.trainers import (
     ModuleTrainingTrainer,
     QuestionCodingTrainer,
 )
+
+# For static type hints.
+from probnmn.evaluators._evaluator import _Evaluator
+from probnmn.trainers._trainer import _Trainer
 
 
 parser = argparse.ArgumentParser("Run training for a particular phase.")
@@ -72,25 +76,23 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-    # Initialize trainer and evaluator according to training phase.
-    # TODO (kd): do something better here, this looks weird.
-    trainer: Any = None
-    evaluator: Any = None
-
     serialization_dir = os.path.dirname(_A.checkpoint_path)
 
-    if _C.PHASE == "program_prior":
-        trainer = ProgramPriorTrainer(_C, serialization_dir, _A.gpu_ids)
-        evaluator = ProgramPriorEvaluator(_C, trainer.models, _A.gpu_ids, _A.cpu_workers)
-    elif _C.PHASE == "question_coding":
-        trainer = QuestionCodingTrainer(_C, serialization_dir, _A.gpu_ids)
-        evaluator = QuestionCodingEvaluator(_C, trainer.models, _A.gpu_ids, _A.cpu_workers)
-    elif _C.PHASE == "module_training":
-        trainer = ModuleTrainingTrainer(_C, serialization_dir, _A.gpu_ids)
-        evaluator = ModuleTrainingEvaluator(_C, trainer.models, _A.gpu_ids, _A.cpu_workers)
-    elif _C.PHASE == "joint_training":
-        trainer = JointTrainingTrainer(_C, serialization_dir, _A.gpu_ids)
-        evaluator = JointTrainingEvaluator(_C, trainer.models, _A.gpu_ids, _A.cpu_workers)
+    # Set trainer and evaluator classes according to phase, CamelCase for syntactic sugar.
+    TrainerClass: Type[_Trainer] = (
+        ProgramPriorTrainer if _C.PHASE == "program_prior" else
+        QuestionCodingTrainer if _C.PHASE == "question_coding" else
+        ModuleTrainingTrainer if _C.PHASE == "module_training" else
+        JointTrainingTrainer
+    )
+    EvaluatorClass: Type[_Evaluator] = (
+        ProgramPriorEvaluator if _C.PHASE == "program_prior" else
+        QuestionCodingEvaluator if _C.PHASE == "question_coding" else
+        ModuleTrainingEvaluator if _C.PHASE == "module_training" else
+        JointTrainingEvaluator
+    )
+    trainer = TrainerClass(_C, serialization_dir, _A.gpu_ids, _A.cpu_workers)
+    evaluator = EvaluatorClass(_C, trainer.models, _A.gpu_ids, _A.cpu_workers)
 
     # Load from a checkpoint to trainer for evaluation (evalautor can evaluate this checkpoint
     # because it was passed by assignment in constructor).
