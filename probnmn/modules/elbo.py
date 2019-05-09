@@ -243,9 +243,10 @@ class JointTrainingElbo(_ElboWithReinforce):
             reinforce_reward = -nmn_output_dict["loss"]
 
             elbo_output_dict = {
-                "reinforce_reward": self._reinforce(
+                "elbo": self._reinforce(
                     program_generator_output_dict["loss"], reinforce_reward
-                ).mean()
+                ).mean(),
+                "reinforce_reward": reinforce_reward.mean(),
             }
         else:
             # Gather components required to calculate REINFORCE reward.
@@ -273,4 +274,7 @@ class JointTrainingElbo(_ElboWithReinforce):
                 logprobs_generation, logprobs_reconstruction, reinforce_reward
             )
 
-        return {**elbo_output_dict, "nmn_loss": nmn_output_dict["loss"].mean()}
+        output_dict = elbo_output_dict
+        output_dict["nmn_loss"] = nmn_output_dict["loss"].mean()
+
+        return output_dict

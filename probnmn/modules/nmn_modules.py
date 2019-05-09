@@ -242,3 +242,10 @@ class ComparisonModule(nn.Module):
         out = F.relu(self.conv1(out))
         out = F.relu(self.conv2(out))
         return out
+
+
+class Flatten(nn.Module):
+    r"""A PyTorch module to flatten any tensor, preserving batch dimensions."""
+
+    def forward(self, x):
+        return x.view(x.size(0), -1)

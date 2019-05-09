@@ -1,11 +1,13 @@
 import logging
 from typing import Any, Dict, List, Type
 
+import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
 from probnmn.config import Config
 from probnmn.data.datasets import ModuleTrainingDataset
+from probnmn.models import ProgramGenerator
 from ._evaluator import _Evaluator
 
 
@@ -65,9 +67,15 @@ class ModuleTrainingEvaluator(_Evaluator):
 
         super().__init__(config=config, dataloader=dataloader, models=models, gpu_ids=gpu_ids)
 
-        # These will be a part of `self._models`, keep these handles for convenience.
-        self._program_generator = self._models["program_generator"]
+        # This will be a part of `self._models`, keep this handle for convenience.
         self._nmn = self._models["nmn"]
+
+        # Load program generator from checkpoint, this will be frozen during module training.
+        self._program_generator = ProgramGenerator.from_config(self._C).to(self._device)
+        self._program_generator.load_state_dict(
+            torch.load(self._C.CHECKPOINTS.QUESTION_CODING)["program_generator"]
+        )
+        self._program_generator.eval()
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         r"""

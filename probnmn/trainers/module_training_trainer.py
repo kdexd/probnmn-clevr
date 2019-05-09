@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from allennlp.data import Vocabulary
 import torch
 from torch.utils.data import DataLoader
 
@@ -65,27 +64,25 @@ class ModuleTrainingTrainer(_Trainer):
         dataloader = DataLoader(
             dataset, batch_size=self._C.OPTIM.BATCH_SIZE, num_workers=cpu_workers
         )
-
-        program_generator = ProgramGenerator.from_config(self._C)
         nmn = NeuralModuleNetwork.from_config(self._C)
-
-        # Load program generator from checkpoint, this will be frozen during module training.
-        program_generator.load_state_dict(
-            torch.load(self._C.CHECKPOINTS.QUESTION_CODING)["program_generator"]
-        )
-        program_generator.eval()
 
         super().__init__(
             config=config,
             dataloader=dataloader,
-            models={"program_generator": program_generator, "nmn": nmn},
+            models={"nmn": nmn},
             serialization_dir=serialization_dir,
             gpu_ids=gpu_ids,
         )
 
-        # These will be a part of `self._models`, keep these handles for convenience.
-        self._program_generator = self._models["program_generator"]
+        # This will be a part of `self._models`, keep this handle for convenience.
         self._nmn = self._models["nmn"]
+
+        # Load program generator from checkpoint, this will be frozen during module training.
+        self._program_generator = ProgramGenerator.from_config(self._C).to(self._device)
+        self._program_generator.load_state_dict(
+            torch.load(self._C.CHECKPOINTS.QUESTION_CODING)["program_generator"]
+        )
+        self._program_generator.eval()
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         pg_output_dict = self._program_generator(
@@ -118,9 +115,5 @@ class ModuleTrainingTrainer(_Trainer):
         iteration: int, optional (default = None)
             Iteration number. If ``None``, use the internal :attr:`self._iteration` counter.
         """
-        # Remove metrics of program generator, they would be dummy values as programs were
-        # sampled without providing (GT) program supervision.
-        val_metrics.pop("program_generator")
-
         val_metrics["metric"] = val_metrics["nmn"]["answer_accuracy"]
         super().after_validation(val_metrics, iteration)

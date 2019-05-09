@@ -2,7 +2,6 @@ import itertools
 import logging
 from typing import Any, Dict, List, Optional
 
-from allennlp.data import Vocabulary
 import torch
 from torch.utils.data import DataLoader
 
@@ -78,7 +77,6 @@ class JointTrainingTrainer(_Trainer):
             dataset, batch_size=self._C.OPTIM.BATCH_SIZE, sampler=sampler, num_workers=cpu_workers
         )
 
-        program_prior = ProgramPrior.from_config(self._C)
         program_generator = ProgramGenerator.from_config(self._C)
         question_reconstructor = QuestionReconstructor.from_config(self._C)
         nmn = NeuralModuleNetwork.from_config(self._C)
@@ -89,11 +87,7 @@ class JointTrainingTrainer(_Trainer):
         question_reconstructor.load_state_dict(
             question_coding_checkpoint["question_reconstructor"]
         )
-        nmn.load_state_dict(torch.load(self._C.CHECKPOINTS.NMN)["nmn"])
-
-        # This checkpoint is same as propgram prior phase (frozen during question coding).
-        program_prior.load_state_dict(question_coding_checkpoint["program_prior"])
-        program_prior.eval()
+        nmn.load_state_dict(torch.load(self._C.CHECKPOINTS.MODULE_TRAINING)["nmn"])
 
         super().__init__(
             config=config,
@@ -101,7 +95,6 @@ class JointTrainingTrainer(_Trainer):
             models={
                 "program_generator": program_generator,
                 "question_reconstructor": question_reconstructor,
-                "program_prior": program_prior,
                 "nmn": nmn,
             },
             serialization_dir=serialization_dir,
@@ -111,8 +104,14 @@ class JointTrainingTrainer(_Trainer):
         # These will be a part of `self._models`, keep these handles for convenience.
         self._program_generator = self._models["program_generator"]
         self._question_reconstructor = self._models["question_reconstructor"]
-        self._program_prior = self._models["program_prior"]
         self._nmn = self._models["nmn"]
+
+        # Load program prior from checkpoint, this will be frozen during question coding.
+        self._program_prior = ProgramPrior.from_config(self._C).to(self._device)
+        self._program_prior.load_state_dict(
+            torch.load(self._C.CHECKPOINTS.PROGRAM_PRIOR)["program_prior"]
+        )
+        self._program_prior.eval()
 
         # Instantiate an elbo module to compute evidence lower bound during `_do_iteration`.
         self._elbo = JointTrainingElbo(
@@ -173,7 +172,7 @@ class JointTrainingTrainer(_Trainer):
             question_reconstruction_loss_supervision = qr_output_dict_supervision["loss"].mean()
             # ------------------------------------------------------------------------------------
 
-            loss_objective += self._C.ALPHA * (
+            loss_objective = loss_objective + self._C.ALPHA * (
                 program_generation_loss_supervision + question_reconstruction_loss_supervision
             )
 

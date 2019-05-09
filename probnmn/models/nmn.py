@@ -1,3 +1,6 @@
+r"""
+Adopted from: `davidmascharka/tbd-nets <https://www.github.com/davidmascharka/tbd-nets>`_.
+"""
 from typing import Dict, Optional, Tuple, Type
 
 from allennlp.data import Vocabulary
@@ -15,6 +18,7 @@ from probnmn.modules.nmn_modules import (
     QueryModule,
     RelateModule,
     SameModule,
+    Flatten,
 )
 
 
@@ -290,10 +294,3 @@ class NeuralModuleNetwork(nn.Module):
             "average_invalid": self._average_invalid_programs.get_metric(reset=reset),
         }
         return all_metrics
-
-
-class Flatten(nn.Module):
-    r"""A PyTorch module to flatten any tensor, preserving batch dimensions."""
-
-    def forward(self, x):
-        return x.view(x.size(0), -1)

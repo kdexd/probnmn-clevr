@@ -270,7 +270,8 @@ class _Trainer(object):
                 self._models[key].load_state_dict(training_checkpoint[key])
 
         # Infer iteration number from checkpoint file name, if not specified.
-        self._iteration = iteration or int(checkpoint_path.split("_")[-1][:-4])
+        if "best" not in checkpoint_path or iteration is not None:
+            self._iteration = iteration or int(checkpoint_path.split("_")[-1][:-4])
 
     def _cycle(self, dataloader: DataLoader) -> Generator[Dict[str, torch.Tensor], None, None]:
         r"""

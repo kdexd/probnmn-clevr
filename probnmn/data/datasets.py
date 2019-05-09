@@ -211,13 +211,21 @@ class JointTrainingDataset(Dataset):
         features = self._features[item["image_index"]]
         supervision = self._supervision_list[index]
 
-        return {
-            "question": torch.tensor(item["question"]).long(),
-            "answer": torch.tensor(item["answer"]).long(),
-            "program": torch.tensor(item["program"]).long(),
-            "image": torch.tensor(features),
-            "supervision": supervision,
-        }
+        if self.split == "test":
+            return {
+                # question_index is the primary ID, used to make the predictions JSON.
+                "question_index": torch.tensor(index).long(),
+                "question": torch.tensor(item["question"]).long(),
+                "image": torch.tensor(features),
+            }
+        else:
+            return {
+                "question": torch.tensor(item["question"]).long(),
+                "answer": torch.tensor(item["answer"]).long(),
+                "program": torch.tensor(item["program"]).long(),
+                "image": torch.tensor(features),
+                "supervision": supervision,
+            }
 
     @property
     def split(self):

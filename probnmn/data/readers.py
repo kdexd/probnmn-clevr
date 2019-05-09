@@ -29,33 +29,30 @@ class ClevrTokensReader(object):
     def __init__(self, tokens_h5path: str):
         # questions, image indices, programs, and answers are small enough to load into memory
         with h5py.File(tokens_h5path, "r") as clevr_tokens:
-            self.programs = clevr_tokens["programs"][:]
-            self.questions = clevr_tokens["questions"][:]
-            self.answers = clevr_tokens["answers"][:]
-            self.image_indices = clevr_tokens["image_indices"][:]
             self._split = clevr_tokens.attrs["split"]
+
+            if self._split != "test":
+                self.programs = clevr_tokens["programs"][:]
+                self.answers = clevr_tokens["answers"][:]
+
+            self.questions = clevr_tokens["questions"][:]
+            self.image_indices = clevr_tokens["image_indices"][:]
 
     def __len__(self):
         return len(self.image_indices)
 
     def __getitem__(self, index):
-        program = self.programs[index]
-        question = self.questions[index]
-        answer = self.answers[index]
-        image_index = self.image_indices[index]
-
-        if isinstance(index, slice):
-            # return list of single instances if a slice
-            return [
-                {"program": p, "question": q, "answer": a, "image_index": ii}
-                for (p, q, a, ii) in zip(program, question, answer, image_index)
-            ]
+        if self.split == "test":
+            return {
+                "question": self.questions[index],
+                "image_index": self.image_indices[index],
+            }
         else:
             return {
-                "program": program,
-                "question": question,
-                "answer": answer,
-                "image_index": image_index,
+                "program": self.programs[index],
+                "question": self.questions[index],
+                "answer": self.answers[index],
+                "image_index": self.image_indices[index],
             }
 
     @property

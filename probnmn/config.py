@@ -83,6 +83,13 @@ class Config(object):
 
     DATA.VAL_FEATURES: "data/clevr_val_features.h5"
         Path to H5 file containing pre-extracted features from CLEVR v1.0 val images.
+
+    DATA.TEST_TOKENS: "data/clevr_test_tokens.h5"
+        Path to H5 file containing tokenized questions, and corresponding image indices for CLEVR
+        v1.0 test split.
+
+    DATA.TEST_FEATURES: "data/clevr_test_features.h5"
+        Path to H5 file containing pre-extracted features from CLEVR v1.0 test images.
     __________
 
     PROGRAM_PRIOR:
@@ -197,7 +204,8 @@ class Config(object):
         Paths to pre-trained checkpoints of a particular phase to be used in subsequent phases.
 
     CHECKPOINTS.PROGRAM_PRIOR: "checkpoints/program_prior_best.pth"
-        Path to pre-trained Program Prior checkpoint. Used during question coding.
+        Path to pre-trained Program Prior checkpoint. Used during question coding and joint
+        training.
 
     CHECKPOINTS.QUESTION_CODING: "checkpoints/question_coding_1000_baseline_best.pth"
         Path to pre-trained question coding checkpoint containing Program Prior (unchanged from
@@ -229,6 +237,10 @@ class Config(object):
         self._C.DATA.VAL = CN()
         self._C.DATA.VAL_TOKENS = "data/clevr_val_tokens.h5"
         self._C.DATA.VAL_FEATURES = "data/clevr_val_features.h5"
+
+        self._C.DATA.TEST = CN()
+        self._C.DATA.TEST_TOKENS = "data/clevr_test_tokens.h5"
+        self._C.DATA.TEST_FEATURES = "data/clevr_test_features.h5"
 
         self._C.PROGRAM_PRIOR = CN()
         self._C.PROGRAM_PRIOR.INPUT_SIZE = 256

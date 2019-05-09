@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from allennlp.data import Vocabulary
 from torch.utils.data import DataLoader
 
 from probnmn.config import Config

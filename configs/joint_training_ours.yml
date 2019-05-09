@@ -3,7 +3,7 @@ PHASE: joint_training
 
 # Training objective, "baseline": just train a program generator on examples with
 # supervision. "ours": optimize the whole question coding objective.
-OBJECTIVE: baseline
+OBJECTIVE: ours
 SUPERVISION: 1000
 SUPERVISION_QUESTION_MAX_LENGTH: 40
 
@@ -16,11 +16,11 @@ DELTA: 0.99
 # Optimization arguments, we use Adam optimizer and ReduceLROnPlateau scheduler.
 OPTIM:
   BATCH_SIZE: 256
-  NUM_ITERATIONS: 20000
+  NUM_ITERATIONS: 10000
   WEIGHT_DECAY: 0.0
 
   # Learning rate scheduling: (lr *= gamma) if program generation accuracy plateaus.
-  LR_INITIAL: 0.00001
+  LR_INITIAL: 0.000001
   LR_GAMMA: 0.5
   LR_PATIENCE: 3
 

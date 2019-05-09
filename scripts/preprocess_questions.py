@@ -34,7 +34,7 @@ parser.add_argument(
     default="data/clevr_train_tokens.h5",
     help="Path to save tokenized components in an H5 file.",
 )
-parser.add_argument("-s", "--split", default="train")
+parser.add_argument("-s", "--split", default="train", choices=["train", "val", "test"])
 
 # ------------------------------------------------------------------------------------------------
 # All the punctuations in CLEVR question sequences.
@@ -43,21 +43,6 @@ PUNCTUATIONS: List[str] = ["?", ".", ",", ";"]
 # Type for a single token of program sequence in each CLEVR example annotation.
 ProgramToken = TypedDict(
     "ProgramToken", {"inputs": List[int], "function": str, "value_inputs": List[str]}
-)
-
-# Type for each CLEVR example annotation.
-ClevrExample = TypedDict(
-    "ClevrExample",
-    {
-        "question": str,
-        "program": List[ProgramToken],
-        "answer": str,
-        "image_index": int,
-        "image_filename": str,
-        "question_index": int,
-        "question_family_index": int,
-        "split": str,
-    },
 )
 # ------------------------------------------------------------------------------------------------
 
@@ -116,18 +101,20 @@ if __name__ == "__main__":
     print("Tokenizing questions, programs and answers...")
     for item in tqdm(clevr_json):
         tokenized_questions.append(tokenize_question(item["question"]))
-        tokenized_programs.append(tokenize_program(item["program"]))
         image_indices.append(item["image_index"])
-        answers.append(vocabulary.get_token_index(item["answer"], namespace="answers"))
+        if args.split != "test":
+            tokenized_programs.append(tokenize_program(item["program"]))
+            answers.append(vocabulary.get_token_index(item["answer"], namespace="answers"))
 
     question_max_length: int = max([len(q) for q in tokenized_questions])
-    program_max_length: int = max([len(p) for p in tokenized_programs])
 
-    print(f"Saving tokenized questions, programs and answers to {args.output_h5path}...")
+    if args.split != "test":
+        program_max_length: int = max([len(p) for p in tokenized_programs])
+
+    print(f"Saving tokenized data to {args.output_h5path}...")
+
     output_h5 = h5py.File(args.output_h5path)
-
     output_h5["image_indices"] = image_indices
-    output_h5["answers"] = answers
 
     output_h5.create_dataset(
         "questions", (len(tokenized_questions), question_max_length), dtype=int
@@ -137,13 +124,16 @@ if __name__ == "__main__":
             vocabulary.get_token_index(q, namespace="questions") for q in tokenized_question
         ]
 
-    output_h5.create_dataset(
-        "programs", (len(tokenized_programs), program_max_length), dtype=int
-    )
-    for i, tokenized_program in enumerate(tqdm(tokenized_programs, desc="programs")):
-        output_h5["programs"][i, : len(tokenized_program)] = [
-            vocabulary.get_token_index(p, namespace="programs") for p in tokenized_program
-        ]
+    if args.split != "test":
+        output_h5["answers"] = answers
+
+        output_h5.create_dataset(
+            "programs", (len(tokenized_programs), program_max_length), dtype=int
+        )
+        for i, tokenized_program in enumerate(tqdm(tokenized_programs, desc="programs")):
+            output_h5["programs"][i, : len(tokenized_program)] = [
+                vocabulary.get_token_index(p, namespace="programs") for p in tokenized_program
+            ]
 
     output_h5.attrs["split"] = args.split
     output_h5.close()
