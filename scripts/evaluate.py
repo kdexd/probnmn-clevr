@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
     # Create a config with default values, then override from config file, and _A.
     # This config object is immutable, nothing can be changed in this anymore.
-    _C = Config(_A.config_yml, _A.config_override)
+    _C = Config(_A.config_yml)
 
     # Match the phase from arguments and config parameters.
     if _A.phase != _C.PHASE:

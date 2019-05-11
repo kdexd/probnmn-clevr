@@ -2,6 +2,7 @@ from allennlp.data import Vocabulary
 
 from probnmn.config import Config
 from probnmn.modules.seq2seq_base import Seq2SeqBase
+from probnmn.utils.metrics import SemanticQuestionReconstructionAccuracy
 
 
 class QuestionReconstructor(Seq2SeqBase):
@@ -43,6 +44,8 @@ class QuestionReconstructor(Seq2SeqBase):
             dropout=dropout,
             max_decoding_steps=max_decoding_steps
         )
+
+        self._sequence_accuracy = SemanticQuestionReconstructionAccuracy(vocabulary)
 
     @classmethod
     def from_config(cls, config: Config):
