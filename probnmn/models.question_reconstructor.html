@@ -36,7 +36,7 @@
 <h1>probnmn.models.question_reconstructor<a class="headerlink" href="#probnmn-models-question-reconstructor" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.models.question_reconstructor.QuestionReconstructor">
-<em class="property">class </em><code class="descclassname">probnmn.models.question_reconstructor.</code><code class="descname">QuestionReconstructor</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>input_size: int = 256</em>, <em>hidden_size: int = 256</em>, <em>num_layers: int = 2</em>, <em>dropout: float = 0.0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/question_reconstructor.py#L7-L58"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.question_reconstructor.QuestionReconstructor" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">probnmn.models.question_reconstructor.</code><code class="descname">QuestionReconstructor</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>input_size: int = 256</em>, <em>hidden_size: int = 256</em>, <em>num_layers: int = 2</em>, <em>dropout: float = 0.0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/question_reconstructor.py#L8-L61"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.question_reconstructor.QuestionReconstructor" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="modules.seq2seq_base.html#probnmn.modules.seq2seq_base.Seq2SeqBase" title="probnmn.modules.seq2seq_base.Seq2SeqBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.modules.seq2seq_base.Seq2SeqBase</span></code></a></p>
 <p>A wrapper over <a class="reference internal" href="modules.seq2seq_base.html#probnmn.modules.seq2seq_base.Seq2SeqBase" title="probnmn.modules.seq2seq_base.Seq2SeqBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.modules.seq2seq_base.Seq2SeqBase</span></code></a>. This sequence to sequence
 model accepts tokenized and padded program sequences and decodes them to question sequences.</p>
@@ -59,7 +59,7 @@ model accepts tokenized and padded program sequences and decodes them to questio
 </dl>
 <dl class="classmethod">
 <dt id="probnmn.models.question_reconstructor.QuestionReconstructor.from_config">
-<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/question_reconstructor.py#L47-L58"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.question_reconstructor.QuestionReconstructor.from_config" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/question_reconstructor.py#L50-L61"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.question_reconstructor.QuestionReconstructor.from_config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Instantiate this class directly from a <a class="reference internal" href="config.html#probnmn.config.Config" title="probnmn.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a>.</p>
 </dd></dl>
 
@@ -98,7 +98,7 @@ model accepts tokenized and padded program sequences and decodes them to questio
 <li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
 <li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">probnmn.utils</a></li>
 </ul>
 
 <div class="relations">

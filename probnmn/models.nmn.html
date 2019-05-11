@@ -36,7 +36,7 @@
 <h1>probnmn.models.nmn<a class="headerlink" href="#probnmn-models-nmn" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.models.nmn.NeuralModuleNetwork">
-<em class="property">class </em><code class="descclassname">probnmn.models.nmn.</code><code class="descname">NeuralModuleNetwork</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>image_feature_size: Tuple[int</em>, <em>int</em>, <em>int] = (1024</em>, <em>14</em>, <em>14)</em>, <em>module_channels: int = 128</em>, <em>class_projection_channels: int = 1024</em>, <em>classifier_linear_size: int = 1024</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L21-L292"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">probnmn.models.nmn.</code><code class="descname">NeuralModuleNetwork</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>image_feature_size: Tuple[int</em>, <em>int</em>, <em>int] = (1024</em>, <em>14</em>, <em>14)</em>, <em>module_channels: int = 128</em>, <em>class_projection_channels: int = 1024</em>, <em>classifier_linear_size: int = 1024</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L25-L296"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A <a class="reference internal" href="#probnmn.models.nmn.NeuralModuleNetwork" title="probnmn.models.nmn.NeuralModuleNetwork"><code class="xref py py-class docutils literal notranslate"><span class="pre">NeuralModuleNetwork</span></code></a> holds neural modules, a stem network, and a classifier network.
 It hooks these all together to answer a question given some scene and a program describing how
@@ -60,13 +60,13 @@ to arrange the neural modules.</p>
 </dl>
 <dl class="classmethod">
 <dt id="probnmn.models.nmn.NeuralModuleNetwork.from_config">
-<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L122-L133"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.from_config" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L126-L137"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.from_config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Instantiate this class directly from a <a class="reference internal" href="config.html#probnmn.config.Config" title="probnmn.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a>.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="probnmn.models.nmn.NeuralModuleNetwork.forward">
-<code class="descname">forward</code><span class="sig-paren">(</span><em>features: torch.Tensor</em>, <em>programs: torch.Tensor</em>, <em>answers: Optional[torch.Tensor] = None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L135-L271"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.forward" title="Permalink to this definition">¶</a></dt>
+<code class="descname">forward</code><span class="sig-paren">(</span><em>features: torch.Tensor</em>, <em>programs: torch.Tensor</em>, <em>answers: Optional[torch.Tensor] = None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L139-L275"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.forward" title="Permalink to this definition">¶</a></dt>
 <dd><p>Given image features and program sequences, lay out a modular network and pass through
 the image features, further take the final feature representation output from modular
 network and pass it throuh the classifier to get the answer distribution.</p>
@@ -107,7 +107,7 @@ loop through all programs of a batch and do forward pass for each example in the
 
 <dl class="method">
 <dt id="probnmn.models.nmn.NeuralModuleNetwork.get_metrics">
-<code class="descname">get_metrics</code><span class="sig-paren">(</span><em>reset: bool = True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L273-L292"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.get_metrics" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_metrics</code><span class="sig-paren">(</span><em>reset: bool = True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L277-L296"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.get_metrics" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return recorded answer accuracy and average invalid programs per batch.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -160,7 +160,7 @@ loop through all programs of a batch and do forward pass for each example in the
 <li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
 <li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">probnmn.utils</a></li>
 </ul>
 
 <div class="relations">

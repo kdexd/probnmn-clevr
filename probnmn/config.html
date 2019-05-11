@@ -37,7 +37,7 @@
 <p>This module provides package-wide configuration management.</p>
 <dl class="class">
 <dt id="probnmn.config.Config">
-<em class="property">class </em><code class="descclassname">probnmn.config.</code><code class="descname">Config</code><span class="sig-paren">(</span><em>config_yaml: str</em>, <em>config_override: List[Any] = []</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py#L7-L300"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.config.Config" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">probnmn.config.</code><code class="descname">Config</code><span class="sig-paren">(</span><em>config_yaml: str</em>, <em>config_override: List[Any] = []</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py#L7-L312"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.config.Config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A collection of all the required configuration parameters. This class is a nested dict-like
 structure, with nested keys accessible as attributes. It contains sensible default values for
@@ -105,6 +105,11 @@ image indices for CLEVR v1.0 train split.</p>
 image indices for CLEVR v1.0 val split.</p>
 </dd>
 <dt><strong>DATA.VAL_FEATURES: “data/clevr_val_features.h5”</strong></dt><dd><p>Path to H5 file containing pre-extracted features from CLEVR v1.0 val images.</p>
+</dd>
+<dt><strong>DATA.TEST_TOKENS: “data/clevr_test_tokens.h5”</strong></dt><dd><p>Path to H5 file containing tokenized questions, and corresponding image indices for CLEVR
+v1.0 test split.</p>
+</dd>
+<dt><strong>DATA.TEST_FEATURES: “data/clevr_test_features.h5”</strong></dt><dd><p>Path to H5 file containing pre-extracted features from CLEVR v1.0 test images.</p>
 </dd>
 <dt><strong>__________</strong></dt><dd></dd>
 <dt><strong>PROGRAM_PRIOR:</strong></dt><dd><p>Parameters controlling the model architecture of Program Prior (LSTM language model).</p>
@@ -186,7 +191,8 @@ reducing the learning rate.</p>
 <dt><strong>__________</strong></dt><dd></dd>
 <dt><strong>CHECKPOINTS:</strong></dt><dd><p>Paths to pre-trained checkpoints of a particular phase to be used in subsequent phases.</p>
 </dd>
-<dt><strong>CHECKPOINTS.PROGRAM_PRIOR: “checkpoints/program_prior_best.pth”</strong></dt><dd><p>Path to pre-trained Program Prior checkpoint. Used during question coding.</p>
+<dt><strong>CHECKPOINTS.PROGRAM_PRIOR: “checkpoints/program_prior_best.pth”</strong></dt><dd><p>Path to pre-trained Program Prior checkpoint. Used during question coding and joint
+training.</p>
 </dd>
 <dt><strong>CHECKPOINTS.QUESTION_CODING: “checkpoints/question_coding_1000_baseline_best.pth”</strong></dt><dd><p>Path to pre-trained question coding checkpoint containing Program Prior (unchanged from
 <code class="docutils literal notranslate"><span class="pre">program_prior</span></code> phase), Program generator and Question Reconstructor. Used during
@@ -200,7 +206,7 @@ from <code class="docutils literal notranslate"><span class="pre">question_codin
 </dl>
 <dl class="method">
 <dt id="probnmn.config.Config.dump">
-<code class="descname">dump</code><span class="sig-paren">(</span><em>file_path: str</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py#L283-L291"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.config.Config.dump" title="Permalink to this definition">¶</a></dt>
+<code class="descname">dump</code><span class="sig-paren">(</span><em>file_path: str</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py#L295-L303"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.config.Config.dump" title="Permalink to this definition">¶</a></dt>
 <dd><p>Save config at the specified file path.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -216,7 +222,7 @@ from <code class="docutils literal notranslate"><span class="pre">question_codin
 
 <dl class="function">
 <dt id="probnmn.config._config_str">
-<code class="descclassname">probnmn.config.</code><code class="descname">_config_str</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span> &#x2192; str<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py#L303-L365"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.config._config_str" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">probnmn.config.</code><code class="descname">_config_str</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span> &#x2192; str<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/config.py#L315-L377"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.config._config_str" title="Permalink to this definition">¶</a></dt>
 <dd><p>Collect a subset of config in sensible order (not alphabetical) according to phase. Used by
 <code class="xref py py-func docutils literal notranslate"><span class="pre">Config.__str__()</span></code>.</p>
 <dl class="field-list simple">
@@ -256,7 +262,7 @@ from <code class="docutils literal notranslate"><span class="pre">question_codin
 <li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
 <li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">probnmn.utils</a></li>
 </ul>
 
 <div class="relations">

@@ -104,7 +104,7 @@ to form a mini-batch with nearly equal number of examples with(out) program supe
 
 <dl class="class">
 <dt id="probnmn.data.datasets.JointTrainingDataset">
-<em class="property">class </em><code class="descclassname">probnmn.data.datasets.</code><code class="descname">JointTrainingDataset</code><span class="sig-paren">(</span><em>tokens_h5path: str</em>, <em>features_h5path: str</em>, <em>num_supervision: int = 699989</em>, <em>supervision_question_max_length: int = 30</em>, <em>in_memory: bool = True</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L149-L232"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.JointTrainingDataset" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">probnmn.data.datasets.</code><code class="descname">JointTrainingDataset</code><span class="sig-paren">(</span><em>tokens_h5path: str</em>, <em>features_h5path: str</em>, <em>num_supervision: int = 699989</em>, <em>supervision_question_max_length: int = 30</em>, <em>in_memory: bool = True</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L149-L240"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.JointTrainingDataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.dataset.Dataset</span></code></p>
 <p>Provides questions, programs, supervision flag, image features and answers for Joint Training.
 If the random seed is set carefully, then the supervision list is made same as that in
@@ -130,7 +130,7 @@ If the random seed is set carefully, then the supervision list is made same as t
 <p>For a fixed numpy random seed, the randomly generated supervision list will always be same.</p>
 <dl class="method">
 <dt id="probnmn.data.datasets.JointTrainingDataset.get_supervision_list">
-<code class="descname">get_supervision_list</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L226-L232"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.JointTrainingDataset.get_supervision_list" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_supervision_list</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L234-L240"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.JointTrainingDataset.get_supervision_list" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return a list of 1’s and 0’s, indicating which examples have program supervision during
 question coding. Used by <a class="reference internal" href="data.samplers.html#probnmn.data.samplers.SupervisionWeightedRandomSampler" title="probnmn.data.samplers.SupervisionWeightedRandomSampler"><code class="xref py py-class docutils literal notranslate"><span class="pre">SupervisionWeightedRandomSampler</span></code></a>
 to form a mini-batch with nearly equal number of examples with(out) program supervision.</p>
@@ -170,7 +170,7 @@ to form a mini-batch with nearly equal number of examples with(out) program supe
 <li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
 <li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">probnmn.utils</a></li>
 </ul>
 
 <div class="relations">

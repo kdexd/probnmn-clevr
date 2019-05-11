@@ -36,7 +36,7 @@
 <span id="probnmn-trainers-trainer"></span><h1>probnmn.trainers._trainer<a class="headerlink" href="#module-probnmn.trainers._trainer" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.trainers._trainer._Trainer">
-<em class="property">class </em><code class="descclassname">probnmn.trainers._trainer.</code><code class="descname">_Trainer</code><span class="sig-paren">(</span><em>config: probnmn.config.Config, dataloader: torch.utils.data.dataloader.DataLoader, models: Dict[str, torch.nn.modules.module.Module], serialization_dir: str, gpu_ids: List[int] = [0]</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/_trainer.py#L12-L298"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers._trainer._Trainer" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">probnmn.trainers._trainer.</code><code class="descname">_Trainer</code><span class="sig-paren">(</span><em>config: probnmn.config.Config, dataloader: torch.utils.data.dataloader.DataLoader, models: Dict[str, torch.nn.modules.module.Module], serialization_dir: str, gpu_ids: List[int] = [0]</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/_trainer.py#L12-L299"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers._trainer._Trainer" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A base class for generic training of models. This class can have multiple models interacting
 with each other, rather than a single model, which is suitable to our use-case (for example,
@@ -182,7 +182,7 @@ metrics and there is one metric which decides best checkpoint.</p>
 
 <dl class="method">
 <dt id="probnmn.trainers._trainer._Trainer.load_checkpoint">
-<code class="descname">load_checkpoint</code><span class="sig-paren">(</span><em>checkpoint_path: str</em>, <em>iteration: Optional[int] = None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/_trainer.py#L251-L273"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers._trainer._Trainer.load_checkpoint" title="Permalink to this definition">¶</a></dt>
+<code class="descname">load_checkpoint</code><span class="sig-paren">(</span><em>checkpoint_path: str</em>, <em>iteration: Optional[int] = None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/_trainer.py#L251-L274"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers._trainer._Trainer.load_checkpoint" title="Permalink to this definition">¶</a></dt>
 <dd><p>Load a checkpoint to continue training from. The iteration when this checkpoint was
 serialized, is inferred from its name (so do not rename after serialization).</p>
 <dl class="field-list simple">
@@ -200,7 +200,7 @@ trained on.</p>
 
 <dl class="method">
 <dt id="probnmn.trainers._trainer._Trainer._cycle">
-<code class="descname">_cycle</code><span class="sig-paren">(</span><em>dataloader: torch.utils.data.dataloader.DataLoader</em><span class="sig-paren">)</span> &#x2192; Generator[[Dict[str, torch.Tensor], None], None]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/_trainer.py#L275-L290"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers._trainer._Trainer._cycle" title="Permalink to this definition">¶</a></dt>
+<code class="descname">_cycle</code><span class="sig-paren">(</span><em>dataloader: torch.utils.data.dataloader.DataLoader</em><span class="sig-paren">)</span> &#x2192; Generator[[Dict[str, torch.Tensor], None], None]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/_trainer.py#L276-L291"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers._trainer._Trainer._cycle" title="Permalink to this definition">¶</a></dt>
 <dd><p>A generator which yields a random batch from dataloader perpetually. This generator is
 used in the constructor.</p>
 <p>This is done so because we train for a fixed number of iterations, and do not have the
@@ -244,7 +244,7 @@ unexpeced memory leaks.</p>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">probnmn.utils</a></li>
 </ul>
 
 <div class="relations">

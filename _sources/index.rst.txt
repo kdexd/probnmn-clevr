@@ -31,7 +31,7 @@ If you find this code useful, please consider citing:
     probnmn/modules
     probnmn/trainers
     probnmn/evaluators
-    probnmn/utils.checkpointing
+    probnmn/utils
 
 
 .. Indices and tables

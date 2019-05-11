@@ -36,7 +36,7 @@
 <span id="probnmn-trainers-program-prior-trainer"></span><h1>probnmn.trainers.program_prior_trainer<a class="headerlink" href="#module-probnmn.trainers.program_prior_trainer" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.trainers.program_prior_trainer.ProgramPriorTrainer">
-<em class="property">class </em><code class="descclassname">probnmn.trainers.program_prior_trainer.</code><code class="descname">ProgramPriorTrainer</code><span class="sig-paren">(</span><em>config: probnmn.config.Config, serialization_dir: str, gpu_ids: List[int] = [0], cpu_workers: int = 0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/program_prior_trainer.py#L16-L113"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers.program_prior_trainer.ProgramPriorTrainer" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">probnmn.trainers.program_prior_trainer.</code><code class="descname">ProgramPriorTrainer</code><span class="sig-paren">(</span><em>config: probnmn.config.Config, serialization_dir: str, gpu_ids: List[int] = [0], cpu_workers: int = 0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/program_prior_trainer.py#L15-L112"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers.program_prior_trainer.ProgramPriorTrainer" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="trainers._trainer.html#probnmn.trainers._trainer._Trainer" title="probnmn.trainers._trainer._Trainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.trainers._trainer._Trainer</span></code></a></p>
 <p>Performs training for <code class="docutils literal notranslate"><span class="pre">program_prior</span></code> phase, using batches of training examples from
 <a class="reference internal" href="data.datasets.html#probnmn.data.datasets.ProgramPriorDataset" title="probnmn.data.datasets.ProgramPriorDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramPriorDataset</span></code></a>.</p>
@@ -68,7 +68,7 @@
 </div>
 <dl class="method">
 <dt id="probnmn.trainers.program_prior_trainer.ProgramPriorTrainer._do_iteration">
-<code class="descname">_do_iteration</code><span class="sig-paren">(</span><em>batch: Dict[str, Any]</em><span class="sig-paren">)</span> &#x2192; Dict[str, Any]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/program_prior_trainer.py#L80-L91"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers.program_prior_trainer.ProgramPriorTrainer._do_iteration" title="Permalink to this definition">¶</a></dt>
+<code class="descname">_do_iteration</code><span class="sig-paren">(</span><em>batch: Dict[str, Any]</em><span class="sig-paren">)</span> &#x2192; Dict[str, Any]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/program_prior_trainer.py#L79-L90"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers.program_prior_trainer.ProgramPriorTrainer._do_iteration" title="Permalink to this definition">¶</a></dt>
 <dd><p>Forward and backward passes on models, given a batch sampled from dataloader.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -90,7 +90,7 @@
 
 <dl class="method">
 <dt id="probnmn.trainers.program_prior_trainer.ProgramPriorTrainer.after_validation">
-<code class="descname">after_validation</code><span class="sig-paren">(</span><em>val_metrics: Dict[str, Any], iteration: Optional[int] = None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/program_prior_trainer.py#L93-L113"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers.program_prior_trainer.ProgramPriorTrainer.after_validation" title="Permalink to this definition">¶</a></dt>
+<code class="descname">after_validation</code><span class="sig-paren">(</span><em>val_metrics: Dict[str, Any], iteration: Optional[int] = None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/trainers/program_prior_trainer.py#L92-L112"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.trainers.program_prior_trainer.ProgramPriorTrainer.after_validation" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set <code class="docutils literal notranslate"><span class="pre">&quot;metric&quot;</span></code> key in <code class="docutils literal notranslate"><span class="pre">val_metrics</span></code>, this governs learning rate scheduling and keeping
 track of best checkpoint (in <code class="docutils literal notranslate"><span class="pre">super</span></code> method). This metric will be perplexity of
 <a class="reference internal" href="models.program_prior.html#probnmn.models.program_prior.ProgramPrior" title="probnmn.models.program_prior.ProgramPrior"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramPrior</span></code></a> (lower is better).</p>
@@ -146,7 +146,7 @@ Returned by <code class="docutils literal notranslate"><span class="pre">evaluat
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">probnmn.utils</a></li>
 </ul>
 
 <div class="relations">

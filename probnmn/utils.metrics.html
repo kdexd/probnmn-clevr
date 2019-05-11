@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>probnmn.modules &#8212; ProbNMN 0.1 documentation</title>
+    <title>probnmn.utils.metrics &#8212; ProbNMN 0.1 documentation</title>
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
@@ -14,8 +14,7 @@
     <script type="text/javascript" src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="probnmn.modules.elbo" href="modules.elbo.html" />
-    <link rel="prev" title="probnmn.models.nmn" href="models.nmn.html" />
+    <link rel="prev" title="probnmn.utils.checkpointing" href="utils.checkpointing.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -32,15 +31,27 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="probnmn-modules">
-<h1>probnmn.modules<a class="headerlink" href="#probnmn-modules" title="Permalink to this headline">¶</a></h1>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="modules.elbo.html">probnmn.modules.elbo</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules.nmn_modules.html">probnmn.modules.nmn_modules</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules.seq2seq_base.html">probnmn.modules.seq2seq_base</a></li>
-</ul>
-</div>
+  <div class="section" id="module-probnmn.utils.metrics">
+<span id="probnmn-utils-metrics"></span><h1>probnmn.utils.metrics<a class="headerlink" href="#module-probnmn.utils.metrics" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="probnmn.utils.metrics.SemanticQuestionReconstructionAccuracy">
+<em class="property">class </em><code class="descclassname">probnmn.utils.metrics.</code><code class="descname">SemanticQuestionReconstructionAccuracy</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/utils/metrics.py#L9-L118"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.utils.metrics.SemanticQuestionReconstructionAccuracy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">allennlp.training.metrics.sequence_accuracy.SequenceAccuracy</span></code></p>
+<p>A metric which computes question reconstruction accuracy in a “semantic” sense, this
+considers certain synonym words equivalent, such as <code class="docutils literal notranslate"><span class="pre">(&quot;object&quot;,</span> <span class="pre">&quot;thing&quot;)</span></code>.</p>
+<p>The mapping of synonyms is taken from
+<a class="reference external" href="https://github.com/facebookresearch/clevr-dataset-gen">CLEVR dataset generation code</a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>vocabulary: allennlp.data.vocabulary.Vocabulary</strong></dt><dd><p>AllenNLP’s vocabulary. This vocabulary has three namespaces - “questions”, “programs” and
+“answers”, which contain respective token to integer mappings.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
 
 
@@ -65,23 +76,23 @@
 <li class="toctree-l1"><a class="reference internal" href="config.html">probnmn.config</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data.html">probnmn.data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="models.html">probnmn.models</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">probnmn.modules</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="modules.elbo.html">probnmn.modules.elbo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.nmn_modules.html">probnmn.modules.nmn_modules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.seq2seq_base.html">probnmn.modules.seq2seq_base</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">probnmn.modules</a></li>
 <li class="toctree-l1"><a class="reference internal" href="trainers.html">probnmn.trainers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="evaluators.html">probnmn.evaluators</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html">probnmn.utils</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="utils.html">probnmn.utils</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="utils.checkpointing.html">probnmn.utils.checkpointing</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">probnmn.utils.metrics</a></li>
+</ul>
+</li>
 </ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="../index.html">Documentation overview</a><ul>
-      <li>Previous: <a href="models.nmn.html" title="previous chapter">probnmn.models.nmn</a></li>
-      <li>Next: <a href="modules.elbo.html" title="next chapter">probnmn.modules.elbo</a></li>
+  <li><a href="utils.html">probnmn.utils</a><ul>
+      <li>Previous: <a href="utils.checkpointing.html" title="previous chapter">probnmn.utils.checkpointing</a></li>
+  </ul></li>
   </ul></li>
 </ul>
 </div>
@@ -115,7 +126,7 @@
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
-      <a href="../_sources/probnmn/modules.rst.txt"
+      <a href="../_sources/probnmn/utils.metrics.rst.txt"
           rel="nofollow">Page source</a>
     </div>
 
