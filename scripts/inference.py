@@ -14,7 +14,7 @@ from probnmn.data.datasets import JointTrainingDataset
 from probnmn.models import ProgramGenerator, NeuralModuleNetwork
 
 
-parser = argparse.ArgumentParser("Run inference after joint training.")
+parser = argparse.ArgumentParser("Run inference after joint training and save model predictions.")
 parser.add_argument(
     "--config-yml", required=True, help="Path to a config file for specified phase."
 )
