@@ -1,3 +1,12 @@
+/* Make main content wider */
+div.document {
+    margin: auto;
+    width: 65%;
+}
+
+div.body {
+    max-width: 100%
+}
 
 /* Add a light background to class signatures. */
 dl.class > dt:first-of-type, dl.function > dt:first-of-type, dl.method > dt:first-of-type {
