@@ -1,9 +1,6 @@
 probnmn.data
 ============
 
-Hello world!
-
-
 .. toctree::
 
     data.datasets
