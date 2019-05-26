@@ -316,15 +316,19 @@ class Seq2SeqBase(AllenNlpSimpleSeq2Seq):
         During training, we want the logit corresponding to timestep i to be similar to the target
         token from timestep i + 1. That is, the targets should be shifted by one timestep for
         appropriate comparison.  Consider a single example where the target has 3 words, and
-        padding is to 7 tokens.
+        padding is to 7 tokens::
+
            The complete sequence would correspond to <S> w1  w2  w3  <E> <P> <P>
            and the mask would be                     1   1   1   1   1   0   0
            and let the logits be                     l1  l2  l3  l4  l5  l6
-        We actually need to compare:
+
+        We actually need to compare::
+
            the sequence           w1  w2  w3  <E> <P> <P>
            with masks             1   1   1   1   0   0
            against                l1  l2  l3  l4  l5  l6
            (where the input was)  <S> w1  w2  w3  <E> <P>
+
         """
         # shape: (batch_size, num_decoding_steps)
         relevant_targets = targets[:, 1:].contiguous()
