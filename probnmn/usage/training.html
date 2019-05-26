@@ -1,0 +1,226 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8" />
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-120523111-2"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-120523111-2');
+    </script>
+
+
+    <title>How to train your ProbNMN? &#8212; ProbNMN 0.1 documentation</title>
+
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="How to evaluate or do inference?" href="evaluation_inference.html" />
+    <link rel="prev" title="How to setup this codebase?" href="setup_dependencies.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="how-to-train-your-probnmn">
+<h1>How to train your ProbNMN?<a class="headerlink" href="#how-to-train-your-probnmn" title="Permalink to this headline">¶</a></h1>
+<p>Training a ProbNMN is done in three phases (plus an extra preprocessing-ish
+phase). This codebase supports training based on our proposed objective for
+ProbNMN, as well as baseline objective according to
+<a class="reference external" href="https://arxiv.org/abs/1705.03633">Johnson et al. (CVPR 2017)</a>.</p>
+<p>Training is governed by a YAML config file, which has a <code class="docutils literal notranslate"><span class="pre">PHASE</span></code> field, with
+the name of the training phase. Phase names are corresponding trainers are:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">program_prior</span></code>:
+<a class="reference internal" href="../trainers.program_prior_trainer.html#probnmn.trainers.program_prior_trainer.ProgramPriorTrainer" title="probnmn.trainers.program_prior_trainer.ProgramPriorTrainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramPriorTrainer</span></code></a></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">question_coding</span></code>:
+<a class="reference internal" href="../trainers.question_coding_trainer.html#probnmn.trainers.question_coding_trainer.QuestionCodingTrainer" title="probnmn.trainers.question_coding_trainer.QuestionCodingTrainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionCodingTrainer</span></code></a></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">module_training</span></code>:
+<a class="reference internal" href="../trainers.module_training_trainer.html#probnmn.trainers.module_training_trainer.ModuleTrainingTrainer" title="probnmn.trainers.module_training_trainer.ModuleTrainingTrainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModuleTrainingTrainer</span></code></a></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">joint_training</span></code>:
+<a class="reference internal" href="../trainers.joint_training_trainer.html#probnmn.trainers.joint_training_trainer.JointTrainingTrainer" title="probnmn.trainers.joint_training_trainer.JointTrainingTrainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">JointTrainingTrainer</span></code></a></p></li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ol class="arabic simple">
+<li><p>Execute all the commands from <code class="docutils literal notranslate"><span class="pre">$PROJECT_ROOT</span></code> to use the config files
+used to reproduce results in the paper. Configuration is managed through
+YAML files, with a central package-wide configuration management system.
+Read more at <a class="reference internal" href="../config.html#probnmn.config.Config" title="probnmn.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a>.</p></li>
+<li><p>All the training phases will by default serialize checkpoints every few
+iterations, and serialize tensorboard logs every iteration in the same
+directory provided through <code class="docutils literal notranslate"><span class="pre">--serialization-dir</span></code>. Use <code class="docutils literal notranslate"><span class="pre">tensorboard</span>
+<span class="pre">--logdir</span> <span class="pre">$SERIALIZATION_DIR</span></code> to view training curves, validation
+metrics etc. directly on tensorboard.</p></li>
+<li><p>The subset of question-program paired training data is selected randomly, hence
+the quality of supervision dataset is governed by random seed. Sometimes it may
+not be the best, and training might be slow. We recommend running <code class="docutils literal notranslate"><span class="pre">question_coding</span></code>
+and <code class="docutils literal notranslate"><span class="pre">joint_training</span></code> for at least 5-7 different random seeds, use
+<code class="docutils literal notranslate"><span class="pre">--config-override</span> <span class="pre">RANDOM_SEED</span> <span class="pre">$NUM</span></code>. Having same random seed will ensure the
+selection of same paired data across different run and different machines.</p></li>
+<li><p>If time / resources are limited, we recommend random seed 700 for decent results.</p></li>
+</ol>
+</div>
+<div class="section" id="phase-program-prior">
+<h2><code class="docutils literal notranslate"><span class="pre">PHASE:</span> <span class="pre">program_prior</span></code><a class="headerlink" href="#phase-program-prior" title="Permalink to this headline">¶</a></h2>
+<p>Train a <a class="reference internal" href="../models.program_prior.html#probnmn.models.program_prior.ProgramPrior" title="probnmn.models.program_prior.ProgramPrior"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramPrior</span></code></a> using all the
+programs from CLEVR v1.0 training split. Alternatively, this can be trained
+using programs simulated using syntax.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">scripts</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">py</span> \
+    <span class="o">--</span><span class="n">config</span><span class="o">-</span><span class="n">yml</span> <span class="n">configs</span><span class="o">/</span><span class="n">program_prior</span><span class="o">.</span><span class="n">yml</span> \
+    <span class="o">--</span><span class="n">phase</span> <span class="n">program_prior</span> \
+    <span class="o">--</span><span class="n">gpu</span><span class="o">-</span><span class="n">ids</span> <span class="mi">0</span> \
+    <span class="o">--</span><span class="n">serialization</span><span class="o">-</span><span class="nb">dir</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">program_prior</span>
+</pre></div>
+</div>
+<p>This step does not apply for <code class="docutils literal notranslate"><span class="pre">baseline</span></code> objective.</p>
+</div>
+<div class="section" id="phase-question-coding">
+<h2><code class="docutils literal notranslate"><span class="pre">PHASE:</span> <span class="pre">question_coding</span></code><a class="headerlink" href="#phase-question-coding" title="Permalink to this headline">¶</a></h2>
+<p>Learn a latent “code” for questions, given some program-question pairs, and a
+large amount of questions without paired programs. Choose appropriate config
+file according to training objective (<code class="docutils literal notranslate"><span class="pre">baseline</span></code> or <code class="docutils literal notranslate"><span class="pre">ours</span></code>).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">scripts</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">py</span> \
+    <span class="o">--</span><span class="n">config</span><span class="o">-</span><span class="n">yml</span> <span class="n">configs</span><span class="o">/</span><span class="n">question_coding_ours</span><span class="o">.</span><span class="n">yml</span> \
+    <span class="o">--</span><span class="n">phase</span> <span class="n">question_coding</span> \
+    <span class="o">--</span><span class="n">config</span><span class="o">-</span><span class="n">override</span> <span class="n">CHECKPOINTS</span><span class="o">.</span><span class="n">PROGRAM_PRIOR</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">program_prior</span><span class="o">/</span><span class="n">program_prior_best</span><span class="o">.</span><span class="n">pth</span> \
+    <span class="o">--</span><span class="n">gpu</span><span class="o">-</span><span class="n">ids</span> <span class="mi">0</span> \
+    <span class="o">--</span><span class="n">serialization</span><span class="o">-</span><span class="nb">dir</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">question_coding_ours</span>
+</pre></div>
+</div>
+<p>Parameters of <a class="reference internal" href="../models.program_prior.html#probnmn.models.program_prior.ProgramPrior" title="probnmn.models.program_prior.ProgramPrior"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramPrior</span></code></a> are frozen.</p>
+</div>
+<div class="section" id="phase-module-training">
+<h2><code class="docutils literal notranslate"><span class="pre">PHASE:</span> <span class="pre">module_training</span></code><a class="headerlink" href="#phase-module-training" title="Permalink to this headline">¶</a></h2>
+<p>Train a neural module network with (image, question, answer) tuples, where the
+<a class="reference internal" href="../models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a> trained in
+<code class="docutils literal notranslate"><span class="pre">question_coding</span></code> phase (kept frozen) infers programs from questions.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">scripts</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">py</span> \
+    <span class="o">--</span><span class="n">config</span><span class="o">-</span><span class="n">yml</span> <span class="n">configs</span><span class="o">/</span><span class="n">module_training</span><span class="o">.</span><span class="n">yml</span> \
+    <span class="o">--</span><span class="n">phase</span> <span class="n">module_training</span> \
+    <span class="o">--</span><span class="n">config</span><span class="o">-</span><span class="n">override</span> <span class="n">CHECKPOINTS</span><span class="o">.</span><span class="n">QUESTION_CODING</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">question_coding_ours</span><span class="o">/</span><span class="n">question_coding_best</span><span class="o">.</span><span class="n">pth</span> \
+    <span class="o">--</span><span class="n">gpu</span><span class="o">-</span><span class="n">ids</span> <span class="mi">0</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span> \
+    <span class="o">--</span><span class="n">serialization</span><span class="o">-</span><span class="nb">dir</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">question_coding_ours</span>
+</pre></div>
+</div>
+<p>Multi-GPU execution is supported here. This phase is the same for both training
+objectives.</p>
+</div>
+<div class="section" id="phase-joint-training">
+<h2><code class="docutils literal notranslate"><span class="pre">PHASE:</span> <span class="pre">joint_training</span></code><a class="headerlink" href="#phase-joint-training" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">scripts</span><span class="o">/</span><span class="n">train</span><span class="o">.</span><span class="n">py</span> \
+    <span class="o">--</span><span class="n">config</span><span class="o">-</span><span class="n">yml</span> <span class="n">configs</span><span class="o">/</span><span class="n">joint_training_ours</span><span class="o">.</span><span class="n">yml</span> \
+    <span class="o">--</span><span class="n">phase</span> <span class="n">joint_training</span> \
+    <span class="o">--</span><span class="n">config</span><span class="o">-</span><span class="n">override</span> <span class="n">CHECKPOINTS</span><span class="o">.</span><span class="n">PROGRAM_PRIOR</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">program_prior</span><span class="o">/</span><span class="n">program_prior_best</span><span class="o">.</span><span class="n">pth</span> \
+                      <span class="n">CHECKPOINTS</span><span class="o">.</span><span class="n">QUESTION_CODING</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">question_coding_ours</span><span class="o">/</span><span class="n">question_coding_best</span><span class="o">.</span><span class="n">pth</span> \
+                      <span class="n">CHECKPOINTS</span><span class="o">.</span><span class="n">MODULE_TRAINING</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">module_training</span><span class="o">/</span><span class="n">module_training_best</span><span class="o">.</span><span class="n">pth</span> \
+    <span class="o">--</span><span class="n">gpu</span><span class="o">-</span><span class="n">ids</span> <span class="mi">0</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span> \
+    <span class="o">--</span><span class="n">serialization</span><span class="o">-</span><span class="nb">dir</span> <span class="n">checkpoints</span><span class="o">/</span><span class="n">joint_training_ours</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">ProbNMN</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup_dependencies.html">How to setup this codebase?</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How to train your ProbNMN?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="evaluation_inference.html">How to evaluate or do inference?</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../config.html">probnmn.config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data.html">probnmn.data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../models.html">probnmn.models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">probnmn.modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../trainers.html">probnmn.trainers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../evaluators.html">probnmn.evaluators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils.html">probnmn.utils</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="setup_dependencies.html" title="previous chapter">How to setup this codebase?</a></li>
+      <li>Next: <a href="evaluation_inference.html" title="next chapter">How to evaluate or do inference?</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Karan Desai.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../_sources/probnmn/usage/training.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
