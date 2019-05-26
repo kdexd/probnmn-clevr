@@ -15,6 +15,8 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
+    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+
 
     <title>probnmn.modules.seq2seq_base &#8212; ProbNMN 0.1 documentation</title>
 
@@ -49,7 +51,7 @@
 <h1>probnmn.modules.seq2seq_base<a class="headerlink" href="#probnmn-modules-seq2seq-base" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.modules.seq2seq_base.Seq2SeqBase">
-<em class="property">class </em><code class="descclassname">probnmn.modules.seq2seq_base.</code><code class="descname">Seq2SeqBase</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>source_namespace: str</em>, <em>target_namespace: str</em>, <em>input_size: int = 256</em>, <em>hidden_size: int = 256</em>, <em>num_layers: int = 2</em>, <em>dropout: float = 0.0</em>, <em>max_decoding_steps: int = 30</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L16-L371"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">probnmn.modules.seq2seq_base.</code><code class="descname">Seq2SeqBase</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>source_namespace: str</em>, <em>target_namespace: str</em>, <em>input_size: int = 256</em>, <em>hidden_size: int = 256</em>, <em>num_layers: int = 2</em>, <em>dropout: float = 0.0</em>, <em>max_decoding_steps: int = 30</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L16-L375"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">allennlp.models.encoder_decoders.simple_seq2seq.SimpleSeq2Seq</span></code></p>
 <p>A wrapper over AllenNLP’s SimpleSeq2Seq class. This serves as a base class for the
 <a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a> and
@@ -130,7 +132,7 @@ This includes “&#64;end&#64;” as last token in trimmed sequence.</p>
 
 <dl class="staticmethod">
 <dt id="probnmn.modules.seq2seq_base.Seq2SeqBase._get_loss">
-<em class="property">static </em><code class="descname">_get_loss</code><span class="sig-paren">(</span><em>logits: torch.LongTensor</em>, <em>targets: torch.LongTensor</em>, <em>target_mask: torch.LongTensor</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L295-L337"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase._get_loss" title="Permalink to this definition">¶</a></dt>
+<em class="property">static </em><code class="descname">_get_loss</code><span class="sig-paren">(</span><em>logits: torch.LongTensor</em>, <em>targets: torch.LongTensor</em>, <em>target_mask: torch.LongTensor</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L295-L341"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase._get_loss" title="Permalink to this definition">¶</a></dt>
 <dd><p>Override AllenNLP Seq2Seq model’s provided <code class="docutils literal notranslate"><span class="pre">_get_loss</span></code> method, which returns sequence
 cross entropy averaged over batch by default. Instead, provide sequence cross entropy of
 each sequence in a batch separately.</p>
@@ -146,24 +148,24 @@ decoder does not need to compute the output corresponding to the last timestep o
 During training, we want the logit corresponding to timestep i to be similar to the target
 token from timestep i + 1. That is, the targets should be shifted by one timestep for
 appropriate comparison.  Consider a single example where the target has 3 words, and
-padding is to 7 tokens.</p>
-<blockquote>
-<div><p>The complete sequence would correspond to &lt;S&gt; w1  w2  w3  &lt;E&gt; &lt;P&gt; &lt;P&gt;
-and the mask would be                     1   1   1   1   1   0   0
-and let the logits be                     l1  l2  l3  l4  l5  l6</p>
-</div></blockquote>
-<dl class="simple">
-<dt>We actually need to compare:</dt><dd><p>the sequence           w1  w2  w3  &lt;E&gt; &lt;P&gt; &lt;P&gt;
-with masks             1   1   1   1   0   0
-against                l1  l2  l3  l4  l5  l6
-(where the input was)  &lt;S&gt; w1  w2  w3  &lt;E&gt; &lt;P&gt;</p>
-</dd>
-</dl>
+padding is to 7 tokens:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">The</span> <span class="n">complete</span> <span class="n">sequence</span> <span class="n">would</span> <span class="n">correspond</span> <span class="n">to</span> <span class="o">&lt;</span><span class="n">S</span><span class="o">&gt;</span> <span class="n">w1</span>  <span class="n">w2</span>  <span class="n">w3</span>  <span class="o">&lt;</span><span class="n">E</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">P</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">P</span><span class="o">&gt;</span>
+<span class="ow">and</span> <span class="n">the</span> <span class="n">mask</span> <span class="n">would</span> <span class="n">be</span>                     <span class="mi">1</span>   <span class="mi">1</span>   <span class="mi">1</span>   <span class="mi">1</span>   <span class="mi">1</span>   <span class="mi">0</span>   <span class="mi">0</span>
+<span class="ow">and</span> <span class="n">let</span> <span class="n">the</span> <span class="n">logits</span> <span class="n">be</span>                     <span class="n">l1</span>  <span class="n">l2</span>  <span class="n">l3</span>  <span class="n">l4</span>  <span class="n">l5</span>  <span class="n">l6</span>
+</pre></div>
+</div>
+<p>We actually need to compare:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">the</span> <span class="n">sequence</span>           <span class="n">w1</span>  <span class="n">w2</span>  <span class="n">w3</span>  <span class="o">&lt;</span><span class="n">E</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">P</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">P</span><span class="o">&gt;</span>
+<span class="k">with</span> <span class="n">masks</span>             <span class="mi">1</span>   <span class="mi">1</span>   <span class="mi">1</span>   <span class="mi">1</span>   <span class="mi">0</span>   <span class="mi">0</span>
+<span class="n">against</span>                <span class="n">l1</span>  <span class="n">l2</span>  <span class="n">l3</span>  <span class="n">l4</span>  <span class="n">l5</span>  <span class="n">l6</span>
+<span class="p">(</span><span class="n">where</span> <span class="n">the</span> <span class="nb">input</span> <span class="n">was</span><span class="p">)</span>  <span class="o">&lt;</span><span class="n">S</span><span class="o">&gt;</span> <span class="n">w1</span>  <span class="n">w2</span>  <span class="n">w3</span>  <span class="o">&lt;</span><span class="n">E</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">P</span><span class="o">&gt;</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="method">
 <dt id="probnmn.modules.seq2seq_base.Seq2SeqBase.get_metrics">
-<code class="descname">get_metrics</code><span class="sig-paren">(</span><em>reset: bool = True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L339-L371"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase.get_metrics" title="Permalink to this definition">¶</a></dt>
+<code class="descname">get_metrics</code><span class="sig-paren">(</span><em>reset: bool = True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/seq2seq_base.py#L343-L375"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.seq2seq_base.Seq2SeqBase.get_metrics" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return recorded metrics - perplexity, sequence accuracy, word error rate, BLEU.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters</dt>
@@ -210,7 +212,11 @@ against                l1  l2  l3  l4  l5  l6
 
 
 <h3>Navigation</h3>
-<p class="caption"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage/setup_dependencies.html">How to setup this codebase?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/training.html">How to train your ProbNMN?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/evaluation_inference.html">How to evaluate or do inference?</a></li>
+</ul>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="config.html">probnmn.config</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data.html">probnmn.data</a></li>
