@@ -9,6 +9,8 @@ Probabilistic Neural-symbolic Models
 .. image:: _static/probnmn_model.jpg
 
 
+Get the source at `@kdexd/probnmn-clevr <https://www.github.com/kdexd/probnmn-clevr>`_.
+
 If you find this code useful, please consider citing:
 
 .. code-block:: text

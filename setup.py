@@ -4,10 +4,10 @@ from setuptools import setup
 
 setup(
     name="probnmn",
-    version="0.1.0",
+    version="1.0.0",
     author="Karan Desai",
-    description="Experiments for ICML 2019 Submission: 'Probabilistic Neural-symbolic Models "
-                "for Interpretable Visual Question Answering' on CLEVR v1.0 dataset.",
+    description="Code for ICML 2019 Paper: 'Probabilistic Neural-symbolic Models "
+                "for Interpretable Visual Question Answering'.",
     license="MIT",
     zip_safe=True,
 )
