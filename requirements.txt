@@ -1,8 +1,5 @@
 allennlp==0.8.0
 h5py==2.8.0
-ipython==7.2.0
-jupyter==1.0.0
-jupyterlab==0.35.4
 numpy==1.15.0
 scipy==0.19.1
 tensorboardX==1.2
