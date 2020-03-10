@@ -96,29 +96,30 @@ def main(args: argparse.Namespace):
 
     # Load ResNet-101 with ImageNet pre-trained weights.
     resnet = resnet101(pretrained=True)
-    feature_extractor = nn.Sequential(
-        resnet.conv1,
-        resnet.bn1,
-        resnet.relu,
-        resnet.maxpool,
-        resnet.layer1,
-        resnet.layer2,
-        resnet.layer3,
-    )
-    feature_extractor = feature_extractor.to(device)
-    feature_extractor.eval()
+
+    # Set last layer, global average pooling and fc layers as identity.
+    resnet.layer4 = nn.Identity()
+    resnet.avgpool = nn.Identity()
+    resnet.fc = nn.Identity()
+    resnet.eval()
 
     # Enable multi-GPU execution if needed.
     if len(args.gpu_ids) > 1 and -1 not in args.gpu_ids:
-        feature_extractor = nn.DataParallel(feature_extractor)
+        resnet = nn.DataParallel(resnet)
 
     # --------------------------------------------------------------------------------------------
     #   EXTRACT AND SAVE FEATURES
     # --------------------------------------------------------------------------------------------
 
-    # Accumulate all the features according to sorted image ids.
-    features = np.zeros((len(image_paths), 1024, 14, 14))
+    print(f"Extracting and saving image features to {args.output_h5path}...")
 
+    output_h5 = h5py.File(args.output_h5path, "w")
+    output_h5.attrs["split"] = args.split
+    output_h5.create_dataset(
+        "features", ((len(image_paths), 1024, 14, 14)), dtype=float
+    )
+
+    # Extract all the features according to sorted image ids.
     counter = 0
     for batch in tqdm(dataloader):
         # shape: (batch_size, 3, IMAGE_HEIGHT, IMAGE_WIDTH)
@@ -126,14 +127,11 @@ def main(args: argparse.Namespace):
 
         with torch.no_grad():
             # shape: (batch_size, 1024, 14, 14)
-            output_features = feature_extractor(batch)
+            output_features = resnet(batch)
 
-        features[counter : counter + len(batch)] = output_features.cpu().numpy()
+        output_h5["features"][counter : counter + len(batch)] = output_features.cpu().numpy()
         counter += len(batch)
 
-    output_h5 = h5py.File(args.output_h5path, "w")
-    output_h5.attrs["split"] = args.split
-    output_h5["features"] = features
     output_h5.close()
 
 

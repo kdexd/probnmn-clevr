@@ -113,7 +113,7 @@ if __name__ == "__main__":
 
     print(f"Saving tokenized data to {args.output_h5path}...")
 
-    output_h5 = h5py.File(args.output_h5path)
+    output_h5 = h5py.File(args.output_h5path, "w")
     output_h5["image_indices"] = image_indices
 
     output_h5.create_dataset(
