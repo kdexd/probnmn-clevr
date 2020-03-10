@@ -3,7 +3,7 @@ from typing import Any, Dict, Generator, List, Optional
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 from probnmn.config import Config
 from probnmn.utils.checkpointing import CheckpointManager
