@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from probnmn.config import Config
 from probnmn.data.datasets import ModuleTrainingDataset
 from probnmn.models import ProgramGenerator
+from probnmn.utils.checkpointing import CheckpointManager
 from ._evaluator import _Evaluator
 
 
@@ -72,8 +73,8 @@ class ModuleTrainingEvaluator(_Evaluator):
 
         # Load program generator from checkpoint, this will be frozen during module training.
         self._program_generator = ProgramGenerator.from_config(self._C).to(self._device)
-        self._program_generator.load_state_dict(
-            torch.load(self._C.CHECKPOINTS.QUESTION_CODING)["program_generator"]
+        CheckpointManager(program_generator=self._program_generator).load(
+            self._C.CHECKPOINTS.QUESTION_CODING
         )
         self._program_generator.eval()
 

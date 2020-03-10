@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from probnmn.config import Config
 from probnmn.data.datasets import ModuleTrainingDataset
 from probnmn.models import NeuralModuleNetwork, ProgramGenerator
+from probnmn.utils.checkpointing import CheckpointManager
 from ._trainer import _Trainer
 
 
@@ -79,15 +80,13 @@ class ModuleTrainingTrainer(_Trainer):
 
         # Load program generator from checkpoint, this will be frozen during module training.
         self._program_generator = ProgramGenerator.from_config(self._C).to(self._device)
-        self._program_generator.load_state_dict(
-            torch.load(self._C.CHECKPOINTS.QUESTION_CODING)["program_generator"]
+        CheckpointManager(program_generator=self._program_generator).load(
+            self._C.CHECKPOINTS.QUESTION_CODING
         )
         self._program_generator.eval()
 
     def _do_iteration(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-        pg_output_dict = self._program_generator(
-            batch["question"], decoding_strategy="sampling"
-        )
+        pg_output_dict = self._program_generator(batch["question"], decoding_strategy="sampling")
         output_dict = self._nmn(batch["image"], pg_output_dict["predictions"], batch["answer"])
         batch_loss = output_dict["loss"].mean()
         batch_loss.backward()

@@ -10,6 +10,7 @@ from probnmn.data.datasets import QuestionCodingDataset
 from probnmn.data.samplers import SupervisionWeightedRandomSampler
 from probnmn.models import ProgramPrior, ProgramGenerator, QuestionReconstructor
 from probnmn.modules.elbo import QuestionCodingElbo
+from probnmn.utils.checkpointing import CheckpointManager
 from ._trainer import _Trainer
 
 
@@ -91,8 +92,8 @@ class QuestionCodingTrainer(_Trainer):
 
         # Load program prior from checkpoint, this will be frozen during question coding.
         self._program_prior = ProgramPrior.from_config(self._C).to(self._device)
-        self._program_prior.load_state_dict(
-            torch.load(self._C.CHECKPOINTS.PROGRAM_PRIOR)["program_prior"]
+        CheckpointManager(program_prior=self._program_prior).load(
+            self._C.CHECKPOINTS.PROGRAM_PRIOR
         )
         self._program_prior.eval()
 

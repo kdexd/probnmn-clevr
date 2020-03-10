@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 from typing import Type
 
@@ -78,8 +77,6 @@ parser.add_argument(
     help="Number of batches to validate on - can be used for fast validation, although might "
     "provide a noisy estimate of performance.",
 )
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":

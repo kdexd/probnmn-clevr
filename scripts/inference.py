@@ -12,6 +12,7 @@ from tqdm import tqdm
 from probnmn.config import Config
 from probnmn.data.datasets import JointTrainingDataset
 from probnmn.models import ProgramGenerator, NeuralModuleNetwork
+from probnmn.utils.checkpointing import CheckpointManager
 
 
 parser = argparse.ArgumentParser("Run inference after joint training and save model predictions.")
@@ -63,9 +64,7 @@ if __name__ == "__main__":
     program_generator = ProgramGenerator.from_config(_C).to(device)
     nmn = NeuralModuleNetwork.from_config(_C).to(device)
 
-    joint_training_checkpoint = torch.load(_A.checkpoint_path)
-    program_generator.load_state_dict(joint_training_checkpoint["program_generator"])
-    nmn.load_state_dict(joint_training_checkpoint["nmn"])
+    CheckpointManager(program_generator=program_generator, nmn=nmn).load(_A.checkpoint_path)
 
     program_generator.eval()
     nmn.eval()
