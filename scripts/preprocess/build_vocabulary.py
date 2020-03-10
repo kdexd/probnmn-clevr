@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 
+from loguru import logger
 from typing import List, Set
 from mypy_extensions import TypedDict
 
@@ -105,29 +106,29 @@ def build_program_vocabulary(clevr_json: List[ClevrExample]) -> List[str]:
 if __name__ == "__main__":
 
     args = parser.parse_args()
-    print(f"Loading annotations json from {args.clevr_jsonpath}...")
+    logger.info(f"Loading annotations json from {args.clevr_jsonpath}...")
     clevr_json = json.load(open(args.clevr_jsonpath))["questions"]
 
-    print("Building question vocabulary...")
+    logger.info("Building question vocabulary...")
     question_vocabulary: List[str] = build_question_vocabulary(clevr_json)
     question_vocabulary = SPECIAL_TOKENS + question_vocabulary
-    print(f"Question vocabulary size (with special tokens): {len(question_vocabulary)}")
+    logger.info(f"Question vocabulary size (with special tokens): {len(question_vocabulary)}")
 
-    print("Building program vocabulary...")
+    logger.info("Building program vocabulary...")
     program_vocabulary: List[str] = build_program_vocabulary(clevr_json)
     program_vocabulary = SPECIAL_TOKENS + program_vocabulary
-    print(f"Program vocabulary size (with special tokens): {len(program_vocabulary)}")
+    logger.info(f"Program vocabulary size (with special tokens): {len(program_vocabulary)}")
 
-    print("Building answer vocabulary...")
+    logger.info("Building answer vocabulary...")
     # Only @@UNKNOWN@@ for answer vocabulary, because answers are not a "sequence".
     answer_vocabulary: List[str] = sorted(list(set([item["answer"] for item in clevr_json])))
     answer_vocabulary = answer_vocabulary + ["@@UNKNOWN@@"]
-    print(f"Answer vocabulary size: {len(answer_vocabulary)}")
+    logger.info(f"Answer vocabulary size: {len(answer_vocabulary)}")
 
     # Write the vocabulary to separate namespace files in directory.
-    print(f"Writing the vocabulary to {args.output_dirpath}...")
-    print("Namespaces: programs, questions, answers.")
-    print("Non-padded namespaces: answers.")
+    logger.info(f"Writing the vocabulary to {args.output_dirpath}...")
+    logger.info("Namespaces: programs, questions, answers.")
+    logger.info("Non-padded namespaces: answers.")
 
     os.makedirs(args.output_dirpath, exist_ok=True)
 

@@ -1,8 +1,8 @@
 import argparse
-import logging
 import os
 from typing import Type
 
+from loguru import logger
 import numpy as np
 import torch
 
@@ -47,8 +47,6 @@ parser.add_argument(
     "--cpu-workers", type=int, default=0, help="Number of CPU workers to use for data loading."
 )
 
-logger: logging.Logger = logging.getLogger(__name__)
-
 
 if __name__ == "__main__":
     _A = parser.parse_args()
@@ -64,9 +62,9 @@ if __name__ == "__main__":
         )
 
     # Print configs and args.
-    print(_C)
+    logger.info(_C)
     for arg in vars(_A):
-        print("{:<20}: {}".format(arg, getattr(_A, arg)))
+        logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
 
     # For reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
     # These five lines control all the major sources of randomness.

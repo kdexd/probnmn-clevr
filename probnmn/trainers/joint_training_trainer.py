@@ -15,6 +15,7 @@ from probnmn.models import (
     NeuralModuleNetwork,
 )
 from probnmn.modules.elbo import JointTrainingElbo
+from probnmn.utils.checkpointing import CheckpointManager
 from ._trainer import _Trainer
 
 
@@ -82,12 +83,11 @@ class JointTrainingTrainer(_Trainer):
         nmn = NeuralModuleNetwork.from_config(self._C)
 
         # Load checkpoints from question_coding and module_training phases.
-        question_coding_checkpoint = torch.load(self._C.CHECKPOINTS.QUESTION_CODING)
-        program_generator.load_state_dict(question_coding_checkpoint["program_generator"])
-        question_reconstructor.load_state_dict(
-            question_coding_checkpoint["question_reconstructor"]
-        )
-        nmn.load_state_dict(torch.load(self._C.CHECKPOINTS.MODULE_TRAINING)["nmn"])
+        CheckpointManager(
+            program_generator=program_generator, question_reconstructor=question_reconstructor
+        ).load(self._C.CHECKPOINTS.QUESTION_CODING)
+
+        CheckpointManager(nmn=nmn).load(self._C.CHECKPOINTS.MODULE_TRAINING)
 
         super().__init__(
             config=config,
@@ -108,8 +108,8 @@ class JointTrainingTrainer(_Trainer):
 
         # Load program prior from checkpoint, this will be frozen during question coding.
         self._program_prior = ProgramPrior.from_config(self._C).to(self._device)
-        self._program_prior.load_state_dict(
-            torch.load(self._C.CHECKPOINTS.PROGRAM_PRIOR)["program_prior"]
+        CheckpointManager(program_prior=self._program_prior).load(
+            self._C.CHECKPOINTS.PROGRAM_PRIOR
         )
         self._program_prior.eval()
 

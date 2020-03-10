@@ -137,7 +137,7 @@ class ModuleTrainingDataset(Dataset):
         return {
             "question": torch.tensor(item["question"]).long(),
             "answer": torch.tensor(item["answer"]).long(),
-            "image": torch.tensor(features),
+            "image": torch.tensor(features).float(),
             "program": torch.tensor(item["program"]).long(),
         }
 
@@ -216,14 +216,14 @@ class JointTrainingDataset(Dataset):
                 # question_index is the primary ID, used to make the predictions JSON.
                 "question_index": torch.tensor(index).long(),
                 "question": torch.tensor(item["question"]).long(),
-                "image": torch.tensor(features),
+                "image": torch.tensor(features).float(),
             }
         else:
             return {
                 "question": torch.tensor(item["question"]).long(),
                 "answer": torch.tensor(item["answer"]).long(),
                 "program": torch.tensor(item["program"]).long(),
-                "image": torch.tensor(features),
+                "image": torch.tensor(features).float(),
                 "supervision": supervision,
             }
 

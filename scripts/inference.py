@@ -1,9 +1,9 @@
 import argparse
 import json
-import logging
 from typing import Dict, List, Union
 
 from allennlp.data import Vocabulary
+from loguru import logger
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -12,6 +12,7 @@ from tqdm import tqdm
 from probnmn.config import Config
 from probnmn.data.datasets import JointTrainingDataset
 from probnmn.models import ProgramGenerator, NeuralModuleNetwork
+from probnmn.utils.checkpointing import CheckpointManager
 
 
 parser = argparse.ArgumentParser("Run inference after joint training and save model predictions.")
@@ -30,8 +31,6 @@ parser.add_argument(
     "--cpu-workers", type=int, default=0, help="Number of CPU workers to use for data loading."
 )
 
-logger: logging.Logger = logging.getLogger(__name__)
-
 
 if __name__ == "__main__":
     # --------------------------------------------------------------------------------------------
@@ -41,9 +40,9 @@ if __name__ == "__main__":
     _C = Config(_A.config_yml)
 
     # Print configs and args.
-    print(_C)
+    logger.info(_C)
     for arg in vars(_A):
-        print("{:<20}: {}".format(arg, getattr(_A, arg)))
+        logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
 
     # Set device according to specified GPU ids.
     device = torch.device(f"cuda:{_A.gpu_ids[0]}" if _A.gpu_ids[0] >= 0 else "cpu")
@@ -65,9 +64,7 @@ if __name__ == "__main__":
     program_generator = ProgramGenerator.from_config(_C).to(device)
     nmn = NeuralModuleNetwork.from_config(_C).to(device)
 
-    joint_training_checkpoint = torch.load(_A.checkpoint_path)
-    program_generator.load_state_dict(joint_training_checkpoint["program_generator"])
-    nmn.load_state_dict(joint_training_checkpoint["nmn"])
+    CheckpointManager(program_generator=program_generator, nmn=nmn).load(_A.checkpoint_path)
 
     program_generator.eval()
     nmn.eval()

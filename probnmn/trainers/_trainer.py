@@ -1,9 +1,9 @@
 from typing import Any, Dict, Generator, List, Optional
 
-from tensorboardX import SummaryWriter
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 from probnmn.config import Config
 from probnmn.utils.checkpointing import CheckpointManager
@@ -119,14 +119,15 @@ class _Trainer(object):
 
         # Tensorboard summary writer for logging losses and metrics.
         self._tensorboard_writer = SummaryWriter(log_dir=serialization_dir)
+
+        # Checkpoint manager to serialize model, optimizer and lr scheduler periodically.
         self._checkpoint_manager = CheckpointManager(
             serialization_dir=serialization_dir,
-            models=self._models,
+            keep_recent=100,
             optimizer=self._optimizer,
-            mode="max",
-            filename_prefix=self._C.PHASE,
+            scheduler=self._lr_scheduler,
+            **models,
         )
-
         # Initialize a counter to keep track of the iteration number.
         # This increments everytime ``step`` is called.
         self._iteration: int = -1
@@ -227,7 +228,7 @@ class _Trainer(object):
             self._iteration = iteration
 
         # Serialize model and optimizer and keep track of best checkpoint.
-        self._checkpoint_manager.step(val_metrics["metric"], self._iteration)
+        self._checkpoint_manager.step(self._iteration, val_metrics["metric"])
 
         # Perform learning rate scheduling based on validation perplexity.
         self._lr_scheduler.step(val_metrics["metric"])
@@ -260,18 +261,13 @@ class _Trainer(object):
             trained on.
 
         iteration: int, optional (default = None)
-            Iteration number. If ``None``, infer from name of checkpoint file.
+            Iteration number. If ``None``, get it from the checkpoint.
         """
-        training_checkpoint: Dict[str, Any] = torch.load(checkpoint_path)
-        for key in training_checkpoint:
-            if key == "optimizer":
-                self._optimizer.load_state_dict(training_checkpoint[key])
-            else:
-                self._models[key].load_state_dict(training_checkpoint[key])
+        _iteration = self._checkpoint_manager.load(checkpoint_path)
 
-        # Infer iteration number from checkpoint file name, if not specified.
-        if "best" not in checkpoint_path or iteration is not None:
-            self._iteration = iteration or int(checkpoint_path.split("_")[-1][:-4])
+        # By default, the provided iteration overrides what is found in checkpoint.
+        iteration = iteration or _iteration
+        self._iteration = iteration
 
     def _cycle(self, dataloader: DataLoader) -> Generator[Dict[str, torch.Tensor], None, None]:
         r"""
