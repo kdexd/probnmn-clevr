@@ -1,6 +1,7 @@
 import argparse
 import json
 
+from loguru import logger
 from typing import Any, Dict, List
 from mypy_extensions import TypedDict
 
@@ -85,7 +86,7 @@ def tokenize_question(question: str) -> List[str]:
 if __name__ == "__main__":
 
     args = parser.parse_args()
-    print(f"Loading annotations json from {args.clevr_jsonpath}...")
+    logger.info(f"Loading annotations json from {args.clevr_jsonpath}...")
     clevr_json = json.load(open(args.clevr_jsonpath))["questions"]
 
     vocabulary = Vocabulary.from_files(args.vocab_dirpath)
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     tokenized_questions: List[List[str]] = []
     tokenized_programs: List[List[str]] = []
 
-    print("Tokenizing questions, programs and answers...")
+    logger.info("Tokenizing questions, programs and answers...")
     for item in tqdm(clevr_json):
         tokenized_questions.append(tokenize_question(item["question"]))
         image_indices.append(item["image_index"])
@@ -111,7 +112,7 @@ if __name__ == "__main__":
     if args.split != "test":
         program_max_length: int = max([len(p) for p in tokenized_programs])
 
-    print(f"Saving tokenized data to {args.output_h5path}...")
+    logger.info(f"Saving tokenized data to {args.output_h5path}...")
 
     output_h5 = h5py.File(args.output_h5path, "w")
     output_h5["image_indices"] = image_indices

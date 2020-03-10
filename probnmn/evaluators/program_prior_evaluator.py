@@ -1,7 +1,7 @@
-import logging
 from typing import Any, Dict, List, Optional, Type
 
 from allennlp.data import Vocabulary
+from loguru import logger
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -9,9 +9,6 @@ from torch.utils.data import DataLoader
 from probnmn.config import Config
 from probnmn.data.datasets import ProgramPriorDataset
 from ._evaluator import _Evaluator
-
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ProgramPriorEvaluator(_Evaluator):
@@ -99,7 +96,7 @@ class ProgramPriorEvaluator(_Evaluator):
         with torch.no_grad():
             output_dict = self._do_iteration(batch)["program_prior"]
 
-        print("\n")
+        logger.info("\n")
         for inp, out in zip(batch["program"][:5], output_dict["predictions"][:5]):
             # Print only first five time-steps, these sequences can be really long.
             input_program = " ".join(

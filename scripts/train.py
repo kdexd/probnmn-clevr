@@ -3,6 +3,7 @@ import logging
 import os
 from typing import Type
 
+from loguru import logger
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -95,9 +96,9 @@ if __name__ == "__main__":
         )
 
     # Print configs and args.
-    print(_C)
+    logger.info(_C)
     for arg in vars(_A):
-        print("{:<20}: {}".format(arg, getattr(_A, arg)))
+        logger.info("{:<20}: {}".format(arg, getattr(_A, arg)))
 
     # Create serialization directory and save config in it.
     os.makedirs(_A.serialization_dir, exist_ok=True)

@@ -8,6 +8,7 @@ import os
 from typing import List
 
 import h5py
+from loguru import logger
 import numpy as np
 from PIL import Image
 import torch
@@ -111,7 +112,7 @@ def main(args: argparse.Namespace):
     #   EXTRACT AND SAVE FEATURES
     # --------------------------------------------------------------------------------------------
 
-    print(f"Extracting and saving image features to {args.output_h5path}...")
+    logger.info(f"Extracting and saving image features to {args.output_h5path}...")
 
     output_h5 = h5py.File(args.output_h5path, "w")
     output_h5.attrs["split"] = args.split

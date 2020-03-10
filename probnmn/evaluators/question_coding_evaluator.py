@@ -1,7 +1,7 @@
-import logging
 from typing import Any, Dict, List, Optional, Type
 
 from allennlp.data import Vocabulary
+from loguru import logger
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -9,9 +9,6 @@ from torch.utils.data import DataLoader
 from probnmn.config import Config
 from probnmn.data.datasets import QuestionCodingDataset
 from ._evaluator import _Evaluator
-
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 class QuestionCodingEvaluator(_Evaluator):
@@ -89,7 +86,7 @@ class QuestionCodingEvaluator(_Evaluator):
         with torch.no_grad():
             output_dict = self._do_iteration(batch)
 
-        print("\n")
+        logger.info("\n")
         for j in range(5):
             program_gt_tokens: List[str] = [
                 self._vocabulary.get_token_from_index(p_index.item(), "programs")
@@ -117,7 +114,7 @@ class QuestionCodingEvaluator(_Evaluator):
             logger.info("SAMPLED PROGRAM: " + " ".join(program_sampled_tokens))
             logger.info("QUESTION: " + " ".join(question_gt_tokens))
             logger.info("RECONST QUESTION: " + " ".join(question_reconstruction_tokens))
-            print("- " * 30)
+            logger.info("- " * 30)
 
         self._program_generator.train()
         self._question_reconstructor.train()
