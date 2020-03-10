@@ -15,18 +15,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>probnmn.modules.nmn_modules &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>probnmn.modules.nmn_modules &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="probnmn.modules.seq2seq_base" href="modules.seq2seq_base.html" />
@@ -53,7 +53,7 @@
 <p>Adopted from: <a class="reference external" href="https://www.github.com/davidmascharka/tbd-nets">davidmascharka/tbd-nets</a>.</p>
 <dl class="class">
 <dt id="probnmn.modules.nmn_modules.AndModule">
-<em class="property">class </em><code class="descclassname">probnmn.modules.nmn_modules.</code><code class="descname">AndModule</code><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L11-L27"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.AndModule" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.nmn_modules.</code><code class="sig-name descname">AndModule</code><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L11-L27"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.AndModule" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A neural module that (basically) performs a logical and.</p>
 <p>An <a class="reference internal" href="#probnmn.modules.nmn_modules.AndModule" title="probnmn.modules.nmn_modules.AndModule"><code class="xref py py-class docutils literal notranslate"><span class="pre">AndModule</span></code></a> is a neural module that takes two input attention masks and (basically)
@@ -66,7 +66,7 @@ cubes.</p>
 
 <dl class="class">
 <dt id="probnmn.modules.nmn_modules.OrModule">
-<em class="property">class </em><code class="descclassname">probnmn.modules.nmn_modules.</code><code class="descname">OrModule</code><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L30-L45"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.OrModule" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.nmn_modules.</code><code class="sig-name descname">OrModule</code><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L30-L45"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.OrModule" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A neural module that (basically) performs a logical or.</p>
 <p>An <a class="reference internal" href="#probnmn.modules.nmn_modules.OrModule" title="probnmn.modules.nmn_modules.OrModule"><code class="xref py py-class docutils literal notranslate"><span class="pre">OrModule</span></code></a> is a neural module that takes two input attention masks and (basically)
@@ -78,7 +78,7 @@ Its output would then go into an <a class="reference internal" href="#probnmn.mo
 
 <dl class="class">
 <dt id="probnmn.modules.nmn_modules.AttentionModule">
-<em class="property">class </em><code class="descclassname">probnmn.modules.nmn_modules.</code><code class="descname">AttentionModule</code><span class="sig-paren">(</span><em>dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L48-L87"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.AttentionModule" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.nmn_modules.</code><code class="sig-name descname">AttentionModule</code><span class="sig-paren">(</span><em class="sig-param">dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L48-L87"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.AttentionModule" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A neural module that takes a feature map and attention, attends to the features, and produces
 an attention.</p>
@@ -103,7 +103,7 @@ highlighting all the red cubes.</p>
 
 <dl class="class">
 <dt id="probnmn.modules.nmn_modules.QueryModule">
-<em class="property">class </em><code class="descclassname">probnmn.modules.nmn_modules.</code><code class="descname">QueryModule</code><span class="sig-paren">(</span><em>dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L90-L123"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.QueryModule" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.nmn_modules.</code><code class="sig-name descname">QueryModule</code><span class="sig-paren">(</span><em class="sig-param">dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L90-L123"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.QueryModule" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A neural module that takes as input a feature map and an attention and produces a feature
 map as output.</p>
@@ -125,7 +125,7 @@ a feature map encoding the number of attended objects in the scene.</p>
 
 <dl class="class">
 <dt id="probnmn.modules.nmn_modules.RelateModule">
-<em class="property">class </em><code class="descclassname">probnmn.modules.nmn_modules.</code><code class="descname">RelateModule</code><span class="sig-paren">(</span><em>dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L126-L168"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.RelateModule" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.nmn_modules.</code><code class="sig-name descname">RelateModule</code><span class="sig-paren">(</span><em class="sig-param">dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L126-L168"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.RelateModule" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A neural module that takes as input a feature map and an attention and produces an attention
 as output.</p>
@@ -145,7 +145,7 @@ attended region.</p>
 
 <dl class="class">
 <dt id="probnmn.modules.nmn_modules.SameModule">
-<em class="property">class </em><code class="descclassname">probnmn.modules.nmn_modules.</code><code class="descname">SameModule</code><span class="sig-paren">(</span><em>dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L171-L208"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.SameModule" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.nmn_modules.</code><code class="sig-name descname">SameModule</code><span class="sig-paren">(</span><em class="sig-param">dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L171-L208"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.SameModule" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A neural module that takes as input a feature map and an attention and produces an attention
 as output.</p>
@@ -169,7 +169,7 @@ object of interest (excluding the original object).</p>
 
 <dl class="class">
 <dt id="probnmn.modules.nmn_modules.ComparisonModule">
-<em class="property">class </em><code class="descclassname">probnmn.modules.nmn_modules.</code><code class="descname">ComparisonModule</code><span class="sig-paren">(</span><em>dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L211-L244"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.ComparisonModule" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.nmn_modules.</code><code class="sig-name descname">ComparisonModule</code><span class="sig-paren">(</span><em class="sig-param">dim: int</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/nmn_modules.py#L211-L244"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.nmn_modules.ComparisonModule" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A neural module that takes as input two feature maps and produces a feature map as output.</p>
 <p>A <a class="reference internal" href="#probnmn.modules.nmn_modules.ComparisonModule" title="probnmn.modules.nmn_modules.ComparisonModule"><code class="xref py py-class docutils literal notranslate"><span class="pre">ComparisonModule</span></code></a> takes two feature maps as input and concatenates these. It then
@@ -239,15 +239,15 @@ relationship holds of two objects (e.g. they are the same shape, size, color, or
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -264,7 +264,7 @@ relationship holds of two objects (e.g. they are the same shape, size, color, or
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

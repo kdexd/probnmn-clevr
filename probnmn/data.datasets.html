@@ -15,18 +15,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>probnmn.data.datasets &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>probnmn.data.datasets &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="probnmn.data.readers" href="data.readers.html" />
@@ -51,7 +51,7 @@
 <span id="probnmn-data-datasets"></span><h1>probnmn.data.datasets<a class="headerlink" href="#module-probnmn.data.datasets" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.data.datasets.ProgramPriorDataset">
-<em class="property">class </em><code class="descclassname">probnmn.data.datasets.</code><code class="descname">ProgramPriorDataset</code><span class="sig-paren">(</span><em>tokens_h5path: str</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L8-L32"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.ProgramPriorDataset" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.data.datasets.</code><code class="sig-name descname">ProgramPriorDataset</code><span class="sig-paren">(</span><em class="sig-param">tokens_h5path: str</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L8-L32"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.ProgramPriorDataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.dataset.Dataset</span></code></p>
 <p>Provides programs as tokenized sequences to train the
 class:<cite>~probnmn.models.program_prior.ProgramPrior</cite>.</p>
@@ -67,7 +67,7 @@ class:<cite>~probnmn.models.program_prior.ProgramPrior</cite>.</p>
 
 <dl class="class">
 <dt id="probnmn.data.datasets.QuestionCodingDataset">
-<em class="property">class </em><code class="descclassname">probnmn.data.datasets.</code><code class="descname">QuestionCodingDataset</code><span class="sig-paren">(</span><em>tokens_h5path: str</em>, <em>num_supervision: int = 699989</em>, <em>supervision_question_max_length: int = 40</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L35-L107"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.QuestionCodingDataset" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.data.datasets.</code><code class="sig-name descname">QuestionCodingDataset</code><span class="sig-paren">(</span><em class="sig-param">tokens_h5path: str</em>, <em class="sig-param">num_supervision: int = 699989</em>, <em class="sig-param">supervision_question_max_length: int = 40</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L35-L107"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.QuestionCodingDataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.dataset.Dataset</span></code></p>
 <p>Provides questions and programs as tokenized sequences for Question Coding. It also provides
 a “supervision” flag, which can behave as a mask when batched, to tune the amount of program
@@ -89,7 +89,7 @@ supervision on <a class="reference internal" href="models.program_generator.html
 <p>For a fixed numpy random seed, the randomly generated supervision list will always be same.</p>
 <dl class="method">
 <dt id="probnmn.data.datasets.QuestionCodingDataset.get_supervision_list">
-<code class="descname">get_supervision_list</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L101-L107"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.QuestionCodingDataset.get_supervision_list" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">get_supervision_list</code><span class="sig-paren">(</span><em class="sig-param">self</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L101-L107"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.QuestionCodingDataset.get_supervision_list" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return a list of 1’s and 0’s, indicating which examples have program supervision during
 question coding. Used by <a class="reference internal" href="data.samplers.html#probnmn.data.samplers.SupervisionWeightedRandomSampler" title="probnmn.data.samplers.SupervisionWeightedRandomSampler"><code class="xref py py-class docutils literal notranslate"><span class="pre">SupervisionWeightedRandomSampler</span></code></a>
 to form a mini-batch with nearly equal number of examples with(out) program supervision.</p>
@@ -99,7 +99,7 @@ to form a mini-batch with nearly equal number of examples with(out) program supe
 
 <dl class="class">
 <dt id="probnmn.data.datasets.ModuleTrainingDataset">
-<em class="property">class </em><code class="descclassname">probnmn.data.datasets.</code><code class="descname">ModuleTrainingDataset</code><span class="sig-paren">(</span><em>tokens_h5path: str</em>, <em>features_h5path: str</em>, <em>in_memory: bool = True</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L110-L146"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.ModuleTrainingDataset" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.data.datasets.</code><code class="sig-name descname">ModuleTrainingDataset</code><span class="sig-paren">(</span><em class="sig-param">tokens_h5path: str</em>, <em class="sig-param">features_h5path: str</em>, <em class="sig-param">in_memory: bool = True</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L110-L146"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.ModuleTrainingDataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.dataset.Dataset</span></code></p>
 <p>Provides questions, image features an answers for module training. Programs are inferred by
 <a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a> trained during Question Coding.</p>
@@ -119,7 +119,7 @@ to form a mini-batch with nearly equal number of examples with(out) program supe
 
 <dl class="class">
 <dt id="probnmn.data.datasets.JointTrainingDataset">
-<em class="property">class </em><code class="descclassname">probnmn.data.datasets.</code><code class="descname">JointTrainingDataset</code><span class="sig-paren">(</span><em>tokens_h5path: str</em>, <em>features_h5path: str</em>, <em>num_supervision: int = 699989</em>, <em>supervision_question_max_length: int = 30</em>, <em>in_memory: bool = True</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L149-L240"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.JointTrainingDataset" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.data.datasets.</code><code class="sig-name descname">JointTrainingDataset</code><span class="sig-paren">(</span><em class="sig-param">tokens_h5path: str</em>, <em class="sig-param">features_h5path: str</em>, <em class="sig-param">num_supervision: int = 699989</em>, <em class="sig-param">supervision_question_max_length: int = 30</em>, <em class="sig-param">in_memory: bool = True</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L149-L240"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.JointTrainingDataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.dataset.Dataset</span></code></p>
 <p>Provides questions, programs, supervision flag, image features and answers for Joint Training.
 If the random seed is set carefully, then the supervision list is made same as that in
@@ -145,7 +145,7 @@ If the random seed is set carefully, then the supervision list is made same as t
 <p>For a fixed numpy random seed, the randomly generated supervision list will always be same.</p>
 <dl class="method">
 <dt id="probnmn.data.datasets.JointTrainingDataset.get_supervision_list">
-<code class="descname">get_supervision_list</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L234-L240"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.JointTrainingDataset.get_supervision_list" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">get_supervision_list</code><span class="sig-paren">(</span><em class="sig-param">self</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/datasets.py#L234-L240"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.datasets.JointTrainingDataset.get_supervision_list" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return a list of 1’s and 0’s, indicating which examples have program supervision during
 question coding. Used by <a class="reference internal" href="data.samplers.html#probnmn.data.samplers.SupervisionWeightedRandomSampler" title="probnmn.data.samplers.SupervisionWeightedRandomSampler"><code class="xref py py-class docutils literal notranslate"><span class="pre">SupervisionWeightedRandomSampler</span></code></a>
 to form a mini-batch with nearly equal number of examples with(out) program supervision.</p>
@@ -204,15 +204,15 @@ to form a mini-batch with nearly equal number of examples with(out) program supe
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -229,7 +229,7 @@ to form a mini-batch with nearly equal number of examples with(out) program supe
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

@@ -16,18 +16,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>Index &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>Index &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
     <link rel="index" title="Index" href="#" />
     <link rel="search" title="Search" href="search.html" />
    
@@ -75,8 +75,6 @@
 </li>
       <li><a href="probnmn/trainers._trainer.html#probnmn.trainers._trainer._Trainer._before_iteration">_before_iteration() (probnmn.trainers._trainer._Trainer method)</a>
 </li>
-      <li><a href="probnmn/config.html#probnmn.config._config_str">_config_str() (in module probnmn.config)</a>
-</li>
       <li><a href="probnmn/trainers._trainer.html#probnmn.trainers._trainer._Trainer._cycle">_cycle() (probnmn.trainers._trainer._Trainer method)</a>
 </li>
       <li><a href="probnmn/evaluators._evaluator.html#probnmn.evaluators._evaluator._Evaluator._do_iteration">_do_iteration() (probnmn.evaluators._evaluator._Evaluator method)</a>
@@ -110,6 +108,8 @@
       <li><a href="probnmn/modules.seq2seq_base.html#probnmn.modules.seq2seq_base.Seq2SeqBase._forward_loop">_forward_loop() (probnmn.modules.seq2seq_base.Seq2SeqBase method)</a>
 </li>
       <li><a href="probnmn/modules.seq2seq_base.html#probnmn.modules.seq2seq_base.Seq2SeqBase._get_loss">_get_loss() (probnmn.modules.seq2seq_base.Seq2SeqBase static method)</a>
+</li>
+      <li><a href="probnmn/utils.checkpointing.html#probnmn.utils.checkpointing.CheckpointManager._state_dict">_state_dict() (probnmn.utils.checkpointing.CheckpointManager method)</a>
 </li>
       <li><a href="probnmn/trainers._trainer.html#probnmn.trainers._trainer._Trainer">_Trainer (class in probnmn.trainers._trainer)</a>
 </li>
@@ -249,6 +249,10 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="probnmn/utils.checkpointing.html#probnmn.utils.checkpointing.CheckpointManager.load">load() (probnmn.utils.checkpointing.CheckpointManager method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="probnmn/trainers._trainer.html#probnmn.trainers._trainer._Trainer.load_checkpoint">load_checkpoint() (probnmn.trainers._trainer._Trainer method)</a>
 </li>
   </ul></td>
@@ -367,6 +371,8 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="probnmn/modules.nmn_modules.html#probnmn.modules.nmn_modules.RelateModule">RelateModule (class in probnmn.modules.nmn_modules)</a>
 </li>
+      <li><a href="probnmn/utils.checkpointing.html#probnmn.utils.checkpointing.CheckpointManager.remove_earliest_checkpoint">remove_earliest_checkpoint() (probnmn.utils.checkpointing.CheckpointManager method)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -435,15 +441,15 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -460,7 +466,7 @@
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

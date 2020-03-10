@@ -15,18 +15,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>probnmn.utils.metrics &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>probnmn.utils.metrics &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="prev" title="probnmn.utils.checkpointing" href="utils.checkpointing.html" />
@@ -50,7 +50,7 @@
 <span id="probnmn-utils-metrics"></span><h1>probnmn.utils.metrics<a class="headerlink" href="#module-probnmn.utils.metrics" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.utils.metrics.SemanticQuestionReconstructionAccuracy">
-<em class="property">class </em><code class="descclassname">probnmn.utils.metrics.</code><code class="descname">SemanticQuestionReconstructionAccuracy</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/utils/metrics.py#L9-L118"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.utils.metrics.SemanticQuestionReconstructionAccuracy" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.utils.metrics.</code><code class="sig-name descname">SemanticQuestionReconstructionAccuracy</code><span class="sig-paren">(</span><em class="sig-param">vocabulary: allennlp.data.vocabulary.Vocabulary</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/utils/metrics.py#L9-L118"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.utils.metrics.SemanticQuestionReconstructionAccuracy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">allennlp.training.metrics.sequence_accuracy.SequenceAccuracy</span></code></p>
 <p>A metric which computes question reconstruction accuracy in a “semantic” sense, this
 considers certain synonym words equivalent, such as <code class="docutils literal notranslate"><span class="pre">(&quot;object&quot;,</span> <span class="pre">&quot;thing&quot;)</span></code>.</p>
@@ -116,15 +116,15 @@ considers certain synonym words equivalent, such as <code class="docutils litera
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -141,7 +141,7 @@ considers certain synonym words equivalent, such as <code class="docutils litera
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

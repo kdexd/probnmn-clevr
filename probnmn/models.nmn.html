@@ -15,18 +15,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>probnmn.models.nmn &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>probnmn.models.nmn &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="probnmn.modules" href="modules.html" />
@@ -51,7 +51,7 @@
 <h1>probnmn.models.nmn<a class="headerlink" href="#probnmn-models-nmn" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.models.nmn.NeuralModuleNetwork">
-<em class="property">class </em><code class="descclassname">probnmn.models.nmn.</code><code class="descname">NeuralModuleNetwork</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>image_feature_size: Tuple[int</em>, <em>int</em>, <em>int] = (1024</em>, <em>14</em>, <em>14)</em>, <em>module_channels: int = 128</em>, <em>class_projection_channels: int = 1024</em>, <em>classifier_linear_size: int = 1024</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L25-L296"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.models.nmn.</code><code class="sig-name descname">NeuralModuleNetwork</code><span class="sig-paren">(</span><em class="sig-param">vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em class="sig-param">image_feature_size: Tuple[int</em>, <em class="sig-param">int</em>, <em class="sig-param">int] = (1024</em>, <em class="sig-param">14</em>, <em class="sig-param">14)</em>, <em class="sig-param">module_channels: int = 128</em>, <em class="sig-param">class_projection_channels: int = 1024</em>, <em class="sig-param">classifier_linear_size: int = 1024</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L25-L296"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A <a class="reference internal" href="#probnmn.models.nmn.NeuralModuleNetwork" title="probnmn.models.nmn.NeuralModuleNetwork"><code class="xref py py-class docutils literal notranslate"><span class="pre">NeuralModuleNetwork</span></code></a> holds neural modules, a stem network, and a classifier network.
 It hooks these all together to answer a question given some scene and a program describing how
@@ -73,15 +73,15 @@ to arrange the neural modules.</p>
 </dl>
 </dd>
 </dl>
-<dl class="classmethod">
+<dl class="method">
 <dt id="probnmn.models.nmn.NeuralModuleNetwork.from_config">
-<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L126-L137"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.from_config" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="sig-name descname">from_config</code><span class="sig-paren">(</span><em class="sig-param">config:probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L126-L137"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.from_config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Instantiate this class directly from a <a class="reference internal" href="config.html#probnmn.config.Config" title="probnmn.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a>.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="probnmn.models.nmn.NeuralModuleNetwork.forward">
-<code class="descname">forward</code><span class="sig-paren">(</span><em>features: torch.Tensor</em>, <em>programs: torch.Tensor</em>, <em>answers: Optional[torch.Tensor] = None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L139-L275"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.forward" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">features:torch.Tensor</em>, <em class="sig-param">programs:torch.Tensor</em>, <em class="sig-param">answers:Union[torch.Tensor</em>, <em class="sig-param">NoneType]=None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L139-L275"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.forward" title="Permalink to this definition">¶</a></dt>
 <dd><p>Given image features and program sequences, lay out a modular network and pass through
 the image features, further take the final feature representation output from modular
 network and pass it throuh the classifier to get the answer distribution.</p>
@@ -98,7 +98,7 @@ network and pass it throuh the classifier to get the answer distribution.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl>
-<dt><strong>Dict[str, Any]</strong></dt><dd><p>Model predictions, answer cross-entropy loss and (if training, ) batch metrics. When
+<dt>Dict[str, Any]</dt><dd><p>Model predictions, answer cross-entropy loss and (if training, ) batch metrics. When
 answer targets are not provided, it returns negative log-probabilities of predicted
 answers. A dict with structure:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -122,7 +122,7 @@ loop through all programs of a batch and do forward pass for each example in the
 
 <dl class="method">
 <dt id="probnmn.models.nmn.NeuralModuleNetwork.get_metrics">
-<code class="descname">get_metrics</code><span class="sig-paren">(</span><em>reset: bool = True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L277-L296"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.get_metrics" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">get_metrics</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">reset:bool=True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/nmn.py#L277-L296"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.nmn.NeuralModuleNetwork.get_metrics" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return recorded answer accuracy and average invalid programs per batch.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -133,7 +133,7 @@ loop through all programs of a batch and do forward pass for each example in the
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl class="simple">
-<dt><strong>Dict[str, float]</strong></dt><dd><p>A dictionary with metrics <code class="docutils literal notranslate"><span class="pre">{&quot;answer_accuracy&quot;,</span> <span class="pre">&quot;average_invalid&quot;}</span></code>.</p>
+<dt>Dict[str, float]</dt><dd><p>A dictionary with metrics <code class="docutils literal notranslate"><span class="pre">{&quot;answer_accuracy&quot;,</span> <span class="pre">&quot;average_invalid&quot;}</span></code>.</p>
 </dd>
 </dl>
 </dd>
@@ -194,15 +194,15 @@ loop through all programs of a batch and do forward pass for each example in the
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -219,7 +219,7 @@ loop through all programs of a batch and do forward pass for each example in the
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

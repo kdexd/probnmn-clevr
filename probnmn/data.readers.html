@@ -15,18 +15,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>probnmn.data.readers &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>probnmn.data.readers &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="probnmn.data.samplers" href="data.samplers.html" />
@@ -50,7 +50,7 @@
   <div class="section" id="module-probnmn.data.readers">
 <span id="probnmn-data-readers"></span><h1>probnmn.data.readers<a class="headerlink" href="#module-probnmn.data.readers" title="Permalink to this headline">¶</a></h1>
 <p>A Reader simply reads data from disk and returns it almost as is. Readers should be utilized by
-PyTorch <a class="reference external" href="https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset" title="(in PyTorch vmaster (1.1.0 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.Dataset</span></code></a>. Any type of data pre-processing is not recommended in
+PyTorch <a class="reference external" href="https://pytorch.org/docs/stable/data.html#torch.utils.data.Dataset" title="(in PyTorch vmaster (1.4.0a0+919fcbb ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.Dataset</span></code></a>. Any type of data pre-processing is not recommended in
 the reader, such as tokenizing words to integers, embedding tokens, or passing an image through
 a pre-trained CNN.</p>
 <p>Each reader must implement three methods:</p>
@@ -64,7 +64,7 @@ data of.</p></li>
 </div></blockquote>
 <dl class="class">
 <dt id="probnmn.data.readers.ClevrTokensReader">
-<em class="property">class </em><code class="descclassname">probnmn.data.readers.</code><code class="descname">ClevrTokensReader</code><span class="sig-paren">(</span><em>tokens_h5path: str</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/readers.py#L17-L60"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.readers.ClevrTokensReader" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.data.readers.</code><code class="sig-name descname">ClevrTokensReader</code><span class="sig-paren">(</span><em class="sig-param">tokens_h5path: str</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/readers.py#L17-L60"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.readers.ClevrTokensReader" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A Reader for retrieving tokenized CLEVR programs, questions and answers, and corresponding
 image indices from a single HDF file containing this pre-processed data.</p>
@@ -81,7 +81,7 @@ image indices.</p>
 
 <dl class="class">
 <dt id="probnmn.data.readers.ClevrImageFeaturesReader">
-<em class="property">class </em><code class="descclassname">probnmn.data.readers.</code><code class="descname">ClevrImageFeaturesReader</code><span class="sig-paren">(</span><em>features_h5path: str</em>, <em>in_memory: bool = True</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/readers.py#L63-L108"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.readers.ClevrImageFeaturesReader" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.data.readers.</code><code class="sig-name descname">ClevrImageFeaturesReader</code><span class="sig-paren">(</span><em class="sig-param">features_h5path: str</em>, <em class="sig-param">in_memory: bool = True</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/data/readers.py#L63-L108"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.data.readers.ClevrImageFeaturesReader" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A Reader for retrieving pre-extracted image features from CLEVR images. We typically use
 features extracted using ResNet-101.</p>
@@ -154,15 +154,15 @@ features extracted using ResNet-101.</p>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -179,7 +179,7 @@ features extracted using ResNet-101.</p>
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

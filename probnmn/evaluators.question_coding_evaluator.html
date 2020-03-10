@@ -15,18 +15,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>probnmn.evaluators.question_coding_evaluator &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>probnmn.evaluators.question_coding_evaluator &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="probnmn.evaluators.module_training_evaluator" href="evaluators.module_training_evaluator.html" />
@@ -51,7 +51,7 @@
 <span id="probnmn-evaluators-question-coding-evaluator"></span><h1>probnmn.evaluators.question_coding_evaluator<a class="headerlink" href="#module-probnmn.evaluators.question_coding_evaluator" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.evaluators.question_coding_evaluator.QuestionCodingEvaluator">
-<em class="property">class </em><code class="descclassname">probnmn.evaluators.question_coding_evaluator.</code><code class="descname">QuestionCodingEvaluator</code><span class="sig-paren">(</span><em>config: probnmn.config.Config, models: Dict[str, Type[torch.nn.modules.module.Module]], gpu_ids: List[int] = [0], cpu_workers: int = 0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/question_coding_evaluator.py#L17-L162"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators.question_coding_evaluator.QuestionCodingEvaluator" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.evaluators.question_coding_evaluator.</code><code class="sig-name descname">QuestionCodingEvaluator</code><span class="sig-paren">(</span><em class="sig-param">config: probnmn.config.Config, models: Dict[str, Type[torch.nn.modules.module.Module]], gpu_ids: List[int] = [0], cpu_workers: int = 0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/question_coding_evaluator.py#L14-L159"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators.question_coding_evaluator.QuestionCodingEvaluator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="evaluators._evaluator.html#probnmn.evaluators._evaluator._Evaluator" title="probnmn.evaluators._evaluator._Evaluator"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.evaluators._evaluator._Evaluator</span></code></a></p>
 <p>Performs evaluation for <code class="docutils literal notranslate"><span class="pre">question_coding</span></code> phase, using batches of evaluation examples from
 <a class="reference internal" href="data.datasets.html#probnmn.data.datasets.QuestionCodingDataset" title="probnmn.data.datasets.QuestionCodingDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionCodingDataset</span></code></a>.</p>
@@ -72,7 +72,7 @@
 </dl>
 <p class="rubric">Examples</p>
 <p>To evaluate a pre-trained checkpoint:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="s2">&quot;config.yaml&quot;</span><span class="p">)</span>  <span class="c1"># PHASE must be &quot;question_coding&quot;</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="s2">&quot;config.yaml&quot;</span><span class="p">)</span>  <span class="c1"># PHASE must be &quot;question_coding&quot;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span> <span class="o">=</span> <span class="n">QuestionCodingTrainer</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">serialization_dir</span><span class="o">=</span><span class="s2">&quot;/tmp&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">trainer</span><span class="o">.</span><span class="n">load_checkpoint</span><span class="p">(</span><span class="s2">&quot;/path/to/question_coding_checkpoint.pth&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">evaluator</span> <span class="o">=</span> <span class="n">QuestionCodingEvaluator</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">trainer</span><span class="o">.</span><span class="n">models</span><span class="p">)</span>
@@ -81,7 +81,7 @@
 </div>
 <dl class="method">
 <dt id="probnmn.evaluators.question_coding_evaluator.QuestionCodingEvaluator.evaluate">
-<code class="descname">evaluate</code><span class="sig-paren">(</span><em>num_batches: Optional[int] = None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/question_coding_evaluator.py#L75-L126"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators.question_coding_evaluator.QuestionCodingEvaluator.evaluate" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">evaluate</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">num_batches:Union[int</em>, <em class="sig-param">NoneType]=None</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/question_coding_evaluator.py#L72-L123"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators.question_coding_evaluator.QuestionCodingEvaluator.evaluate" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform evaluation using first <code class="docutils literal notranslate"><span class="pre">num_batches</span></code> of dataloader and return all evaluation
 metrics from the models.</p>
 <dl class="field-list simple">
@@ -93,7 +93,7 @@ metrics from the models.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl class="simple">
-<dt><strong>Dict[str, Any]</strong></dt><dd><p>Final evaluation metrics for all the models.</p>
+<dt>Dict[str, Any]</dt><dd><p>Final evaluation metrics for all the models.</p>
 </dd>
 </dl>
 </dd>
@@ -102,7 +102,7 @@ metrics from the models.</p>
 
 <dl class="method">
 <dt id="probnmn.evaluators.question_coding_evaluator.QuestionCodingEvaluator._do_iteration">
-<code class="descname">_do_iteration</code><span class="sig-paren">(</span><em>batch: Dict[str, Any]</em><span class="sig-paren">)</span> &#x2192; Dict[str, Any]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/question_coding_evaluator.py#L128-L162"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators.question_coding_evaluator.QuestionCodingEvaluator._do_iteration" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">_do_iteration</code><span class="sig-paren">(</span><em class="sig-param">self, batch:Dict[str, Any]</em><span class="sig-paren">)</span> &#x2192; Dict[str, Any]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/question_coding_evaluator.py#L125-L159"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators.question_coding_evaluator.QuestionCodingEvaluator._do_iteration" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform one iteration, given a batch. Take a forward pass to accumulate metrics in
 <a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a> and
 <a class="reference internal" href="models.question_reconstructor.html#probnmn.models.question_reconstructor.QuestionReconstructor" title="probnmn.models.question_reconstructor.QuestionReconstructor"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionReconstructor</span></code></a>.</p>
@@ -115,7 +115,7 @@ metrics from the models.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl>
-<dt><strong>Dict[str, Any]</strong></dt><dd><p>A dictionary containing model predictions and/or batch validation losses of
+<dt>Dict[str, Any]</dt><dd><p>A dictionary containing model predictions and/or batch validation losses of
 <a class="reference internal" href="models.program_generator.html#probnmn.models.program_generator.ProgramGenerator" title="probnmn.models.program_generator.ProgramGenerator"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgramGenerator</span></code></a> and
 <a class="reference internal" href="models.question_reconstructor.html#probnmn.models.question_reconstructor.QuestionReconstructor" title="probnmn.models.question_reconstructor.QuestionReconstructor"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuestionReconstructor</span></code></a>.
 Nested dict structure:</p>
@@ -186,15 +186,15 @@ Nested dict structure:</p>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -211,7 +211,7 @@ Nested dict structure:</p>
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

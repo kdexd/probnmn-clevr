@@ -15,18 +15,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>probnmn.modules.elbo &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>probnmn.modules.elbo &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="probnmn.modules.nmn_modules" href="modules.nmn_modules.html" />
@@ -51,7 +51,7 @@
 <span id="probnmn-modules-elbo"></span><h1>probnmn.modules.elbo<a class="headerlink" href="#module-probnmn.modules.elbo" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.modules.elbo.Reinforce">
-<em class="property">class </em><code class="descclassname">probnmn.modules.elbo.</code><code class="descname">Reinforce</code><span class="sig-paren">(</span><em>baseline_decay: float = 0.99</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/elbo.py#L12-L34"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.elbo.Reinforce" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.elbo.</code><code class="sig-name descname">Reinforce</code><span class="sig-paren">(</span><em class="sig-param">baseline_decay: float = 0.99</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/elbo.py#L12-L34"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.elbo.Reinforce" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A PyTorch module which applies REINFORCE to inputs using a specified reward, and internally
 keeps track of a decaying moving average baseline.</p>
@@ -67,7 +67,7 @@ keeps track of a decaying moving average baseline.</p>
 
 <dl class="class">
 <dt id="probnmn.modules.elbo._ElboWithReinforce">
-<em class="property">class </em><code class="descclassname">probnmn.modules.elbo.</code><code class="descname">_ElboWithReinforce</code><span class="sig-paren">(</span><em>beta: float = 0.1</em>, <em>baseline_decay: float = 0.99</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/elbo.py#L37-L89"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.elbo._ElboWithReinforce" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.elbo.</code><code class="sig-name descname">_ElboWithReinforce</code><span class="sig-paren">(</span><em class="sig-param">beta: float = 0.1</em>, <em class="sig-param">baseline_decay: float = 0.99</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/elbo.py#L37-L89"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.elbo._ElboWithReinforce" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A PyTorch Module to compute the Fully Monte Carlo form of Evidence Lower Bound, given the
 inference likelihood, reconstruction likelihood and a REINFORCE reward. Accepting any scalar
@@ -90,7 +90,7 @@ log-likelihood term during Joint Training.</p>
 
 <dl class="class">
 <dt id="probnmn.modules.elbo.QuestionCodingElbo">
-<em class="property">class </em><code class="descclassname">probnmn.modules.elbo.</code><code class="descname">QuestionCodingElbo</code><span class="sig-paren">(</span><em>program_generator: probnmn.models.program_generator.ProgramGenerator</em>, <em>question_reconstructor: probnmn.models.question_reconstructor.QuestionReconstructor</em>, <em>program_prior: probnmn.models.program_prior.ProgramPrior</em>, <em>beta: float = 0.1</em>, <em>baseline_decay: float = 0.99</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/elbo.py#L92-L161"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.elbo.QuestionCodingElbo" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.elbo.</code><code class="sig-name descname">QuestionCodingElbo</code><span class="sig-paren">(</span><em class="sig-param">program_generator: probnmn.models.program_generator.ProgramGenerator</em>, <em class="sig-param">question_reconstructor: probnmn.models.question_reconstructor.QuestionReconstructor</em>, <em class="sig-param">program_prior: probnmn.models.program_prior.ProgramPrior</em>, <em class="sig-param">beta: float = 0.1</em>, <em class="sig-param">baseline_decay: float = 0.99</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/elbo.py#L92-L161"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.elbo.QuestionCodingElbo" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#probnmn.modules.elbo._ElboWithReinforce" title="probnmn.modules.elbo._ElboWithReinforce"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.modules.elbo._ElboWithReinforce</span></code></a></p>
 <p>A PyTorch module to compute Evidence Lower Bound for observed questions without (GT) program
 supervision. This implementation takes the Fully Monte Carlo form, and uses <a class="reference internal" href="#probnmn.modules.elbo.Reinforce" title="probnmn.modules.elbo.Reinforce"><code class="xref py py-class docutils literal notranslate"><span class="pre">Reinforce</span></code></a>
@@ -120,7 +120,7 @@ distribution (programs).</p>
 
 <dl class="class">
 <dt id="probnmn.modules.elbo.JointTrainingElbo">
-<em class="property">class </em><code class="descclassname">probnmn.modules.elbo.</code><code class="descname">JointTrainingElbo</code><span class="sig-paren">(</span><em>program_generator: probnmn.models.program_generator.ProgramGenerator</em>, <em>question_reconstructor: probnmn.models.question_reconstructor.QuestionReconstructor</em>, <em>program_prior: probnmn.models.program_prior.ProgramPrior</em>, <em>nmn: probnmn.models.nmn.NeuralModuleNetwork</em>, <em>beta: float = 0.1</em>, <em>gamma: float = 10</em>, <em>baseline_decay: float = 0.99</em>, <em>objective: str = 'ours'</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/elbo.py#L164-L280"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.elbo.JointTrainingElbo" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.modules.elbo.</code><code class="sig-name descname">JointTrainingElbo</code><span class="sig-paren">(</span><em class="sig-param">program_generator: probnmn.models.program_generator.ProgramGenerator</em>, <em class="sig-param">question_reconstructor: probnmn.models.question_reconstructor.QuestionReconstructor</em>, <em class="sig-param">program_prior: probnmn.models.program_prior.ProgramPrior</em>, <em class="sig-param">nmn: probnmn.models.nmn.NeuralModuleNetwork</em>, <em class="sig-param">beta: float = 0.1</em>, <em class="sig-param">gamma: float = 10</em>, <em class="sig-param">baseline_decay: float = 0.99</em>, <em class="sig-param">objective: str = 'ours'</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/modules/elbo.py#L164-L280"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.modules.elbo.JointTrainingElbo" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#probnmn.modules.elbo._ElboWithReinforce" title="probnmn.modules.elbo._ElboWithReinforce"><code class="xref py py-class docutils literal notranslate"><span class="pre">probnmn.modules.elbo._ElboWithReinforce</span></code></a></p>
 <p>A PyTorch module to compute Evidence Lower Bound for observed questions without (GT) program
 supervision with the added answer log-likelihood term in the bound, from Joint Training
@@ -209,15 +209,15 @@ objective.</p>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -234,7 +234,7 @@ objective.</p>
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

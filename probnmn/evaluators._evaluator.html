@@ -15,18 +15,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>probnmn.evaluators._evaluator &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>probnmn.evaluators._evaluator &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="probnmn.evaluators.program_prior_evaluator" href="evaluators.program_prior_evaluator.html" />
@@ -51,7 +51,7 @@
 <span id="probnmn-evaluators-evaluator"></span><h1>probnmn.evaluators._evaluator<a class="headerlink" href="#module-probnmn.evaluators._evaluator" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.evaluators._evaluator._Evaluator">
-<em class="property">class </em><code class="descclassname">probnmn.evaluators._evaluator.</code><code class="descname">_Evaluator</code><span class="sig-paren">(</span><em>config: probnmn.config.Config, dataloader: torch.utils.data.dataloader.DataLoader, models: Dict[str, Type[torch.nn.modules.module.Module]], gpu_ids: List[int] = [0]</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/_evaluator.py#L11-L136"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators._evaluator._Evaluator" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.evaluators._evaluator.</code><code class="sig-name descname">_Evaluator</code><span class="sig-paren">(</span><em class="sig-param">config: probnmn.config.Config, dataloader: torch.utils.data.dataloader.DataLoader, models: Dict[str, Type[torch.nn.modules.module.Module]], gpu_ids: List[int] = [0]</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/_evaluator.py#L11-L136"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators._evaluator._Evaluator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A base class for generic evaluation of models. This class can have multiple models interacting
 with each other, rather than a single model, which is suitable to our use-case (for example,
@@ -66,7 +66,7 @@ happens every iteration, given a <code class="docutils literal notranslate"><spa
 <dd class="field-odd"><dl class="simple">
 <dt><strong>config: Config</strong></dt><dd><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code> object with all the relevant configuration parameters.</p>
 </dd>
-<dt><strong>dataloader: torch.utils.data.DataLoader</strong></dt><dd><p>A <a class="reference external" href="https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader" title="(in PyTorch vmaster (1.1.0 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataLoader</span></code></a> which provides batches of evaluation examples. It
+<dt><strong>dataloader: torch.utils.data.DataLoader</strong></dt><dd><p>A <a class="reference external" href="https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader" title="(in PyTorch vmaster (1.4.0a0+919fcbb ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataLoader</span></code></a> which provides batches of evaluation examples. It
 wraps one of <a class="reference internal" href="data.datasets.html#module-probnmn.data.datasets" title="probnmn.data.datasets"><code class="xref py py-mod docutils literal notranslate"><span class="pre">probnmn.data.datasets</span></code></a> depending on the evaluation phase.</p>
 </dd>
 <dt><strong>models: Dict[str, Type[nn.Module]]</strong></dt><dd><p>All the models which interact with each other for evaluation. These are one or more from
@@ -87,7 +87,7 @@ instantiating this class.</p></li>
 </ol>
 <dl class="method">
 <dt id="probnmn.evaluators._evaluator._Evaluator.evaluate">
-<code class="descname">evaluate</code><span class="sig-paren">(</span><em>num_batches: Optional[int] = None</em><span class="sig-paren">)</span> &#x2192; Dict[str, Any]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/_evaluator.py#L67-L115"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators._evaluator._Evaluator.evaluate" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">evaluate</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">num_batches:Union[int</em>, <em class="sig-param">NoneType]=None</em><span class="sig-paren">)</span> &#x2192; Dict[str, Any]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/_evaluator.py#L67-L115"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators._evaluator._Evaluator.evaluate" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform evaluation using first <code class="docutils literal notranslate"><span class="pre">num_batches</span></code> of dataloader and return all evaluation
 metrics from the models.</p>
 <dl class="field-list simple">
@@ -99,7 +99,7 @@ metrics from the models.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl class="simple">
-<dt><strong>Dict[str, Any]</strong></dt><dd><p>Final evaluation metrics for all the models.</p>
+<dt>Dict[str, Any]</dt><dd><p>Final evaluation metrics for all the models.</p>
 </dd>
 </dl>
 </dd>
@@ -108,7 +108,7 @@ metrics from the models.</p>
 
 <dl class="method">
 <dt id="probnmn.evaluators._evaluator._Evaluator._do_iteration">
-<code class="descname">_do_iteration</code><span class="sig-paren">(</span><em>batch: Dict[str, Any]</em><span class="sig-paren">)</span> &#x2192; Dict[str, Any]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/_evaluator.py#L117-L136"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators._evaluator._Evaluator._do_iteration" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">_do_iteration</code><span class="sig-paren">(</span><em class="sig-param">self, batch:Dict[str, Any]</em><span class="sig-paren">)</span> &#x2192; Dict[str, Any]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/evaluators/_evaluator.py#L117-L136"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.evaluators._evaluator._Evaluator._do_iteration" title="Permalink to this definition">¶</a></dt>
 <dd><p>Core evaluation logic for one iteration, operates on a batch. This base class has a dummy
 implementation - just forward pass through some “model”.</p>
 <dl class="field-list simple">
@@ -121,7 +121,7 @@ this batch is sampled.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl class="simple">
-<dt><strong>Dict[str, Any]</strong></dt><dd><p>An output dictionary typically returned by the models. This may contain predictions
+<dt>Dict[str, Any]</dt><dd><p>An output dictionary typically returned by the models. This may contain predictions
 from models, validation loss etc.</p>
 </dd>
 </dl>
@@ -184,15 +184,15 @@ from models, validation loss etc.</p>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -209,7 +209,7 @@ from models, validation loss etc.</p>
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

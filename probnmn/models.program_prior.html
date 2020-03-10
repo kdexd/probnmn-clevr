@@ -15,18 +15,18 @@
     gtag('config', 'UA-120523111-2');
     </script>
 
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu+Mono&display=swap" rel="stylesheet">
 
 
-    <title>probnmn.models.program_prior &#8212; ProbNMN 1.0.0 documentation</title>
+    <title>probnmn.models.program_prior &#8212; ProbNMN 2.0.1 documentation</title>
 
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="probnmn.models.program_generator" href="models.program_generator.html" />
@@ -51,7 +51,7 @@
 <h1>probnmn.models.program_prior<a class="headerlink" href="#probnmn-models-program-prior" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="probnmn.models.program_prior.ProgramPrior">
-<em class="property">class </em><code class="descclassname">probnmn.models.program_prior.</code><code class="descname">ProgramPrior</code><span class="sig-paren">(</span><em>vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em>input_size: int = 256</em>, <em>hidden_size: int = 128</em>, <em>num_layers: int = 2</em>, <em>dropout: float = 0.0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L16-L301"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">probnmn.models.program_prior.</code><code class="sig-name descname">ProgramPrior</code><span class="sig-paren">(</span><em class="sig-param">vocabulary: allennlp.data.vocabulary.Vocabulary</em>, <em class="sig-param">input_size: int = 256</em>, <em class="sig-param">hidden_size: int = 128</em>, <em class="sig-param">num_layers: int = 2</em>, <em class="sig-param">dropout: float = 0.0</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L16-L301"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
 <p>A simple language model which learns a prior over all the valid program sequences in CLEVR
 v1.0 training split.</p>
@@ -72,15 +72,15 @@ v1.0 training split.</p>
 </dl>
 </dd>
 </dl>
-<dl class="classmethod">
+<dl class="method">
 <dt id="probnmn.models.program_prior.ProgramPrior.from_config">
-<em class="property">classmethod </em><code class="descname">from_config</code><span class="sig-paren">(</span><em>config: probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L67-L78"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior.from_config" title="Permalink to this definition">¶</a></dt>
+<em class="property">classmethod </em><code class="sig-name descname">from_config</code><span class="sig-paren">(</span><em class="sig-param">config:probnmn.config.Config</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L67-L78"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior.from_config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Instantiate this class directly from a <a class="reference internal" href="config.html#probnmn.config.Config" title="probnmn.config.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a>.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="probnmn.models.program_prior.ProgramPrior.forward">
-<code class="descname">forward</code><span class="sig-paren">(</span><em>program_tokens: torch.Tensor</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L80-L155"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior.forward" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">program_tokens:torch.Tensor</em><span class="sig-paren">)</span><a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L80-L155"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior.forward" title="Permalink to this definition">¶</a></dt>
 <dd><p>Given tokenized program sequences padded upto maximum length, predict sequence at next
 time-step and calculate cross entropy loss of this predicted sequence.</p>
 <dl class="field-list">
@@ -93,7 +93,7 @@ shape: (batch_size, max_sequence_length)</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl>
-<dt><strong>Dict[str, torch.Tensor]</strong></dt><dd><p>Predictions of next time-step and cross entropy loss (by teacher forcing), a dict
+<dt>Dict[str, torch.Tensor]</dt><dd><p>Predictions of next time-step and cross entropy loss (by teacher forcing), a dict
 with structure:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
     <span class="s2">&quot;predictions&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="p">(</span><span class="n">shape</span><span class="p">:</span> <span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">max_sequence_length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)),</span>
@@ -109,7 +109,7 @@ with structure:</p>
 
 <dl class="method">
 <dt id="probnmn.models.program_prior.ProgramPrior.get_metrics">
-<code class="descname">get_metrics</code><span class="sig-paren">(</span><em>reset: bool = True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L157-L172"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior.get_metrics" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">get_metrics</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">reset:bool=True</em><span class="sig-paren">)</span> &#x2192; Dict[str, float]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L157-L172"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior.get_metrics" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return perplexity using the accumulated loss.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -120,7 +120,7 @@ with structure:</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl class="simple">
-<dt><strong>Dict[str, float]</strong></dt><dd><p>A dictionary with metrics <code class="docutils literal notranslate"><span class="pre">{&quot;perplexity&quot;}</span></code>.</p>
+<dt>Dict[str, float]</dt><dd><p>A dictionary with metrics <code class="docutils literal notranslate"><span class="pre">{&quot;perplexity&quot;}</span></code>.</p>
 </dd>
 </dl>
 </dd>
@@ -129,7 +129,7 @@ with structure:</p>
 
 <dl class="method">
 <dt id="probnmn.models.program_prior.ProgramPrior.sample">
-<code class="descname">sample</code><span class="sig-paren">(</span><em>num_samples: int = 1</em>, <em>max_sequence_length: int = 28</em><span class="sig-paren">)</span> &#x2192; Dict[str, torch.Tensor]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L174-L301"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior.sample" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">sample</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">num_samples:int=1</em>, <em class="sig-param">max_sequence_length:int=28</em><span class="sig-paren">)</span> &#x2192; Dict[str, torch.Tensor]<a class="reference external" href="http://github.com/kdexd/probnmn-clevr/blob/master/probnmn/models/program_prior.py#L174-L301"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#probnmn.models.program_prior.ProgramPrior.sample" title="Permalink to this definition">¶</a></dt>
 <dd><p>Using &#64;start&#64; token at first time-step, perform categorical sampling and sample program
 sequences freely, all sequences would be padded after encountering first &#64;end&#64; token.</p>
 <p>This method is mainly useful in checking coherence and sensitivity of our model’s beliefs.</p>
@@ -145,7 +145,7 @@ sequences will be one time-step smaller, excluding &#64;start&#64;.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl>
-<dt><strong>Dict[str, torch.Tensor]</strong></dt><dd><p>A dict with predictions and sequence log-probabilities (averaged across time-steps).
+<dt>Dict[str, torch.Tensor]</dt><dd><p>A dict with predictions and sequence log-probabilities (averaged across time-steps).
 This would acutally return negative log-probabilities and name it “loss” for API
 consistency. The dict structure looks like:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -214,15 +214,15 @@ consistency. The dict structure looks like:</p>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
 
 
 
@@ -239,7 +239,7 @@ consistency. The dict structure looks like:</p>
       &copy;2019, Karan Desai.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
